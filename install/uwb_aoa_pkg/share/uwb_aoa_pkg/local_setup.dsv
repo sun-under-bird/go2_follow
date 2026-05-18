@@ -1,0 +1,4 @@
+source;share/uwb_aoa_pkg/environment/ament_prefix_path.sh
+source;share/uwb_aoa_pkg/environment/library_path.sh
+source;share/uwb_aoa_pkg/environment/path.sh
+source;share/uwb_aoa_pkg/environment/pythonpath.sh

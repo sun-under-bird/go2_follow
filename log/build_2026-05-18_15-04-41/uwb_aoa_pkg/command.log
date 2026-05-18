@@ -1,0 +1,6 @@
+Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /root/go2_follow/src/uwb -DCMAKE_INSTALL_PREFIX=/root/go2_follow/install/uwb_aoa_pkg
+Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /root/go2_follow/src/uwb -DCMAKE_INSTALL_PREFIX=/root/go2_follow/install/uwb_aoa_pkg
+Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /root/go2_follow/build/uwb_aoa_pkg -- -j8 -l8
+Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /root/go2_follow/build/uwb_aoa_pkg -- -j8 -l8
+Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /root/go2_follow/build/uwb_aoa_pkg
+Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /root/go2_follow/build/uwb_aoa_pkg

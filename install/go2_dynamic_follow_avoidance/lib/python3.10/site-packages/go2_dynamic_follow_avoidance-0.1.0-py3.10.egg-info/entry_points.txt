@@ -1,0 +1,6 @@
+[console_scripts]
+follow_goal_node = go2_dynamic_follow_avoidance.follow_goal_node:main
+follow_path_action_client = go2_dynamic_follow_avoidance.follow_path_action_client:main
+local_path_planner = go2_dynamic_follow_avoidance.local_path_planner:main
+safety_mux = go2_dynamic_follow_avoidance.safety_mux:main
+

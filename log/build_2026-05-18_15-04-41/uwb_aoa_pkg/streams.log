@@ -1,0 +1,261 @@
+[0.481s] Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /root/go2_follow/src/uwb -DCMAKE_INSTALL_PREFIX=/root/go2_follow/install/uwb_aoa_pkg
+[0.659s] -- The C compiler identification is GNU 11.4.0
+[0.790s] -- The CXX compiler identification is GNU 11.4.0
+[0.810s] -- Detecting C compiler ABI info
+[0.930s] -- Detecting C compiler ABI info - done
+[0.940s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.940s] -- Detecting C compile features
+[0.941s] -- Detecting C compile features - done
+[0.947s] -- Detecting CXX compiler ABI info
+[1.072s] -- Detecting CXX compiler ABI info - done
+[1.086s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[1.087s] -- Detecting CXX compile features
+[1.088s] -- Detecting CXX compile features - done
+[1.105s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[1.374s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[1.587s] -- Found rclcpp: 16.0.19 (/opt/ros/humble/share/rclcpp/cmake)
+[1.701s] -- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[1.716s] -- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[1.741s] -- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[1.773s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[1.811s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[1.925s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[1.931s] -- Found rmw_cyclonedds_cpp: 1.3.4 (/root/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp/share/rmw_cyclonedds_cpp/cmake)
+[1.984s] -- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+[2.009s] -- Looking for pthread.h
+[2.143s] -- Looking for pthread.h - found
+[2.144s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[2.271s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[2.272s] -- Found Threads: TRUE  
+[2.397s] -- Found rosidl_default_generators: 1.2.1 (/opt/ros/humble/share/rosidl_default_generators/cmake)
+[2.864s] -- Found ament_cmake_ros: 0.10.0 (/opt/ros/humble/share/ament_cmake_ros/cmake)
+[3.414s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[3.635s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[3.677s] -- Found PythonInterp: /usr/bin/python3 (found suitable version "3.10.12", minimum required is "3.6") 
+[3.686s] -- Found python_cmake_module: 0.10.0 (/opt/ros/humble/share/python_cmake_module/cmake)
+[3.744s] -- Found PythonLibs: /usr/lib/aarch64-linux-gnu/libpython3.10.so (found suitable version "3.10.12", minimum required is "3.5") 
+[3.745s] -- Using PYTHON_EXECUTABLE: /usr/bin/python3
+[3.745s] -- Using PYTHON_INCLUDE_DIRS: /usr/include/python3.10
+[3.745s] -- Using PYTHON_LIBRARIES: /usr/lib/aarch64-linux-gnu/libpython3.10.so
+[3.781s] -- Found PythonExtra: .so  
+[3.960s] [0mCMake Deprecation Warning at /opt/ros/humble/share/rosidl_cmake/cmake/rosidl_target_interfaces.cmake:32 (message):
+[3.961s]   Use rosidl_get_typesupport_target() and target_link_libraries() instead of
+[3.961s]   rosidl_target_interfaces()
+[3.961s] Call Stack (most recent call first):
+[3.961s]   CMakeLists.txt:44 (rosidl_target_interfaces)
+[3.961s] 
+[3.961s] [0m
+[3.981s] -- Configuring done
+[4.048s] -- Generating done
+[4.069s] -- Build files have been written to: /root/go2_follow/build/uwb_aoa_pkg
+[4.091s] Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /root/go2_follow/src/uwb -DCMAKE_INSTALL_PREFIX=/root/go2_follow/install/uwb_aoa_pkg
+[4.096s] Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /root/go2_follow/build/uwb_aoa_pkg -- -j8 -l8
+[4.175s] [  2%] [34m[1mGenerating C code for ROS interfaces[0m
+[4.195s] [ 11%] [34m[1mGenerating C++ code for ROS interfaces[0m
+[4.195s] [ 11%] [34m[1mGenerating Rust code for ROS interfaces[0m
+[4.195s] [ 11%] [32mBuilding C object CMakeFiles/uart_stack.dir/src/uart_stack.c.o[0m
+[4.214s] [ 11%] Built target ament_cmake_python_copy_uwb_aoa_pkg
+[4.275s] [ 13%] [32m[1mLinking C static library libuart_stack.a[0m
+[4.337s] [ 13%] Built target uart_stack
+[4.627s] [ 13%] Built target uwb_aoa_pkg__rs
+[4.635s] running egg_info
+[4.637s] creating uwb_aoa_pkg.egg-info
+[4.637s] writing uwb_aoa_pkg.egg-info/PKG-INFO
+[4.637s] writing dependency_links to uwb_aoa_pkg.egg-info/dependency_links.txt
+[4.638s] writing top-level names to uwb_aoa_pkg.egg-info/top_level.txt
+[4.638s] writing manifest file 'uwb_aoa_pkg.egg-info/SOURCES.txt'
+[4.639s] [ 13%] Built target uwb_aoa_pkg__cpp
+[4.642s] reading manifest file 'uwb_aoa_pkg.egg-info/SOURCES.txt'
+[4.643s] writing manifest file 'uwb_aoa_pkg.egg-info/SOURCES.txt'
+[4.659s] [ 22%] [34m[1mGenerating C++ introspection for ROS interfaces[0m
+[4.659s] [ 22%] [34m[1mGenerating C++ type support dispatch for ROS interfaces[0m
+[4.659s] [ 25%] [32mBuilding C object CMakeFiles/uwb_aoa_pkg__rosidl_generator_c.dir/rosidl_generator_c/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__functions.c.o[0m
+[4.659s] [ 22%] [34m[1mGenerating C++ type support for eProsima Fast-RTPS[0m
+[4.718s] [ 25%] Built target ament_cmake_python_build_uwb_aoa_pkg_egg
+[4.759s] [ 27%] [32m[1mLinking C shared library libuwb_aoa_pkg__rosidl_generator_c.so[0m
+[4.821s] [ 27%] Built target uwb_aoa_pkg__rosidl_generator_c
+[4.847s] [ 33%] [34m[1mGenerating C introspection for ROS interfaces[0m
+[4.847s] [ 33%] [34m[1mGenerating C type support for eProsima Fast-RTPS[0m
+[4.849s] [ 36%] [34m[1mGenerating C type support dispatch for ROS interfaces[0m
+[5.054s] [ 38%] [32mBuilding CXX object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_cpp.dir/rosidl_typesupport_cpp/uwb_aoa_pkg/msg/lib_aoa_robot_msg__type_support.cpp.o[0m
+[5.087s] [ 41%] [32mBuilding CXX object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_introspection_cpp.dir/rosidl_typesupport_introspection_cpp/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support.cpp.o[0m
+[5.105s] [ 44%] [32mBuilding CXX object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/uwb_aoa_pkg/msg/detail/dds_fastrtps/lib_aoa_robot_msg__type_support.cpp.o[0m
+[5.280s] [ 47%] [32mBuilding CXX object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_c.dir/rosidl_typesupport_c/uwb_aoa_pkg/msg/lib_aoa_robot_msg__type_support.cpp.o[0m
+[5.298s] [ 50%] [32mBuilding C object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support.c.o[0m
+[5.299s] [ 52%] [32mBuilding CXX object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_fastrtps_c.dir/rosidl_typesupport_fastrtps_c/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support_c.cpp.o[0m
+[5.347s] [ 55%] [32m[1mLinking CXX shared library libuwb_aoa_pkg__rosidl_typesupport_c.so[0m
+[5.371s] [ 58%] [32m[1mLinking C shared library libuwb_aoa_pkg__rosidl_typesupport_introspection_c.so[0m
+[5.421s] [ 58%] Built target uwb_aoa_pkg__rosidl_typesupport_c
+[5.427s] [ 58%] Built target uwb_aoa_pkg__rosidl_typesupport_introspection_c
+[5.604s] [ 61%] [32m[1mLinking CXX shared library libuwb_aoa_pkg__rosidl_typesupport_cpp.so[0m
+[5.676s] [ 61%] Built target uwb_aoa_pkg__rosidl_typesupport_cpp
+[5.860s] [ 63%] [32m[1mLinking CXX shared library libuwb_aoa_pkg__rosidl_typesupport_introspection_cpp.so[0m
+[5.876s] [ 66%] [32m[1mLinking CXX shared library libuwb_aoa_pkg__rosidl_typesupport_fastrtps_cpp.so[0m
+[5.924s] [ 69%] [32m[1mLinking CXX shared library libuwb_aoa_pkg__rosidl_typesupport_fastrtps_c.so[0m
+[6.002s] [ 69%] Built target uwb_aoa_pkg__rosidl_typesupport_introspection_cpp
+[6.030s] [ 69%] Built target uwb_aoa_pkg__rosidl_typesupport_fastrtps_cpp
+[6.075s] [ 69%] Built target uwb_aoa_pkg__rosidl_typesupport_fastrtps_c
+[6.109s] [ 69%] Built target uwb_aoa_pkg
+[6.150s] [ 72%] [32mBuilding CXX object CMakeFiles/libAoa_robot_example.dir/src/libAoa_robot_example.cpp.o[0m
+[6.150s] [ 75%] [34m[1mGenerating Python code for ROS interfaces[0m
+[6.687s] [ 75%] Built target uwb_aoa_pkg__py
+[6.722s] [ 77%] [32mBuilding C object CMakeFiles/uwb_aoa_pkg__rosidl_generator_py.dir/rosidl_generator_py/uwb_aoa_pkg/msg/_lib_aoa_robot_msg_s.c.o[0m
+[6.929s] [ 80%] [32m[1mLinking C shared library rosidl_generator_py/uwb_aoa_pkg/libuwb_aoa_pkg__rosidl_generator_py.so[0m
+[6.994s] [ 80%] Built target uwb_aoa_pkg__rosidl_generator_py
+[7.040s] [ 83%] [32mBuilding C object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_c__pyext.dir/rosidl_generator_py/uwb_aoa_pkg/_uwb_aoa_pkg_s.ep.rosidl_typesupport_c.c.o[0m
+[7.041s] [ 86%] [32mBuilding C object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_fastrtps_c__pyext.dir/rosidl_generator_py/uwb_aoa_pkg/_uwb_aoa_pkg_s.ep.rosidl_typesupport_fastrtps_c.c.o[0m
+[7.046s] [ 88%] [32mBuilding C object CMakeFiles/uwb_aoa_pkg__rosidl_typesupport_introspection_c__pyext.dir/rosidl_generator_py/uwb_aoa_pkg/_uwb_aoa_pkg_s.ep.rosidl_typesupport_introspection_c.c.o[0m
+[7.234s] [ 94%] [32m[1mLinking C shared library rosidl_generator_py/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_fastrtps_c.cpython-310-aarch64-linux-gnu.so[0m
+[7.234s] [ 94%] [32m[1mLinking C shared library rosidl_generator_py/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_c.cpython-310-aarch64-linux-gnu.so[0m
+[7.235s] [ 97%] [32m[1mLinking C shared library rosidl_generator_py/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_introspection_c.cpython-310-aarch64-linux-gnu.so[0m
+[7.297s] [ 97%] Built target uwb_aoa_pkg__rosidl_typesupport_c__pyext
+[7.298s] [ 97%] Built target uwb_aoa_pkg__rosidl_typesupport_fastrtps_c__pyext
+[7.301s] [ 97%] Built target uwb_aoa_pkg__rosidl_typesupport_introspection_c__pyext
+[13.990s] [100%] [32m[1mLinking CXX executable libAoa_robot_example[0m
+[14.322s] [100%] Built target libAoa_robot_example
+[14.343s] Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /root/go2_follow/build/uwb_aoa_pkg -- -j8 -l8
+[14.361s] Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /root/go2_follow/build/uwb_aoa_pkg
+[14.373s] -- Install configuration: ""
+[14.374s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/ament_index/resource_index/rosidl_interfaces/uwb_aoa_pkg
+[14.374s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg
+[14.374s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg
+[14.374s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/rosidl_generator_c__visibility_control.h
+[14.375s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/lib_aoa_robot_msg.h
+[14.375s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail
+[14.375s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__functions.c
+[14.375s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__struct.h
+[14.375s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__functions.h
+[14.376s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support.h
+[14.376s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/library_path.sh
+[14.376s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/library_path.dsv
+[14.377s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_generator_c.so
+[14.377s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_generator_c.so" to ""
+[14.378s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg
+[14.378s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg
+[14.378s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+[14.378s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail
+[14.378s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__rosidl_typesupport_fastrtps_c.h
+[14.378s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_fastrtps_c.so
+[14.379s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_fastrtps_c.so" to ""
+[14.379s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg
+[14.379s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg
+[14.379s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp
+[14.379s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail
+[14.379s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__struct.hpp
+[14.380s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__traits.hpp
+[14.380s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support.hpp
+[14.380s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__builder.hpp
+[14.380s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/rosidl_generator_cpp__visibility_control.hpp
+[14.381s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg
+[14.381s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg
+[14.381s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+[14.381s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail
+[14.381s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__rosidl_typesupport_fastrtps_cpp.hpp
+[14.381s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/dds_fastrtps
+[14.382s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_fastrtps_cpp.so
+[14.382s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_fastrtps_cpp.so" to ""
+[14.382s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg
+[14.382s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg
+[14.383s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/rosidl_typesupport_introspection_c__visibility_control.h
+[14.383s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail
+[14.383s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support.c
+[14.383s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__rosidl_typesupport_introspection_c.h
+[14.383s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_introspection_c.so
+[14.384s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_introspection_c.so" to ""
+[14.384s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_c.so
+[14.385s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_c.so" to ""
+[14.385s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg
+[14.385s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg
+[14.385s] -- Up-to-date: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail
+[14.385s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__type_support.cpp
+[14.385s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/include/uwb_aoa_pkg/uwb_aoa_pkg/msg/detail/lib_aoa_robot_msg__rosidl_typesupport_introspection_cpp.hpp
+[14.386s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_introspection_cpp.so
+[14.386s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_introspection_cpp.so" to ""
+[14.386s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_cpp.so
+[14.387s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_typesupport_cpp.so" to ""
+[14.387s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/pythonpath.sh
+[14.387s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/pythonpath.dsv
+[14.388s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg-0.0.0-py3.10.egg-info
+[14.388s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg-0.0.0-py3.10.egg-info/dependency_links.txt
+[14.389s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg-0.0.0-py3.10.egg-info/top_level.txt
+[14.390s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg-0.0.0-py3.10.egg-info/PKG-INFO
+[14.390s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg-0.0.0-py3.10.egg-info/SOURCES.txt
+[14.390s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg
+[14.390s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_fastrtps_c.cpython-310-aarch64-linux-gnu.so
+[14.390s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/_uwb_aoa_pkg_s.ep.rosidl_typesupport_introspection_c.c
+[14.390s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_introspection_c.cpython-310-aarch64-linux-gnu.so
+[14.391s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/_uwb_aoa_pkg_s.ep.rosidl_typesupport_fastrtps_c.c
+[14.391s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/libuwb_aoa_pkg__rosidl_generator_py.so
+[14.391s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/__init__.py
+[14.392s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/_uwb_aoa_pkg_s.ep.rosidl_typesupport_c.c
+[14.394s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_c.cpython-310-aarch64-linux-gnu.so
+[14.394s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg
+[14.394s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg/_lib_aoa_robot_msg.py
+[14.395s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg/_lib_aoa_robot_msg_s.c
+[14.395s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg/__init__.py
+[14.451s] Listing '/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg'...
+[14.451s] Compiling '/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/__init__.py'...
+[14.451s] Listing '/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg'...
+[14.451s] Compiling '/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg/__init__.py'...
+[14.451s] Compiling '/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/msg/_lib_aoa_robot_msg.py'...
+[14.461s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_fastrtps_c.cpython-310-aarch64-linux-gnu.so
+[14.461s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_fastrtps_c.cpython-310-aarch64-linux-gnu.so" to ""
+[14.462s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_introspection_c.cpython-310-aarch64-linux-gnu.so
+[14.462s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_introspection_c.cpython-310-aarch64-linux-gnu.so" to ""
+[14.463s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_c.cpython-310-aarch64-linux-gnu.so
+[14.463s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/local/lib/python3.10/dist-packages/uwb_aoa_pkg/uwb_aoa_pkg_s__rosidl_typesupport_c.cpython-310-aarch64-linux-gnu.so" to ""
+[14.463s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_generator_py.so
+[14.464s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/libuwb_aoa_pkg__rosidl_generator_py.so" to ""
+[14.464s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/ament_index/resource_index/rust_packages/uwb_aoa_pkg
+[14.464s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust
+[14.464s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/build.rs
+[14.465s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/src
+[14.465s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/src/msg.rs
+[14.465s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/src/lib.rs
+[14.465s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/src/msg
+[14.465s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/src/msg/rmw.rs
+[14.466s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/rust/Cargo.toml
+[14.466s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/msg/LibAoaRobotMsg.idl
+[14.466s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/msg/LibAoaRobotMsg.msg
+[14.467s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/lib/uwb_aoa_pkg/libAoa_robot_example
+[14.469s] -- Set runtime path of "/root/go2_follow/install/uwb_aoa_pkg/lib/uwb_aoa_pkg/libAoa_robot_example" to ""
+[14.469s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/ament_index/resource_index/package_run_dependencies/uwb_aoa_pkg
+[14.469s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/ament_index/resource_index/parent_prefix_path/uwb_aoa_pkg
+[14.469s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/ament_prefix_path.sh
+[14.470s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/ament_prefix_path.dsv
+[14.470s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/path.sh
+[14.470s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/environment/path.dsv
+[14.471s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/local_setup.bash
+[14.471s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/local_setup.sh
+[14.471s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/local_setup.zsh
+[14.471s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/local_setup.dsv
+[14.472s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.dsv
+[14.472s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/ament_index/resource_index/packages/uwb_aoa_pkg
+[14.472s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_generator_cExport.cmake
+[14.473s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_generator_cExport-noconfig.cmake
+[14.473s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_typesupport_fastrtps_cExport.cmake
+[14.473s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+[14.474s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_generator_cppExport.cmake
+[14.474s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_typesupport_fastrtps_cppExport.cmake
+[14.474s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+[14.474s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_introspection_cExport.cmake
+[14.475s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_introspection_cExport-noconfig.cmake
+[14.475s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_cExport.cmake
+[14.475s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_cExport-noconfig.cmake
+[14.476s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_introspection_cppExport.cmake
+[14.476s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+[14.476s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_cppExport.cmake
+[14.477s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkg__rosidl_typesupport_cppExport-noconfig.cmake
+[14.477s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_generator_pyExport.cmake
+[14.477s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/export_uwb_aoa_pkg__rosidl_generator_pyExport-noconfig.cmake
+[14.477s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/rosidl_cmake-extras.cmake
+[14.478s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/ament_cmake_export_include_directories-extras.cmake
+[14.478s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/ament_cmake_export_libraries-extras.cmake
+[14.478s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/ament_cmake_export_targets-extras.cmake
+[14.479s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+[14.479s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/ament_cmake_export_dependencies-extras.cmake
+[14.479s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+[14.479s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkgConfig.cmake
+[14.480s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/cmake/uwb_aoa_pkgConfig-version.cmake
+[14.480s] -- Installing: /root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.xml
+[14.485s] Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /root/go2_follow/build/uwb_aoa_pkg

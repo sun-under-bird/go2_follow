@@ -1,0 +1,25 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from uwb_aoa_pkg/msg/LibAoaRobotMsg.msg
+// generated code does not contain a copyright notice
+
+
+module uwb_aoa_pkg {
+  module msg {
+    typedef int8 int8__6[6];
+    struct LibAoaRobotMsg {
+      double r;
+
+      double a;
+
+      double x;
+
+      double y;
+
+      int8 state;
+
+      int8__6 rssi;
+
+      uint8 pos_confidence;
+    };
+  };
+};

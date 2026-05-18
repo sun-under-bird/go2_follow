@@ -1,0 +1,63 @@
+[1.264s] Invoking command in '/root/go2_follow/src/Follow': PYTHONPATH=/root/go2_follow/build/go2_dynamic_follow_avoidance/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/go2_dynamic_follow_avoidance build --build-base /root/go2_follow/build/go2_dynamic_follow_avoidance/build install --record /root/go2_follow/build/go2_dynamic_follow_avoidance/install.log --single-version-externally-managed install_data
+[1.653s] running egg_info
+[1.654s] creating ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info
+[1.654s] writing ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/PKG-INFO
+[1.655s] writing dependency_links to ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/dependency_links.txt
+[1.655s] writing entry points to ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/entry_points.txt
+[1.655s] writing requirements to ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/requires.txt
+[1.655s] writing top-level names to ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/top_level.txt
+[1.656s] writing manifest file '../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/SOURCES.txt'
+[1.659s] reading manifest file '../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/SOURCES.txt'
+[1.660s] writing manifest file '../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info/SOURCES.txt'
+[1.660s] running build
+[1.661s] running build_py
+[1.661s] creating /root/go2_follow/build/go2_dynamic_follow_avoidance/build
+[1.661s] creating /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib
+[1.661s] creating /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.661s] copying go2_dynamic_follow_avoidance/ros_utils.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.661s] copying go2_dynamic_follow_avoidance/local_path_planner.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.662s] copying go2_dynamic_follow_avoidance/follow_goal_node.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.662s] copying go2_dynamic_follow_avoidance/geometry.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.662s] copying go2_dynamic_follow_avoidance/__init__.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.662s] copying go2_dynamic_follow_avoidance/follow_path_action_client.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.663s] copying go2_dynamic_follow_avoidance/safety_mux.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.663s] copying go2_dynamic_follow_avoidance/grid_planner.py -> /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance
+[1.663s] running install
+[1.664s] running install_lib
+[1.665s] creating /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.665s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/ros_utils.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.666s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/local_path_planner.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.666s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/follow_goal_node.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.666s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/geometry.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.666s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/__init__.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.667s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/follow_path_action_client.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.667s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/safety_mux.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.667s] copying /root/go2_follow/build/go2_dynamic_follow_avoidance/build/lib/go2_dynamic_follow_avoidance/grid_planner.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance
+[1.668s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/ros_utils.py to ros_utils.cpython-310.pyc
+[1.669s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/local_path_planner.py to local_path_planner.cpython-310.pyc
+[1.673s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/follow_goal_node.py to follow_goal_node.cpython-310.pyc
+[1.675s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/geometry.py to geometry.cpython-310.pyc
+[1.676s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/__init__.py to __init__.cpython-310.pyc
+[1.676s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/follow_path_action_client.py to follow_path_action_client.cpython-310.pyc
+[1.677s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/safety_mux.py to safety_mux.cpython-310.pyc
+[1.680s] byte-compiling /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance/grid_planner.py to grid_planner.cpython-310.pyc
+[1.682s] running install_data
+[1.683s] creating /root/go2_follow/install/go2_dynamic_follow_avoidance/share/ament_index
+[1.683s] creating /root/go2_follow/install/go2_dynamic_follow_avoidance/share/ament_index/resource_index
+[1.683s] creating /root/go2_follow/install/go2_dynamic_follow_avoidance/share/ament_index/resource_index/packages
+[1.683s] copying resource/go2_dynamic_follow_avoidance -> /root/go2_follow/install/go2_dynamic_follow_avoidance/share/ament_index/resource_index/packages
+[1.683s] copying package.xml -> /root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance
+[1.683s] creating /root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/launch
+[1.684s] copying launch/dynamic_follow_avoidance.launch.py -> /root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/launch
+[1.684s] creating /root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/config
+[1.684s] copying config/go2_dynamic_follow_avoidance.yaml -> /root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/config
+[1.684s] copying config/nav2_mppi_controller.yaml -> /root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/config
+[1.684s] running install_egg_info
+[1.688s] Copying ../../build/go2_dynamic_follow_avoidance/go2_dynamic_follow_avoidance.egg-info to /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages/go2_dynamic_follow_avoidance-0.1.0-py3.10.egg-info
+[1.690s] running install_scripts
+[1.725s] Installing follow_goal_node script to /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/go2_dynamic_follow_avoidance
+[1.725s] Installing follow_path_action_client script to /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/go2_dynamic_follow_avoidance
+[1.725s] Installing local_path_planner script to /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/go2_dynamic_follow_avoidance
+[1.725s] Installing safety_mux script to /root/go2_follow/install/go2_dynamic_follow_avoidance/lib/go2_dynamic_follow_avoidance
+[1.726s] writing list of installed files to '/root/go2_follow/build/go2_dynamic_follow_avoidance/install.log'
+[1.793s] Invoked command in '/root/go2_follow/src/Follow' returned '0': PYTHONPATH=/root/go2_follow/build/go2_dynamic_follow_avoidance/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/go2_dynamic_follow_avoidance build --build-base /root/go2_follow/build/go2_dynamic_follow_avoidance/build install --record /root/go2_follow/build/go2_dynamic_follow_avoidance/install.log --single-version-externally-managed install_data

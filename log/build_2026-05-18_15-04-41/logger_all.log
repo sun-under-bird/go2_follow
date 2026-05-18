@@ -1,0 +1,201 @@
+[0.341s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', 'build']
+[0.341s] DEBUG:colcon:Parsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=8, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, mixin_files=None, mixin=None, verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0xffff8a07c4f0>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0xffff8a047e20>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0xffff8a047e20>>, mixin_verb=('build',))
+[0.680s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[0.682s] INFO:colcon.colcon_metadata.package_discovery.colcon_meta:Using configuration from '/root/.colcon/metadata/default/Gazebo.meta'
+[0.683s] INFO:colcon.colcon_metadata.package_discovery.colcon_meta:Using configuration from '/root/.colcon/metadata/default/fastdds.meta'
+[0.684s] INFO:colcon.colcon_metadata.package_discovery.colcon_meta:Using configuration from '/root/.colcon/metadata/default/fastrtps.meta'
+[0.684s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[0.684s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[0.684s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[0.684s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) discover
+[0.684s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[0.685s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/root/go2_follow'
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore'
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ignore_ament_install'
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_pkg']
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_pkg'
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['colcon_meta']
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'colcon_meta'
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['ros']
+[0.685s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'ros'
+[0.707s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['cmake', 'python']
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'cmake'
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python'
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extensions ['python_setup_py']
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(.) by extension 'python_setup_py'
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(build) by extension 'ignore'
+[0.708s] Level 1:colcon.colcon_core.package_identification:_identify(build) ignored
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(install) by extension 'ignore'
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(install) ignored
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(log) by extension 'ignore'
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(log) ignored
+[0.709s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ignore', 'ignore_ament_install']
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore'
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ignore_ament_install'
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_pkg']
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_pkg'
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['colcon_meta']
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'colcon_meta'
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['ros']
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'ros'
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['cmake', 'python']
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'cmake'
+[0.710s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python'
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extensions ['python_setup_py']
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src) by extension 'python_setup_py'
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extensions ['ignore', 'ignore_ament_install']
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extension 'ignore'
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extension 'ignore_ament_install'
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extensions ['colcon_pkg']
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extension 'colcon_pkg'
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extensions ['colcon_meta']
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extension 'colcon_meta'
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extensions ['ros']
+[0.711s] Level 1:colcon.colcon_core.package_identification:_identify(src/Follow) by extension 'ros'
+[0.716s] DEBUG:colcon.colcon_core.package_identification:Package 'src/Follow' with type 'ros.ament_python' and name 'go2_dynamic_follow_avoidance'
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extensions ['ignore', 'ignore_ament_install']
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extension 'ignore'
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extension 'ignore_ament_install'
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extensions ['colcon_pkg']
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extension 'colcon_pkg'
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extensions ['colcon_meta']
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extension 'colcon_meta'
+[0.717s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extensions ['ros']
+[0.718s] Level 1:colcon.colcon_core.package_identification:_identify(src/uwb) by extension 'ros'
+[0.719s] DEBUG:colcon.colcon_core.package_identification:Package 'src/uwb' with type 'ros.ament_cmake' and name 'uwb_aoa_pkg'
+[0.719s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[0.719s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) discover
+[0.719s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) using defaults
+[0.719s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) discover
+[0.719s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) using defaults
+[0.761s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'cmake_args' from command line to 'None'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'cmake_target' from command line to 'None'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'cmake_clean_cache' from command line to 'False'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'cmake_clean_first' from command line to 'False'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'cmake_force_configure' from command line to 'False'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'ament_cmake_args' from command line to 'None'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'catkin_cmake_args' from command line to 'None'
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'go2_dynamic_follow_avoidance' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.762s] DEBUG:colcon.colcon_core.verb:Building package 'go2_dynamic_follow_avoidance' with the following arguments: {'ament_cmake_args': None, 'build_base': '/root/go2_follow/build/go2_dynamic_follow_avoidance', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/root/go2_follow/install/go2_dynamic_follow_avoidance', 'merge_install': False, 'path': '/root/go2_follow/src/Follow', 'symlink_install': False, 'test_result_base': None}
+[0.762s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'cmake_args' from command line to 'None'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'cmake_target' from command line to 'None'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'cmake_clean_cache' from command line to 'False'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'cmake_clean_first' from command line to 'False'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'cmake_force_configure' from command line to 'False'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'ament_cmake_args' from command line to 'None'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'catkin_cmake_args' from command line to 'None'
+[0.763s] Level 5:colcon.colcon_core.verb:set package 'uwb_aoa_pkg' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.763s] DEBUG:colcon.colcon_core.verb:Building package 'uwb_aoa_pkg' with the following arguments: {'ament_cmake_args': None, 'build_base': '/root/go2_follow/build/uwb_aoa_pkg', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/root/go2_follow/install/uwb_aoa_pkg', 'merge_install': False, 'path': '/root/go2_follow/src/uwb', 'symlink_install': False, 'test_result_base': None}
+[0.763s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[0.765s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[0.766s] INFO:colcon.colcon_ros.task.ament_python.build:Building ROS package in '/root/go2_follow/src/Follow' with build type 'ament_python'
+[0.766s] Level 1:colcon.colcon_core.shell:create_environment_hook('go2_dynamic_follow_avoidance', 'ament_prefix_path')
+[0.772s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.773s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/hook/ament_prefix_path.ps1'
+[0.775s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/hook/ament_prefix_path.dsv'
+[0.776s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/hook/ament_prefix_path.sh'
+[0.780s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.780s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[0.791s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/root/go2_follow/src/uwb' with build type 'ament_cmake'
+[0.791s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/root/go2_follow/src/uwb'
+[0.792s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.792s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.261s] INFO:colcon.colcon_core.task.python.build:Building Python package in '/root/go2_follow/src/Follow'
+[1.262s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.262s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.273s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /root/go2_follow/src/uwb -DCMAKE_INSTALL_PREFIX=/root/go2_follow/install/uwb_aoa_pkg
+[2.031s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/root/go2_follow/src/Follow': PYTHONPATH=/root/go2_follow/build/go2_dynamic_follow_avoidance/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/go2_dynamic_follow_avoidance build --build-base /root/go2_follow/build/go2_dynamic_follow_avoidance/build install --record /root/go2_follow/build/go2_dynamic_follow_avoidance/install.log --single-version-externally-managed install_data
+[2.560s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/root/go2_follow/src/Follow' returned '0': PYTHONPATH=/root/go2_follow/build/go2_dynamic_follow_avoidance/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/go2_dynamic_follow_avoidance build --build-base /root/go2_follow/build/go2_dynamic_follow_avoidance/build install --record /root/go2_follow/build/go2_dynamic_follow_avoidance/install.log --single-version-externally-managed install_data
+[2.570s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance' for CMake module files
+[2.572s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance' for CMake config files
+[2.575s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance/lib'
+[2.575s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance/bin'
+[2.576s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance/lib/pkgconfig/go2_dynamic_follow_avoidance.pc'
+[2.576s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance/lib/python3.10/site-packages'
+[2.577s] Level 1:colcon.colcon_core.shell:create_environment_hook('go2_dynamic_follow_avoidance', 'pythonpath')
+[2.577s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/hook/pythonpath.ps1'
+[2.579s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/hook/pythonpath.dsv'
+[2.580s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/hook/pythonpath.sh'
+[2.582s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/go2_dynamic_follow_avoidance/bin'
+[2.582s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(go2_dynamic_follow_avoidance)
+[2.583s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/package.ps1'
+[2.586s] INFO:colcon.colcon_core.shell:Creating package descriptor '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/package.dsv'
+[2.588s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/package.sh'
+[2.591s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/package.bash'
+[2.592s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/go2_dynamic_follow_avoidance/share/go2_dynamic_follow_avoidance/package.zsh'
+[2.594s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/root/go2_follow/install/go2_dynamic_follow_avoidance/share/colcon-core/packages/go2_dynamic_follow_avoidance)
+[4.882s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /root/go2_follow/src/uwb -DCMAKE_INSTALL_PREFIX=/root/go2_follow/install/uwb_aoa_pkg
+[4.888s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /root/go2_follow/build/uwb_aoa_pkg -- -j8 -l8
+[15.135s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --build /root/go2_follow/build/uwb_aoa_pkg -- -j8 -l8
+[15.153s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/root/go2_follow/build/uwb_aoa_pkg': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /root/go2_follow/build/uwb_aoa_pkg
+[15.275s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(uwb_aoa_pkg)
+[15.276s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg' for CMake module files
+[15.277s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/root/go2_follow/build/uwb_aoa_pkg' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake --install /root/go2_follow/build/uwb_aoa_pkg
+[15.280s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg' for CMake config files
+[15.282s] Level 1:colcon.colcon_core.shell:create_environment_hook('uwb_aoa_pkg', 'cmake_prefix_path')
+[15.284s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/cmake_prefix_path.ps1'
+[15.288s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/cmake_prefix_path.dsv'
+[15.290s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/cmake_prefix_path.sh'
+[15.292s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/lib'
+[15.292s] Level 1:colcon.colcon_core.shell:create_environment_hook('uwb_aoa_pkg', 'ld_library_path_lib')
+[15.293s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/ld_library_path_lib.ps1'
+[15.294s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/ld_library_path_lib.dsv'
+[15.295s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/ld_library_path_lib.sh'
+[15.296s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/bin'
+[15.297s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/lib/pkgconfig/uwb_aoa_pkg.pc'
+[15.298s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/lib/python3.10/site-packages'
+[15.299s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/bin'
+[15.300s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.ps1'
+[15.302s] INFO:colcon.colcon_core.shell:Creating package descriptor '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.dsv'
+[15.304s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.sh'
+[15.305s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.bash'
+[15.306s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.zsh'
+[15.307s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/root/go2_follow/install/uwb_aoa_pkg/share/colcon-core/packages/uwb_aoa_pkg)
+[15.309s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(uwb_aoa_pkg)
+[15.310s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg' for CMake module files
+[15.311s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg' for CMake config files
+[15.314s] Level 1:colcon.colcon_core.shell:create_environment_hook('uwb_aoa_pkg', 'cmake_prefix_path')
+[15.314s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/cmake_prefix_path.ps1'
+[15.315s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/cmake_prefix_path.dsv'
+[15.316s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/cmake_prefix_path.sh'
+[15.317s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/lib'
+[15.317s] Level 1:colcon.colcon_core.shell:create_environment_hook('uwb_aoa_pkg', 'ld_library_path_lib')
+[15.318s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/ld_library_path_lib.ps1'
+[15.319s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/ld_library_path_lib.dsv'
+[15.319s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/hook/ld_library_path_lib.sh'
+[15.320s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/bin'
+[15.320s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/lib/pkgconfig/uwb_aoa_pkg.pc'
+[15.321s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/lib/python3.10/site-packages'
+[15.321s] Level 1:colcon.colcon_core.environment:checking '/root/go2_follow/install/uwb_aoa_pkg/bin'
+[15.322s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.ps1'
+[15.323s] INFO:colcon.colcon_core.shell:Creating package descriptor '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.dsv'
+[15.324s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.sh'
+[15.325s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.bash'
+[15.326s] INFO:colcon.colcon_core.shell:Creating package script '/root/go2_follow/install/uwb_aoa_pkg/share/uwb_aoa_pkg/package.zsh'
+[15.327s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/root/go2_follow/install/uwb_aoa_pkg/share/colcon-core/packages/uwb_aoa_pkg)
+[15.327s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[15.328s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[15.328s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[15.328s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[15.344s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[15.344s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[15.344s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[15.344s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[15.349s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.Spawn.ExecFailed: /usr/bin/dbus-launch terminated abnormally without any error message
+[15.350s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[15.350s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/go2_follow/install/local_setup.ps1'
+[15.352s] INFO:colcon.colcon_core.shell:Creating prefix util module '/root/go2_follow/install/_local_setup_util_ps1.py'
+[15.356s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/go2_follow/install/setup.ps1'
+[15.360s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/go2_follow/install/local_setup.sh'
+[15.361s] INFO:colcon.colcon_core.shell:Creating prefix util module '/root/go2_follow/install/_local_setup_util_sh.py'
+[15.363s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/go2_follow/install/setup.sh'
+[15.367s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/go2_follow/install/local_setup.bash'
+[15.368s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/go2_follow/install/setup.bash'
+[15.371s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/go2_follow/install/local_setup.zsh'
+[15.372s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/go2_follow/install/setup.zsh'
