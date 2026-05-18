@@ -2,6 +2,7 @@ controller_server:
   ros__parameters:
     use_sim_time: false
     controller_frequency: 20.0
+    odom_topic: /odom_leg
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
@@ -28,11 +29,11 @@ controller_server:
       batch_size: 800
       iteration_count: 1
       vx_std: 0.2
-      vy_std: 0.2
+      vy_std: 0.01
       wz_std: 0.4
       vx_max: 0.5
       vx_min: 0.0
-      vy_max: 0.3
+      vy_max: 0.0
       wz_max: 0.8
       ax_max: 1.0
       ax_min: -1.0
@@ -42,7 +43,7 @@ controller_server:
       transform_tolerance: 0.2
       temperature: 0.3
       gamma: 0.015
-      motion_model: Omni
+      motion_model: DiffDrive
       visualize: false
       reset_period: 1.0
       regenerate_noises: false
@@ -124,7 +125,7 @@ local_costmap:
       update_frequency: 10.0
       publish_frequency: 5.0
       global_frame: odom
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
       rolling_window: true
       width: 5
       height: 4
@@ -141,18 +142,29 @@ local_costmap:
         z_voxels: 24
         max_obstacle_height: 1.2
         mark_threshold: 0
-        observation_sources: stereo_points
-        stereo_points:
-          topic: /stereo/points2
+        observation_sources: obstacle ground
+        obstacle:
+          topic: /local_grid_obstacle
           data_type: PointCloud2
           marking: true
-          clearing: true
+          clearing: false
           obstacle_max_range: 4.0
           obstacle_min_range: 0.05
           raytrace_max_range: 4.5
           raytrace_min_range: 0.05
           min_obstacle_height: 0.05
           max_obstacle_height: 1.2
+        ground:
+          topic: /local_grid_ground
+          data_type: PointCloud2
+          marking: false
+          clearing: true
+          obstacle_max_range: 4.0
+          obstacle_min_range: 0.05
+          raytrace_max_range: 4.5
+          raytrace_min_range: 0.05
+          min_obstacle_height: -0.10
+          max_obstacle_height: 0.30
 
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer

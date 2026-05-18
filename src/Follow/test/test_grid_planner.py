@@ -1,4 +1,10 @@
-from go2_dynamic_follow_avoidance.grid_planner import GridSpec, astar, build_costmap, clear_radius
+from go2_dynamic_follow_avoidance.grid_planner import (
+    GridSpec,
+    astar,
+    build_costmap,
+    clear_radius,
+    project_goal_to_grid,
+)
 
 
 def test_astar_routes_around_blocked_column():
@@ -39,3 +45,33 @@ def test_costmap_front_obstacle_distance():
     assert result.nearest_front_obstacle_m == 0.4
     assert len(result.occupied) == 2
     assert len(result.inflated) >= len(result.occupied)
+
+
+def test_costmap_requires_multiple_points_per_cell():
+    spec = GridSpec(width_m=2.0, height_m=2.0, resolution=0.1, origin_x=-0.5, origin_y=-1.0)
+    result = build_costmap(
+        spec,
+        [(0.4, 0.0, 0.3), (0.42, 0.01, 0.3), (1.0, 0.6, 0.3)],
+        obstacle_x_min=0.05,
+        obstacle_x_max=2.0,
+        obstacle_y_abs=1.0,
+        obstacle_z_min=0.05,
+        obstacle_z_max=1.2,
+        inflation_radius=0.2,
+        emergency_x_max=0.45,
+        emergency_y_abs=0.45,
+        max_points=100,
+        min_points_per_cell=2,
+    )
+
+    assert result.nearest_front_obstacle_m == 0.4
+    assert len(result.occupied) == 1
+
+
+def test_project_goal_to_grid_clips_to_front_edge():
+    spec = GridSpec(width_m=2.0, height_m=2.0, resolution=0.1, origin_x=-0.5, origin_y=-1.0)
+    projected = project_goal_to_grid(spec, (3.0, 0.6))
+
+    assert projected is not None
+    assert spec.world_to_cell(projected) is not None
+    assert projected[0] < 1.5

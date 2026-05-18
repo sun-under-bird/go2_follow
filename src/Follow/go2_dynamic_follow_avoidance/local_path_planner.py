@@ -8,7 +8,7 @@ from rclpy.node import Node
 from rclpy.time import Time
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from tf2_ros import Buffer, TransformListener
 
 from .geometry import transform_from_ros, transform_point, yaw_to_quaternion
@@ -18,8 +18,10 @@ from .grid_planner import (
     build_costmap,
     cells_to_points,
     clear_radius,
+    inflate_cells,
     nearest_free_cell,
     occupancy_grid_data,
+    project_goal_to_grid,
     resample_path,
     simplify_path,
 )
@@ -31,11 +33,12 @@ class LocalPathPlanner(Node):
 
         self.declare_parameter("base_frame", "base_link")
         self.declare_parameter("path_frame", "odom")
-        self.declare_parameter("pointcloud_topic", "/stereo/points2")
+        self.declare_parameter("pointcloud_topic", "/local_grid_obstacle")
         self.declare_parameter("goal_topic", "/follow_goal")
         self.declare_parameter("target_valid_topic", "/follow/target_valid")
         self.declare_parameter("path_topic", "/follow_path")
         self.declare_parameter("path_valid_topic", "/follow/path_valid")
+        self.declare_parameter("planner_status_topic", "/follow/planner_status")
         self.declare_parameter("costmap_topic", "/local_costmap")
         self.declare_parameter("width_m", 5.0)
         self.declare_parameter("height_m", 4.0)
@@ -52,6 +55,9 @@ class LocalPathPlanner(Node):
         self.declare_parameter("goal_reached_tolerance", 0.15)
         self.declare_parameter("path_spacing", 0.10)
         self.declare_parameter("pointcloud_timeout_sec", 0.5)
+        self.declare_parameter("obstacle_hold_sec", 0.6)
+        self.declare_parameter("min_points_per_cell", 2)
+        self.declare_parameter("goal_projection_enabled", True)
         self.declare_parameter("publish_rate_hz", 10.0)
         self.declare_parameter("emergency_x_max", 0.45)
         self.declare_parameter("emergency_y_abs", 0.45)
@@ -78,6 +84,8 @@ class LocalPathPlanner(Node):
         self.latest_cloud_time = None
         self.latest_goal: Optional[PoseStamped] = None
         self.target_valid = False
+        self.held_occupied = {}
+        self.last_status = ""
 
         self.create_subscription(PointCloud2, str(self.get_parameter("pointcloud_topic").value), self._cloud_cb, 5)
         self.create_subscription(PoseStamped, str(self.get_parameter("goal_topic").value), self._goal_cb, 10)
@@ -86,6 +94,7 @@ class LocalPathPlanner(Node):
         self.path_pub = self.create_publisher(Path, str(self.get_parameter("path_topic").value), 10)
         self.path_valid_pub = self.create_publisher(Bool, str(self.get_parameter("path_valid_topic").value), 10)
         self.costmap_pub = self.create_publisher(OccupancyGrid, str(self.get_parameter("costmap_topic").value), 2)
+        self.status_pub = self.create_publisher(String, str(self.get_parameter("planner_status_topic").value), 10)
 
         period = 1.0 / float(self.get_parameter("publish_rate_hz").value)
         self.timer = self.create_timer(period, self._plan_and_publish)
@@ -191,6 +200,15 @@ class LocalPathPlanner(Node):
         path.header.frame_id = self.path_frame
         self.path_pub.publish(path)
 
+    def _publish_status(self, status: str):
+        if status == self.last_status:
+            return
+        self.last_status = status
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+        self.get_logger().info(status)
+
     def _publish_costmap(self, occupied, inflated):
         grid = OccupancyGrid()
         grid.header.stamp = self.get_clock().now().to_msg()
@@ -204,14 +222,30 @@ class LocalPathPlanner(Node):
         grid.data = occupancy_grid_data(self.spec, occupied, inflated)
         self.costmap_pub.publish(grid)
 
+    def _held_obstacles(self, fresh_occupied):
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        hold_sec = float(self.get_parameter("obstacle_hold_sec").value)
+        for cell in fresh_occupied:
+            self.held_occupied[cell] = now_sec
+        stale = [cell for cell, stamp in self.held_occupied.items() if now_sec - stamp > hold_sec]
+        for cell in stale:
+            self.held_occupied.pop(cell, None)
+        return set(self.held_occupied.keys())
+
     def _plan_and_publish(self):
-        if not self.target_valid or not self._cloud_is_fresh():
+        if not self.target_valid:
             self._publish_empty_path(False)
+            self._publish_status("stop: UWB target invalid")
+            return
+        if not self._cloud_is_fresh():
+            self._publish_empty_path(False)
+            self._publish_status("stop: RTAB-Map obstacle cloud stale")
             return
 
         goal = self._goal_in_base()
         if goal is None:
             self._publish_empty_path(False)
+            self._publish_status("stop: follow goal unavailable")
             return
 
         result = build_costmap(
@@ -226,14 +260,21 @@ class LocalPathPlanner(Node):
             float(self.get_parameter("emergency_x_max").value),
             float(self.get_parameter("emergency_y_abs").value),
             int(self.get_parameter("max_points_per_cloud").value),
+            int(self.get_parameter("min_points_per_cell").value),
+        )
+        held_occupied = self._held_obstacles(result.occupied)
+        held_inflated = inflate_cells(
+            self.spec,
+            held_occupied,
+            float(self.get_parameter("inflation_radius").value),
         )
         blocked = clear_radius(
             self.spec,
-            result.inflated,
+            held_inflated,
             (0.0, 0.0),
             float(self.get_parameter("start_clear_radius").value),
         )
-        self._publish_costmap(result.occupied, blocked)
+        self._publish_costmap(held_occupied, blocked)
 
         if math.hypot(goal[0], goal[1]) <= float(self.get_parameter("goal_reached_tolerance").value):
             path_msg = self._build_path_msg([(0.0, 0.0)])
@@ -241,13 +282,24 @@ class LocalPathPlanner(Node):
             valid_msg = Bool()
             valid_msg.data = True
             self.path_valid_pub.publish(valid_msg)
+            self._publish_status("ok: target within follow distance")
             return
 
         start = self.spec.world_to_cell((0.0, 0.0))
-        goal_cell = self.spec.world_to_cell(goal)
-        if start is None or goal_cell is None:
+        if start is None:
             self._publish_empty_path(False)
+            self._publish_status("stop: base is outside local grid")
             return
+
+        goal_cell = self.spec.world_to_cell(goal)
+        if goal_cell is None:
+            if bool(self.get_parameter("goal_projection_enabled").value):
+                goal = project_goal_to_grid(self.spec, goal)
+                goal_cell = self.spec.world_to_cell(goal) if goal is not None else None
+            if goal_cell is None:
+                self._publish_empty_path(False)
+                self._publish_status("stop: follow goal outside local grid")
+                return
 
         goal_cell = nearest_free_cell(
             self.spec,
@@ -257,11 +309,13 @@ class LocalPathPlanner(Node):
         )
         if goal_cell is None:
             self._publish_empty_path(False)
+            self._publish_status("stop: no nearby free goal cell")
             return
 
         cells = astar(self.spec, start, goal_cell, blocked)
         if not cells:
             self._publish_empty_path(False)
+            self._publish_status("stop: no local path")
             return
 
         points = cells_to_points(self.spec, cells)
@@ -272,6 +326,7 @@ class LocalPathPlanner(Node):
         valid_msg = Bool()
         valid_msg.data = True
         self.path_valid_pub.publish(valid_msg)
+        self._publish_status("ok")
 
 
 def main(args=None):

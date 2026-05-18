@@ -64,10 +64,12 @@ def build_costmap(
     emergency_x_max: float,
     emergency_y_abs: float,
     max_points: int,
+    min_points_per_cell: int = 1,
 ) -> CostmapBuildResult:
-    occupied: Set[Cell] = set()
+    cell_counts: Dict[Cell, int] = {}
     nearest_front: Optional[float] = None
     seen = 0
+    min_points_per_cell = max(1, int(min_points_per_cell))
 
     for px, py, pz in points:
         if seen >= max_points:
@@ -82,11 +84,12 @@ def build_costmap(
 
         cell = spec.world_to_cell((px, py))
         if cell is not None:
-            occupied.add(cell)
+            cell_counts[cell] = cell_counts.get(cell, 0) + 1
 
         if 0.0 <= px <= emergency_x_max and abs(py) <= emergency_y_abs:
             nearest_front = px if nearest_front is None else min(nearest_front, px)
 
+    occupied = {cell for cell, count in cell_counts.items() if count >= min_points_per_cell}
     inflated = inflate_cells(spec, occupied, inflation_radius)
     return CostmapBuildResult(occupied=occupied, inflated=inflated, nearest_front_obstacle_m=nearest_front)
 
@@ -152,6 +155,38 @@ def nearest_free_cell(spec: GridSpec, blocked: Set[Cell], desired: Cell, max_rad
         if best is not None:
             return best
     return None
+
+
+def project_goal_to_grid(spec: GridSpec, goal: Point2D) -> Optional[Point2D]:
+    """Project an out-of-bounds goal onto the local grid along the base-to-goal ray."""
+    gx, gy = goal
+    if spec.world_to_cell(goal) is not None:
+        return goal
+    if abs(gx) + abs(gy) < 1e-9:
+        return (0.0, 0.0) if spec.world_to_cell((0.0, 0.0)) is not None else None
+
+    min_x = spec.origin_x + spec.resolution * 0.5
+    max_x = spec.origin_x + spec.width_m - spec.resolution * 0.5
+    min_y = spec.origin_y + spec.resolution * 0.5
+    max_y = spec.origin_y + spec.height_m - spec.resolution * 0.5
+    candidates = []
+
+    if gx > 0.0:
+        candidates.append(max_x / gx)
+    elif gx < 0.0:
+        candidates.append(min_x / gx)
+    if gy > 0.0:
+        candidates.append(max_y / gy)
+    elif gy < 0.0:
+        candidates.append(min_y / gy)
+
+    candidates = [scale for scale in candidates if 0.0 < scale <= 1.0]
+    if not candidates:
+        return None
+
+    scale = min(candidates)
+    projected = (gx * scale, gy * scale)
+    return projected if spec.world_to_cell(projected) is not None else None
 
 
 def astar(spec: GridSpec, start: Cell, goal: Cell, blocked: Set[Cell]) -> Optional[List[Cell]]:

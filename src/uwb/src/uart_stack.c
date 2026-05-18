@@ -113,6 +113,16 @@ int8_t uart_receive_byte(uint8_t input_data)
 			rec_tlvlen_buf[1] = input_data;
 
 			receive_tlv_len = (uint16_t)(rec_tlvlen_buf[1] << 8) + (uint16_t)(rec_tlvlen_buf[0] << 0);
+			if (receive_tlv_len + 2 > sizeof(radar_rx_Buf))
+			{
+				receive_tlv_len = 0;
+				rec_tlvlen_count = 0;
+				rec_count = 0;
+				rec_crc_count = 0;
+				rx_packet_ok = 0;
+				rxState = waitForFirstStart;
+				break;
+			}
 
 			rec_tlvlen_count = 0;
 			rxState = waitForData;
@@ -123,7 +133,7 @@ int8_t uart_receive_byte(uint8_t input_data)
 
 	case waitForData:
 	{
-		if (rec_count < receive_tlv_len)
+		if (rec_count < receive_tlv_len && rec_count < sizeof(radar_rx_Buf))
 		{
 			radar_rx_Buf[rec_count] = input_data;
 			rec_count++;
@@ -137,6 +147,14 @@ int8_t uart_receive_byte(uint8_t input_data)
 
 	case waitForCrc:
 	{
+		if (receive_tlv_len + rec_crc_count >= sizeof(radar_rx_Buf))
+		{
+			rec_count = 0;
+			rec_crc_count = 0;
+			rx_packet_ok = 0;
+			rxState = waitForFirstStart;
+			break;
+		}
 		radar_rx_Buf[receive_tlv_len + rec_crc_count] = input_data;
 
 		rec_crc_count++;

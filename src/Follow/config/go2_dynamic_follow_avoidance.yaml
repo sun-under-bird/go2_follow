@@ -1,14 +1,27 @@
 follow_goal_node:
   ros__parameters:
     one1000_topic: /libAoa_robot_publisher
-    one1000_msg_type: uwb_aoa_pkg/msg/LibAoaRobot
+    one1000_msg_type: uwb_aoa_pkg/msg/LibAoaRobotMsg
     base_frame: base_link
-    one1000_frame: one1000_anchor
+    one1000_frame: base_link
     use_tf: true
+    require_tf: true
+    target_topic: /one1000/target
+    goal_topic: /follow_goal
+    valid_topic: /follow/target_valid
+    status_topic: /follow/target_status
     follow_distance: 1.5
     goal_tolerance: 0.15
     confidence_threshold: 50.0
     target_timeout_sec: 0.3
+    target_hold_sec: 0.5
+    min_valid_samples: 3
+    max_invalid_samples: 4
+    smoothing_alpha: 0.35
+    max_target_jump_m: 1.0
+    max_target_speed_mps: 2.5
+    min_target_distance: 0.15
+    max_target_distance: 8.0
     angle_units: rad
     x_fields: [x, pos_x, position.x]
     y_fields: [y, pos_y, position.y]
@@ -26,11 +39,12 @@ local_path_planner:
   ros__parameters:
     base_frame: base_link
     path_frame: odom
-    pointcloud_topic: /stereo/points2
+    pointcloud_topic: /local_grid_obstacle
     goal_topic: /follow_goal
     target_valid_topic: /follow/target_valid
     path_topic: /follow_path
     path_valid_topic: /follow/path_valid
+    planner_status_topic: /follow/planner_status
     costmap_topic: /local_costmap
     width_m: 5.0
     height_m: 4.0
@@ -47,6 +61,9 @@ local_path_planner:
     goal_reached_tolerance: 0.15
     path_spacing: 0.10
     pointcloud_timeout_sec: 0.5
+    obstacle_hold_sec: 0.6
+    min_points_per_cell: 2
+    goal_projection_enabled: true
     publish_rate_hz: 10.0
     emergency_x_max: 0.45
     emergency_y_abs: 0.45
@@ -65,19 +82,29 @@ follow_path_action_client:
 safety_mux:
   ros__parameters:
     base_frame: base_link
-    cmd_vel_in: /cmd_vel
+    cmd_vel_in: /cmd_vel_nav
     cmd_vel_out: /cmd_vel_safe
-    pointcloud_topic: /stereo/points2
+    pointcloud_topic: /local_grid_obstacle
+    odom_topic: /odom_leg
+    path_topic: /follow_path
     target_valid_topic: /follow/target_valid
     path_valid_topic: /follow/path_valid
     cmd_timeout_sec: 0.3
+    odom_timeout_sec: 0.5
     pointcloud_timeout_sec: 0.5
+    target_valid_timeout_sec: 0.5
+    path_valid_timeout_sec: 0.5
+    path_timeout_sec: 0.5
     publish_rate_hz: 30.0
     max_vx: 0.2
     max_vy: 0.3
     max_vyaw: 0.8
     max_reverse_vx: 0.0
+    max_accel_vx: 0.6
+    max_accel_vy: 0.8
+    max_accel_vyaw: 1.5
     emergency_x_max: 0.45
+    obstacle_clear_x_max: 0.60
     slow_x_max: 1.0
     front_y_abs: 0.45
     obstacle_z_min: 0.05

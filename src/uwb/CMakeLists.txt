@@ -21,15 +21,17 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LibAoaRobotMsg.msg"
+  DEPENDENCIES std_msgs
 )
 
 
 add_executable(libAoa_robot_example src/libAoa_robot_example.cpp)
-ament_target_dependencies(libAoa_robot_example rclcpp)
+ament_target_dependencies(libAoa_robot_example rclcpp std_msgs)
 
 target_link_libraries(libAoa_robot_example
   libAoa_robot

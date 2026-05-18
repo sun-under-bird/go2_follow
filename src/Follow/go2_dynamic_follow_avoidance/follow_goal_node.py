@@ -5,11 +5,12 @@ import rclpy
 from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from rclpy.time import Time
-from std_msgs.msg import Bool
+from std_msgs.msg import Bool, String
 from tf2_ros import Buffer, TransformListener
 
 from .geometry import transform_from_ros, transform_point, yaw_to_quaternion
 from .ros_utils import first_existing_attr, import_message_type, to_float
+from .target_filter import TargetFilter, TargetFilterConfig
 
 
 class FollowGoalNode(Node):
@@ -17,14 +18,27 @@ class FollowGoalNode(Node):
         super().__init__("follow_goal_node")
 
         self.declare_parameter("one1000_topic", "/libAoa_robot_publisher")
-        self.declare_parameter("one1000_msg_type", "uwb_aoa_pkg/msg/LibAoaRobot")
+        self.declare_parameter("one1000_msg_type", "uwb_aoa_pkg/msg/LibAoaRobotMsg")
         self.declare_parameter("base_frame", "base_link")
-        self.declare_parameter("one1000_frame", "one1000_anchor")
+        self.declare_parameter("one1000_frame", "base_link")
         self.declare_parameter("use_tf", True)
+        self.declare_parameter("require_tf", True)
+        self.declare_parameter("target_topic", "/one1000/target")
+        self.declare_parameter("goal_topic", "/follow_goal")
+        self.declare_parameter("valid_topic", "/follow/target_valid")
+        self.declare_parameter("status_topic", "/follow/target_status")
         self.declare_parameter("follow_distance", 1.5)
         self.declare_parameter("goal_tolerance", 0.15)
         self.declare_parameter("confidence_threshold", 50.0)
         self.declare_parameter("target_timeout_sec", 0.3)
+        self.declare_parameter("target_hold_sec", 0.5)
+        self.declare_parameter("min_valid_samples", 3)
+        self.declare_parameter("max_invalid_samples", 4)
+        self.declare_parameter("smoothing_alpha", 0.35)
+        self.declare_parameter("max_target_jump_m", 1.0)
+        self.declare_parameter("max_target_speed_mps", 2.5)
+        self.declare_parameter("min_target_distance", 0.15)
+        self.declare_parameter("max_target_distance", 8.0)
         self.declare_parameter("angle_units", "rad")
         self.declare_parameter("x_fields", ["x", "pos_x", "position.x"])
         self.declare_parameter("y_fields", ["y", "pos_y", "position.y"])
@@ -41,6 +55,7 @@ class FollowGoalNode(Node):
         self.base_frame = self.get_parameter("base_frame").value
         self.one1000_frame = self.get_parameter("one1000_frame").value
         self.use_tf = bool(self.get_parameter("use_tf").value)
+        self.require_tf = bool(self.get_parameter("require_tf").value)
         self.follow_distance = float(self.get_parameter("follow_distance").value)
         self.goal_tolerance = float(self.get_parameter("goal_tolerance").value)
         self.confidence_threshold = float(self.get_parameter("confidence_threshold").value)
@@ -50,6 +65,18 @@ class FollowGoalNode(Node):
         self.angle_offset_rad = float(self.get_parameter("angle_offset_rad").value)
         self.anchor_x_offset = float(self.get_parameter("anchor_x_offset").value)
         self.anchor_y_offset = float(self.get_parameter("anchor_y_offset").value)
+        self.target_filter = TargetFilter(
+            TargetFilterConfig(
+                min_valid_samples=int(self.get_parameter("min_valid_samples").value),
+                max_invalid_samples=int(self.get_parameter("max_invalid_samples").value),
+                hold_sec=float(self.get_parameter("target_hold_sec").value),
+                smoothing_alpha=float(self.get_parameter("smoothing_alpha").value),
+                max_jump_m=float(self.get_parameter("max_target_jump_m").value),
+                max_speed_mps=float(self.get_parameter("max_target_speed_mps").value),
+                min_distance_m=float(self.get_parameter("min_target_distance").value),
+                max_distance_m=float(self.get_parameter("max_target_distance").value),
+            )
+        )
 
         msg_type = import_message_type(str(self.get_parameter("one1000_msg_type").value))
         self.sub = self.create_subscription(
@@ -59,18 +86,17 @@ class FollowGoalNode(Node):
             10,
         )
 
-        self.goal_pub = self.create_publisher(PoseStamped, "/follow_goal", 10)
-        self.target_pub = self.create_publisher(PoseStamped, "/one1000/target", 10)
-        self.valid_pub = self.create_publisher(Bool, "/follow/target_valid", 10)
+        self.goal_pub = self.create_publisher(PoseStamped, str(self.get_parameter("goal_topic").value), 10)
+        self.target_pub = self.create_publisher(PoseStamped, str(self.get_parameter("target_topic").value), 10)
+        self.valid_pub = self.create_publisher(Bool, str(self.get_parameter("valid_topic").value), 10)
+        self.status_pub = self.create_publisher(String, str(self.get_parameter("status_topic").value), 10)
 
         self.tf_buffer: Optional[Buffer] = Buffer() if self.use_tf else None
         self.tf_listener: Optional[TransformListener] = (
             TransformListener(self.tf_buffer, self) if self.use_tf else None
         )
 
-        self.last_target_xy: Optional[Tuple[float, float]] = None
-        self.last_target_time = None
-        self.last_target_valid = False
+        self.last_status = ""
 
         period = 1.0 / float(self.get_parameter("publish_rate_hz").value)
         self.timer = self.create_timer(period, self._publish)
@@ -81,17 +107,24 @@ class FollowGoalNode(Node):
         return list(self.get_parameter(name).value)
 
     def _target_cb(self, msg):
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
         parsed = self._parse_one1000(msg)
         if parsed is None:
-            self.last_target_valid = False
+            self.target_filter.update(None, False, now_sec, "invalid: parse failed")
             return
 
         x, y, state, confidence = parsed
         valid = state >= 0 and confidence >= self.confidence_threshold
-        if valid:
-            self.last_target_xy = (x, y)
-            self.last_target_time = self.get_clock().now()
-        self.last_target_valid = valid
+        if not valid:
+            self.target_filter.update(None, False, now_sec, f"invalid: state={state} conf={confidence:.1f}")
+            return
+
+        target_xy = self._transform_target_to_base(x, y)
+        if target_xy is None:
+            self.target_filter.update(None, False, now_sec, "invalid: TF unavailable")
+            return
+
+        self.target_filter.update(target_xy, True, now_sec)
 
     def _parse_one1000(self, msg) -> Optional[Tuple[float, float, int, float]]:
         x = to_float(first_existing_attr(msg, self._fields("x_fields")))
@@ -124,13 +157,7 @@ class FollowGoalNode(Node):
             confidence = 100.0
         return float(x), float(y), state, float(confidence)
 
-    def _target_is_fresh(self) -> bool:
-        if self.last_target_time is None:
-            return False
-        age = (self.get_clock().now() - self.last_target_time).nanoseconds * 1e-9
-        return age <= self.target_timeout_sec
-
-    def _transform_target_to_base(self, x: float, y: float) -> Tuple[float, float]:
+    def _transform_target_to_base(self, x: float, y: float) -> Optional[Tuple[float, float]]:
         if not self.use_tf or self.one1000_frame == self.base_frame:
             return x, y
         try:
@@ -138,6 +165,12 @@ class FollowGoalNode(Node):
             bx, by, _ = transform_point((x, y, 0.0), transform_from_ros(tf))
             return bx, by
         except Exception as exc:  # noqa: BLE001
+            if self.require_tf:
+                self.get_logger().warn(
+                    f"ONE1000 TF failed: {exc}",
+                    throttle_duration_sec=2.0,
+                )
+                return None
             self.get_logger().warn(
                 f"Using ONE1000 raw coordinates because TF failed: {exc}",
                 throttle_duration_sec=2.0,
@@ -154,16 +187,27 @@ class FollowGoalNode(Node):
         pose.pose.orientation = yaw_to_quaternion(yaw)
         return pose
 
+    def _publish_status(self, status: str):
+        if status == self.last_status:
+            return
+        self.last_status = status
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+
     def _publish(self):
-        valid = self.last_target_valid and self._target_is_fresh() and self.last_target_xy is not None
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        result = self.target_filter.current(now_sec, self.target_timeout_sec)
+        valid = result.tracking and result.xy is not None
         valid_msg = Bool()
         valid_msg.data = bool(valid)
         self.valid_pub.publish(valid_msg)
+        self._publish_status(result.status)
 
         if not valid:
             return
 
-        target_x, target_y = self._transform_target_to_base(*self.last_target_xy)
+        target_x, target_y = result.xy
         self.target_pub.publish(self._make_pose(target_x, target_y, self.base_frame))
 
         distance = math.hypot(target_x, target_y)

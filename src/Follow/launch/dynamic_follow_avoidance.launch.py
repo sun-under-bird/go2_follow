@@ -22,9 +22,9 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("config_file", default_value=default_config),
             DeclareLaunchArgument("one1000_topic", default_value="/libAoa_robot_publisher"),
-            DeclareLaunchArgument("one1000_msg_type", default_value="uwb_aoa_pkg/msg/LibAoaRobot"),
-            DeclareLaunchArgument("pointcloud_topic", default_value="/stereo/points2"),
-            DeclareLaunchArgument("cmd_vel_in", default_value="/cmd_vel"),
+            DeclareLaunchArgument("one1000_msg_type", default_value="uwb_aoa_pkg/msg/LibAoaRobotMsg"),
+            DeclareLaunchArgument("pointcloud_topic", default_value="/local_grid_obstacle"),
+            DeclareLaunchArgument("cmd_vel_in", default_value="/cmd_vel_nav"),
             DeclareLaunchArgument("cmd_vel_out", default_value="/cmd_vel_safe"),
             Node(
                 package="go2_dynamic_follow_avoidance",
