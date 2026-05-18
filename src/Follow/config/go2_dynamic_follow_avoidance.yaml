@@ -1,0 +1,85 @@
+follow_goal_node:
+  ros__parameters:
+    one1000_topic: /libAoa_robot_publisher
+    one1000_msg_type: uwb_aoa_pkg/msg/LibAoaRobot
+    base_frame: base_link
+    one1000_frame: one1000_anchor
+    use_tf: true
+    follow_distance: 1.5
+    goal_tolerance: 0.15
+    confidence_threshold: 50.0
+    target_timeout_sec: 0.3
+    angle_units: rad
+    x_fields: [x, pos_x, position.x]
+    y_fields: [y, pos_y, position.y]
+    r_fields: [r, distance, range]
+    angle_fields: [a, angle, rad, azimuth]
+    state_fields: [state]
+    confidence_fields: [pos_confidence, confidence]
+    invert_y: false
+    angle_offset_rad: 0.0
+    anchor_x_offset: 0.0
+    anchor_y_offset: 0.0
+    publish_rate_hz: 20.0
+
+local_path_planner:
+  ros__parameters:
+    base_frame: base_link
+    path_frame: odom
+    pointcloud_topic: /stereo/points2
+    goal_topic: /follow_goal
+    target_valid_topic: /follow/target_valid
+    path_topic: /follow_path
+    path_valid_topic: /follow/path_valid
+    costmap_topic: /local_costmap
+    width_m: 5.0
+    height_m: 4.0
+    origin_x: -0.5
+    resolution: 0.05
+    obstacle_x_min: 0.05
+    obstacle_x_max: 4.0
+    obstacle_y_abs: 1.5
+    obstacle_z_min: 0.05
+    obstacle_z_max: 1.2
+    inflation_radius: 0.35
+    start_clear_radius: 0.30
+    nearest_goal_search_radius: 0.8
+    goal_reached_tolerance: 0.15
+    path_spacing: 0.10
+    pointcloud_timeout_sec: 0.5
+    publish_rate_hz: 10.0
+    emergency_x_max: 0.45
+    emergency_y_abs: 0.45
+    max_points_per_cloud: 60000
+
+follow_path_action_client:
+  ros__parameters:
+    path_topic: /follow_path
+    path_valid_topic: /follow/path_valid
+    action_name: follow_path
+    controller_id: FollowPath
+    goal_checker_id: general_goal_checker
+    resend_interval_sec: 0.5
+    minimum_path_poses: 2
+
+safety_mux:
+  ros__parameters:
+    base_frame: base_link
+    cmd_vel_in: /cmd_vel
+    cmd_vel_out: /cmd_vel_safe
+    pointcloud_topic: /stereo/points2
+    target_valid_topic: /follow/target_valid
+    path_valid_topic: /follow/path_valid
+    cmd_timeout_sec: 0.3
+    pointcloud_timeout_sec: 0.5
+    publish_rate_hz: 30.0
+    max_vx: 0.2
+    max_vy: 0.3
+    max_vyaw: 0.8
+    max_reverse_vx: 0.0
+    emergency_x_max: 0.45
+    slow_x_max: 1.0
+    front_y_abs: 0.45
+    obstacle_z_min: 0.05
+    obstacle_z_max: 1.2
+    max_points_per_cloud: 60000
