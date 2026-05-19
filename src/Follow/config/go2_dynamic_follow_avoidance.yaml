@@ -8,6 +8,9 @@ follow_goal_node:
     require_tf: true
     target_topic: /one1000/target
     goal_topic: /follow_goal
+    nav2_goal_topic: /goal_update
+    nav2_goal_frame: odom
+    publish_nav2_goal: true
     valid_topic: /follow/target_valid
     status_topic: /follow/target_status
     follow_distance: 1.5
@@ -79,6 +82,39 @@ follow_path_action_client:
     resend_interval_sec: 0.5
     minimum_path_poses: 2
 
+nav2_dynamic_follow_client:
+  ros__parameters:
+    goal_update_topic: /goal_update
+    target_valid_topic: /follow/target_valid
+    path_valid_topic: /follow/path_valid
+    status_topic: /follow/nav2_status
+    navigate_action_name: navigate_to_pose
+    behavior_tree: ""
+    server_wait_timeout_sec: 1.0
+    resend_after_result_sec: 0.3
+    publish_rate_hz: 10.0
+
+simple_follow_controller:
+  ros__parameters:
+    target_topic: /one1000/target
+    target_valid_topic: /follow/target_valid
+    cmd_vel_out: /cmd_vel_nav
+    status_topic: /follow/simple_status
+    target_timeout_sec: 0.4
+    target_valid_timeout_sec: 0.5
+    publish_rate_hz: 30.0
+    follow_distance: 1.5
+    distance_deadband: 0.15
+    lateral_deadband: 0.08
+    yaw_deadband: 0.08
+    kp_vx: 0.35
+    kp_vy: 0.0
+    kp_yaw: 1.0
+    max_vx: 0.2
+    max_vy: 0.0
+    max_vyaw: 0.8
+    allow_reverse: false
+
 safety_mux:
   ros__parameters:
     base_frame: base_link
@@ -89,6 +125,8 @@ safety_mux:
     path_topic: /follow_path
     target_valid_topic: /follow/target_valid
     path_valid_topic: /follow/path_valid
+    require_path_watchdog: false
+    require_pointcloud_watchdog: true
     cmd_timeout_sec: 0.3
     odom_timeout_sec: 0.5
     pointcloud_timeout_sec: 0.5

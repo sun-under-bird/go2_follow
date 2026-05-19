@@ -27,6 +27,8 @@ class SafetyMux(Node):
         self.declare_parameter("path_topic", "/follow_path")
         self.declare_parameter("target_valid_topic", "/follow/target_valid")
         self.declare_parameter("path_valid_topic", "/follow/path_valid")
+        self.declare_parameter("require_path_watchdog", False)
+        self.declare_parameter("require_pointcloud_watchdog", True)
         self.declare_parameter("cmd_timeout_sec", 0.3)
         self.declare_parameter("odom_timeout_sec", 0.5)
         self.declare_parameter("pointcloud_timeout_sec", 0.5)
@@ -225,17 +227,27 @@ class SafetyMux(Node):
             self.target_valid_time, float(self.get_parameter("target_valid_timeout_sec").value)
         ):
             status = "stop: UWB target invalid or stale"
-        elif not self.path_valid or not self._age_ok(
-            self.path_valid_time, float(self.get_parameter("path_valid_timeout_sec").value)
+        elif bool(self.get_parameter("require_path_watchdog").value) and (
+            not self.path_valid
+            or not self._age_ok(
+                self.path_valid_time,
+                float(self.get_parameter("path_valid_timeout_sec").value),
+            )
         ):
             status = "stop: no valid local path"
-        elif not self._age_ok(self.latest_path_time, float(self.get_parameter("path_timeout_sec").value)):
+        elif bool(self.get_parameter("require_path_watchdog").value) and not self._age_ok(
+            self.latest_path_time,
+            float(self.get_parameter("path_timeout_sec").value),
+        ):
             status = "stop: follow path stale"
-        elif self.latest_path_pose_count < 1:
+        elif bool(self.get_parameter("require_path_watchdog").value) and self.latest_path_pose_count < 1:
             status = "stop: follow path empty"
         elif not self._age_ok(self.latest_odom_time, float(self.get_parameter("odom_timeout_sec").value)):
             status = "stop: /odom_leg stale"
-        elif not self._age_ok(self.latest_cloud_time, float(self.get_parameter("pointcloud_timeout_sec").value)):
+        elif bool(self.get_parameter("require_pointcloud_watchdog").value) and not self._age_ok(
+            self.latest_cloud_time,
+            float(self.get_parameter("pointcloud_timeout_sec").value),
+        ):
             status = "stop: RTAB-Map obstacle cloud stale"
         elif not self._age_ok(self.latest_cmd_time, float(self.get_parameter("cmd_timeout_sec").value)) or self.latest_cmd is None:
             status = "stop: /cmd_vel_nav stale"

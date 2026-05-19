@@ -25,6 +25,9 @@ class FollowGoalNode(Node):
         self.declare_parameter("require_tf", True)
         self.declare_parameter("target_topic", "/one1000/target")
         self.declare_parameter("goal_topic", "/follow_goal")
+        self.declare_parameter("nav2_goal_topic", "/goal_update")
+        self.declare_parameter("nav2_goal_frame", "odom")
+        self.declare_parameter("publish_nav2_goal", True)
         self.declare_parameter("valid_topic", "/follow/target_valid")
         self.declare_parameter("status_topic", "/follow/target_status")
         self.declare_parameter("follow_distance", 1.5)
@@ -88,6 +91,11 @@ class FollowGoalNode(Node):
 
         self.goal_pub = self.create_publisher(PoseStamped, str(self.get_parameter("goal_topic").value), 10)
         self.target_pub = self.create_publisher(PoseStamped, str(self.get_parameter("target_topic").value), 10)
+        self.nav2_goal_pub = self.create_publisher(
+            PoseStamped,
+            str(self.get_parameter("nav2_goal_topic").value),
+            10,
+        )
         self.valid_pub = self.create_publisher(Bool, str(self.get_parameter("valid_topic").value), 10)
         self.status_pub = self.create_publisher(String, str(self.get_parameter("status_topic").value), 10)
 
@@ -187,6 +195,29 @@ class FollowGoalNode(Node):
         pose.pose.orientation = yaw_to_quaternion(yaw)
         return pose
 
+    def _make_nav2_goal_pose(self, target_x: float, target_y: float) -> Optional[PoseStamped]:
+        goal_frame = str(self.get_parameter("nav2_goal_frame").value)
+        if goal_frame == self.base_frame:
+            return self._make_pose(target_x, target_y, self.base_frame)
+        if not self.use_tf or self.tf_buffer is None:
+            self.get_logger().warn("Cannot publish /goal_update without TF", throttle_duration_sec=2.0)
+            return None
+        try:
+            tf = transform_from_ros(self.tf_buffer.lookup_transform(goal_frame, self.base_frame, Time()))
+        except Exception as exc:  # noqa: BLE001
+            self.get_logger().warn(f"Nav2 goal TF failed: {exc}", throttle_duration_sec=2.0)
+            return None
+
+        robot_x, robot_y, _ = transform_point((0.0, 0.0, 0.0), tf)
+        goal_x, goal_y, _ = transform_point((target_x, target_y, 0.0), tf)
+        pose = PoseStamped()
+        pose.header.stamp = self.get_clock().now().to_msg()
+        pose.header.frame_id = goal_frame
+        pose.pose.position.x = goal_x
+        pose.pose.position.y = goal_y
+        pose.pose.orientation = yaw_to_quaternion(math.atan2(goal_y - robot_y, goal_x - robot_x))
+        return pose
+
     def _publish_status(self, status: str):
         if status == self.last_status:
             return
@@ -209,6 +240,10 @@ class FollowGoalNode(Node):
 
         target_x, target_y = result.xy
         self.target_pub.publish(self._make_pose(target_x, target_y, self.base_frame))
+        if bool(self.get_parameter("publish_nav2_goal").value):
+            nav2_goal = self._make_nav2_goal_pose(target_x, target_y)
+            if nav2_goal is not None:
+                self.nav2_goal_pub.publish(nav2_goal)
 
         distance = math.hypot(target_x, target_y)
         if distance <= self.follow_distance + self.goal_tolerance:
