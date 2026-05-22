@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -88,6 +89,53 @@ TEST(TargetTracking, RejectsSparseTargetCluster)
   auto centroid = apf::compute_target_centroid(points, apf::Point2D{2.0, 0.0}, config);
 
   EXPECT_FALSE(centroid.has_value());
+}
+
+TEST(LocalObstacleMap, MaintainsFourByFourGridAndPublishesOccupiedCells)
+{
+  apf::LocalMapConfig config;
+  config.width_m = 4.0;
+  config.height_m = 4.0;
+  config.resolution = 1.0;
+  config.origin_x = 0.0;
+  config.origin_y = -2.0;
+  config.obstacle_hold_sec = 0.6;
+  config.min_points_per_cell = 2;
+  apf::LocalObstacleMap map(config);
+
+  EXPECT_EQ(map.width_cells(), 4);
+  EXPECT_EQ(map.height_cells(), 4);
+
+  map.update(
+    std::vector<apf::Point3D>{
+      {1.1, 0.1, 0.3},
+      {1.2, 0.2, 0.3},
+      {3.9, 1.9, 0.3},
+    },
+    10.0);
+
+  const auto occupied = map.occupied_points(10.1);
+  ASSERT_EQ(occupied.size(), 1u);
+  EXPECT_NEAR(occupied[0].x, 1.5, 1e-9);
+  EXPECT_NEAR(occupied[0].y, 0.5, 1e-9);
+
+  const auto data = map.occupancy_data(10.1);
+  EXPECT_EQ(data.size(), 16u);
+  EXPECT_EQ(std::count(data.begin(), data.end(), 100), 1);
+}
+
+TEST(LocalObstacleMap, DropsCellsAfterHoldTimeout)
+{
+  apf::LocalMapConfig config;
+  config.resolution = 1.0;
+  config.obstacle_hold_sec = 0.5;
+  apf::LocalObstacleMap map(config);
+
+  map.update(std::vector<apf::Point3D>{{1.0, 0.0, 0.3}}, 2.0);
+
+  EXPECT_EQ(map.occupied_points(2.4).size(), 1u);
+  map.prune(2.6);
+  EXPECT_TRUE(map.occupied_points(2.6).empty());
 }
 
 TEST(ApfControl, StopsInsideEmergencyDistance)

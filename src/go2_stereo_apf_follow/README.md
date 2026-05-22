@@ -12,7 +12,8 @@
 
 /local_grid_obstacle
   -> stereo_apf_controller_node
-  -> 点云过滤 + 目标邻域质心跟踪 + APF 排斥力
+  -> 点云过滤 + 4m x 4m 局部地图 + 目标邻域质心跟踪 + APF 排斥力
+  -> /stereo_apf/local_map
   -> /stereo_apf/target
   -> /cmd_vel_apf
 
@@ -23,7 +24,7 @@ apf_safety_mux_node
   -> Go2
 ```
 
-目标可以来自 UWB，也可以通过 `/stereo_apf/manual_target` 手动发布 `PoseStamped`。UWB 只提供目标种子；控制器会在当前目标附近查找双目点云质心，持续更新目标位置。找不到质心时会短暂保持，随后回退到新鲜 UWB 种子，仍不可用则停车。
+目标可以来自 UWB，也可以通过 `/stereo_apf/manual_target` 手动发布 `PoseStamped`。UWB 只提供目标种子；控制器会把双目点云落到 `base_link` 下的 4m x 4m 局部占据地图里，默认保留障碍 `0.6s`，再在当前目标附近查找地图占据点质心，持续更新目标位置。找不到质心时会短暂保持，随后回退到新鲜 UWB 种子，仍不可用则停车。
 
 ## 编译
 
@@ -67,6 +68,7 @@ ros2 launch go2_stereo_apf_follow stereo_apf_follow.launch.py \
 ros2 topic echo /stereo_apf/status
 ros2 topic echo /stereo_apf/safety_status
 ros2 topic echo /stereo_apf/target
+ros2 topic echo /stereo_apf/local_map
 ros2 topic echo /cmd_vel_apf
 ros2 topic echo /cmd_vel_safe
 ```
@@ -123,6 +125,10 @@ config/stereo_apf_follow.yaml
 
 - `follow_distance`：默认 `2.0`，机器人希望保持的前向距离。
 - `target_radius`：默认 `0.30`，目标附近点云质心搜索半径。
+- `local_map_width_m` / `local_map_height_m`：默认 `4.0`，局部地图尺寸。
+- `local_map_resolution`：默认 `0.05`，局部地图分辨率。
+- `local_map_origin_x` / `local_map_origin_y`：默认 `0.0` / `-2.0`，表示地图覆盖机器人前方 `0..4m`、左右 `-2..2m`。
+- `obstacle_hold_sec`：默认 `0.6`，障碍短时保持时间，用来抑制双目点云闪烁。
 - `apf_influence_dist`：默认 `1.2`，障碍排斥力影响距离。
 - `apf_emergency_dist`：默认 `0.45`，障碍进入该距离直接停车。
 - `apf_slowdown_dist`：默认 `1.0`，障碍进入该距离开始减速。
