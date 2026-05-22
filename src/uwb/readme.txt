@@ -7,11 +7,13 @@
 	运行节点时默认新打开一个终端观察定位数据，使用gnome-terminal，若并未安装，安装方式sudo apt-get install gnome-terminal
 
 串口名称默认 "/dev/ttyUSB0"，可在start_libAoa_robot.sh内改变
+ROS话题"/libAoa_robot_publisher"默认1秒发布一次，串口底层仍持续读取。需要调整发布频率时可添加参数：
+  ros2 run uwb_aoa_pkg libAoa_robot_example "/dev/ttyUSB0" --ros-args -p publish_rate_hz:=1.0
 
 链接串口，启动对手件测距，运行 ./start_libAoa_robot.sh 即可启动测试（为了画图需在弹出窗口点击两次确认，一次确认使用topic subscriber，一次选择libaoa_robot_publisher节点画图）
 
 start_libAoa_robot.sh内：
-  ros2 run uwb_aoa_pkg libAoa_robot_example "/dev/ttyUSB0"开启名为"/libAoa_robot_publisher"的节点，发布名为"/libAoa_robot_publisher"的topic,包含./msg文件夹内定义的msg信息，包含：
+  ros2 run uwb_aoa_pkg libAoa_robot_example "/dev/ttyUSB0"开启名为"/libAoa_robot_publisher"的节点，默认以1Hz发布名为"/libAoa_robot_publisher"的topic,包含./msg文件夹内定义的msg信息，包含：
   -定位极坐标下的r,a，
   -xy坐标下的x,y，
   -算法状态state,

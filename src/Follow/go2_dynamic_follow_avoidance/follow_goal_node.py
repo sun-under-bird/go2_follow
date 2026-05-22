@@ -25,18 +25,18 @@ class FollowGoalNode(Node):
         self.declare_parameter("require_tf", True)
         self.declare_parameter("target_topic", "/one1000/target")
         self.declare_parameter("goal_topic", "/follow_goal")
-        self.declare_parameter("nav2_goal_topic", "/goal_update")
-        self.declare_parameter("nav2_goal_frame", "odom")
-        self.declare_parameter("publish_nav2_goal", True)
         self.declare_parameter("valid_topic", "/follow/target_valid")
         self.declare_parameter("status_topic", "/follow/target_status")
-        self.declare_parameter("follow_distance", 1.5)
+        self.declare_parameter("status_publish_period_sec", 0.5)
+        self.declare_parameter("follow_distance", 2.0)
+        self.declare_parameter("stop_distance", 2.0)
         self.declare_parameter("goal_tolerance", 0.15)
-        self.declare_parameter("confidence_threshold", 50.0)
-        self.declare_parameter("target_timeout_sec", 0.3)
-        self.declare_parameter("target_hold_sec", 0.5)
-        self.declare_parameter("min_valid_samples", 3)
-        self.declare_parameter("max_invalid_samples", 4)
+        self.declare_parameter("confidence_threshold", 0.0)
+        self.declare_parameter("disable_quality_gating", True)
+        self.declare_parameter("target_timeout_sec", 3.0)
+        self.declare_parameter("target_hold_sec", 3.0)
+        self.declare_parameter("min_valid_samples", 1)
+        self.declare_parameter("max_invalid_samples", 10)
         self.declare_parameter("smoothing_alpha", 0.35)
         self.declare_parameter("max_target_jump_m", 1.0)
         self.declare_parameter("max_target_speed_mps", 2.5)
@@ -61,8 +61,6 @@ class FollowGoalNode(Node):
         self.require_tf = bool(self.get_parameter("require_tf").value)
         self.follow_distance = float(self.get_parameter("follow_distance").value)
         self.goal_tolerance = float(self.get_parameter("goal_tolerance").value)
-        self.confidence_threshold = float(self.get_parameter("confidence_threshold").value)
-        self.target_timeout_sec = float(self.get_parameter("target_timeout_sec").value)
         self.angle_units = str(self.get_parameter("angle_units").value).lower()
         self.invert_y = bool(self.get_parameter("invert_y").value)
         self.angle_offset_rad = float(self.get_parameter("angle_offset_rad").value)
@@ -80,6 +78,9 @@ class FollowGoalNode(Node):
                 max_distance_m=float(self.get_parameter("max_target_distance").value),
             )
         )
+        self.direct_target_xy: Optional[Tuple[float, float]] = None
+        self.direct_target_time = None
+        self.direct_target_status = "waiting"
 
         msg_type = import_message_type(str(self.get_parameter("one1000_msg_type").value))
         self.sub = self.create_subscription(
@@ -91,11 +92,6 @@ class FollowGoalNode(Node):
 
         self.goal_pub = self.create_publisher(PoseStamped, str(self.get_parameter("goal_topic").value), 10)
         self.target_pub = self.create_publisher(PoseStamped, str(self.get_parameter("target_topic").value), 10)
-        self.nav2_goal_pub = self.create_publisher(
-            PoseStamped,
-            str(self.get_parameter("nav2_goal_topic").value),
-            10,
-        )
         self.valid_pub = self.create_publisher(Bool, str(self.get_parameter("valid_topic").value), 10)
         self.status_pub = self.create_publisher(String, str(self.get_parameter("status_topic").value), 10)
 
@@ -105,6 +101,7 @@ class FollowGoalNode(Node):
         )
 
         self.last_status = ""
+        self.last_status_publish_time = None
 
         period = 1.0 / float(self.get_parameter("publish_rate_hz").value)
         self.timer = self.create_timer(period, self._publish)
@@ -116,23 +113,65 @@ class FollowGoalNode(Node):
 
     def _target_cb(self, msg):
         now_sec = self.get_clock().now().nanoseconds * 1e-9
+        disable_quality_gating = bool(self.get_parameter("disable_quality_gating").value)
         parsed = self._parse_one1000(msg)
         if parsed is None:
+            if disable_quality_gating:
+                self.direct_target_xy = None
+                self.direct_target_time = None
+                self.direct_target_status = "invalid: parse failed"
             self.target_filter.update(None, False, now_sec, "invalid: parse failed")
             return
 
         x, y, state, confidence = parsed
-        valid = state >= 0 and confidence >= self.confidence_threshold
+        valid = disable_quality_gating or (
+            state >= 0 and confidence >= float(self.get_parameter("confidence_threshold").value)
+        )
         if not valid:
             self.target_filter.update(None, False, now_sec, f"invalid: state={state} conf={confidence:.1f}")
             return
 
         target_xy = self._transform_target_to_base(x, y)
         if target_xy is None:
+            if disable_quality_gating:
+                self.direct_target_xy = None
+                self.direct_target_time = None
+                self.direct_target_status = "invalid: TF unavailable"
             self.target_filter.update(None, False, now_sec, "invalid: TF unavailable")
             return
 
-        self.target_filter.update(target_xy, True, now_sec)
+        distance = math.hypot(target_xy[0], target_xy[1])
+        min_distance = float(self.get_parameter("min_target_distance").value)
+        max_distance = float(self.get_parameter("max_target_distance").value)
+        if not math.isfinite(target_xy[0]) or not math.isfinite(target_xy[1]):
+            if disable_quality_gating:
+                self.direct_target_xy = None
+                self.direct_target_time = None
+                self.direct_target_status = "invalid: non-finite"
+            self.target_filter.update(None, False, now_sec, "invalid: non-finite")
+            return
+        if distance < min_distance:
+            if disable_quality_gating:
+                self.direct_target_xy = None
+                self.direct_target_time = None
+                self.direct_target_status = "invalid: too close"
+            self.target_filter.update(None, False, now_sec, "invalid: too close")
+            return
+        if distance > max_distance:
+            if disable_quality_gating:
+                self.direct_target_xy = None
+                self.direct_target_time = None
+                self.direct_target_status = "invalid: too far"
+            self.target_filter.update(None, False, now_sec, "invalid: too far")
+            return
+
+        if disable_quality_gating:
+            self.direct_target_xy = target_xy
+            self.direct_target_time = self.get_clock().now()
+            self.direct_target_status = "tracking: direct"
+            self.target_filter.status = "tracking: direct"
+        else:
+            self.target_filter.update(target_xy, True, now_sec)
 
     def _parse_one1000(self, msg) -> Optional[Tuple[float, float, int, float]]:
         x = to_float(first_existing_attr(msg, self._fields("x_fields")))
@@ -195,62 +234,72 @@ class FollowGoalNode(Node):
         pose.pose.orientation = yaw_to_quaternion(yaw)
         return pose
 
-    def _make_nav2_goal_pose(self, target_x: float, target_y: float) -> Optional[PoseStamped]:
-        goal_frame = str(self.get_parameter("nav2_goal_frame").value)
-        if goal_frame == self.base_frame:
-            return self._make_pose(target_x, target_y, self.base_frame)
-        if not self.use_tf or self.tf_buffer is None:
-            self.get_logger().warn("Cannot publish /goal_update without TF", throttle_duration_sec=2.0)
-            return None
-        try:
-            tf = transform_from_ros(self.tf_buffer.lookup_transform(goal_frame, self.base_frame, Time()))
-        except Exception as exc:  # noqa: BLE001
-            self.get_logger().warn(f"Nav2 goal TF failed: {exc}", throttle_duration_sec=2.0)
-            return None
-
-        robot_x, robot_y, _ = transform_point((0.0, 0.0, 0.0), tf)
-        goal_x, goal_y, _ = transform_point((target_x, target_y, 0.0), tf)
-        pose = PoseStamped()
-        pose.header.stamp = self.get_clock().now().to_msg()
-        pose.header.frame_id = goal_frame
-        pose.pose.position.x = goal_x
-        pose.pose.position.y = goal_y
-        pose.pose.orientation = yaw_to_quaternion(math.atan2(goal_y - robot_y, goal_x - robot_x))
-        return pose
-
     def _publish_status(self, status: str):
-        if status == self.last_status:
+        now = self.get_clock().now()
+        should_repeat = False
+        if self.last_status_publish_time is None:
+            should_repeat = True
+        else:
+            age = (now - self.last_status_publish_time).nanoseconds * 1e-9
+            should_repeat = age >= float(self.get_parameter("status_publish_period_sec").value)
+        if status == self.last_status and not should_repeat:
             return
         self.last_status = status
+        self.last_status_publish_time = now
         msg = String()
         msg.data = status
         self.status_pub.publish(msg)
 
     def _publish(self):
         now_sec = self.get_clock().now().nanoseconds * 1e-9
-        result = self.target_filter.current(now_sec, self.target_timeout_sec)
-        valid = result.tracking and result.xy is not None
-        valid_msg = Bool()
-        valid_msg.data = bool(valid)
-        self.valid_pub.publish(valid_msg)
-        self._publish_status(result.status)
-
+        if bool(self.get_parameter("disable_quality_gating").value):
+            result_xy = None
+            status = self.direct_target_status
+            if self.direct_target_time is not None and self.direct_target_xy is not None:
+                age = (self.get_clock().now() - self.direct_target_time).nanoseconds * 1e-9
+                if age <= float(self.get_parameter("target_timeout_sec").value):
+                    result_xy = self.direct_target_xy
+                    status = self.direct_target_status
+                else:
+                    status = "stale: UWB timeout"
+            valid = result_xy is not None
+        else:
+            result = self.target_filter.current(now_sec, float(self.get_parameter("target_timeout_sec").value))
+            result_xy = result.xy
+            valid = result.tracking and result.xy is not None
+            status = result.status
         if not valid:
+            valid_msg = Bool()
+            valid_msg.data = False
+            self.valid_pub.publish(valid_msg)
+            self._publish_status(status)
             return
 
-        target_x, target_y = result.xy
+        target_x, target_y = result_xy
         self.target_pub.publish(self._make_pose(target_x, target_y, self.base_frame))
-        if bool(self.get_parameter("publish_nav2_goal").value):
-            nav2_goal = self._make_nav2_goal_pose(target_x, target_y)
-            if nav2_goal is not None:
-                self.nav2_goal_pub.publish(nav2_goal)
 
+        follow_distance = float(self.get_parameter("follow_distance").value)
+        goal_tolerance = float(self.get_parameter("goal_tolerance").value)
+        stop_distance = float(self.get_parameter("stop_distance").value)
         distance = math.hypot(target_x, target_y)
-        if distance <= self.follow_distance + self.goal_tolerance:
+        if distance <= stop_distance:
+            valid_msg = Bool()
+            valid_msg.data = False
+            self.valid_pub.publish(valid_msg)
+            self._publish_status(f"stop: target within {stop_distance:.2f}m")
+            self.goal_pub.publish(self._make_pose(0.0, 0.0, self.base_frame))
+            return
+
+        valid_msg = Bool()
+        valid_msg.data = True
+        self.valid_pub.publish(valid_msg)
+        self._publish_status(status)
+
+        if distance <= follow_distance + goal_tolerance:
             goal_x = 0.0
             goal_y = 0.0
         else:
-            travel = max(0.0, distance - self.follow_distance)
+            travel = max(0.0, distance - follow_distance)
             goal_x = travel * target_x / distance
             goal_y = travel * target_y / distance
 

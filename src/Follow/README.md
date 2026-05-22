@@ -1,36 +1,42 @@
-# Go2 UWB 动态跟随避障
+# Go2 UWB 局部跟随避障
 
-本包用于 Unitree Go2 上的低速 UWB 跟随避障，ROS2 版本按 Humble 设计。当前默认架构已经改为参考 Nav2 的动态目标跟随教程：UWB 负责持续发布动态目标，Nav2 负责基于 costmap 规划和 MPPI 控制，本包最后用 `safety_mux` 做硬安全门控。
+本包用于 Unitree Go2 上的低速 UWB 跟随避障，ROS2 版本按 Humble 设计。当前只保留旧版链路：本包自己用点云构建局部栅格并用 A* 规划 `/follow_path`，Nav2 只使用 `controller_server` 里的 MPPI 控制器跟踪路径，最后通过 `safety_mux` 输出 `/cmd_vel_safe`。
 
-## 默认链路
+## 运行链路
 
 ```text
 /libAoa_robot_publisher
   -> follow_goal_node
-  -> /one1000/target            # 调试用，base_link 下的滤波目标
-  -> /goal_update               # 给 Nav2 GoalUpdater 的动态目标，odom 下
+  -> /one1000/target
+  -> /follow_goal
   -> /follow/target_valid
 
-Nav2 bt_navigator:
-  GoalUpdater
-  -> ComputePathToPose
-  -> TruncatePath(distance=1.5)
-  -> FollowPath / MPPI
+/local_grid_obstacle
+  -> local_path_planner
+  -> 自写局部栅格 + 障碍膨胀 + A*
+  -> /local_costmap
+  -> /follow_path
+  -> /follow/path_valid
+
+follow_path_action_client
+  -> Nav2 follow_path action
+  -> controller_server / FollowPath(MPPI)
   -> /cmd_vel_nav
 
 safety_mux
   -> /cmd_vel_safe
   -> go2_twist_bridge
+  -> Go2
 ```
 
-旧的 `local_path_planner + follow_path_action_client` 仍然保留作备用，但默认不再启动。默认走 `behavior_trees/uwb_dynamic_follow.xml`。
+本包只负责局部目标、局部路径和速度门控；全局导航节点不参与当前链路。
 
-## 依赖的 Go2 链路
+## 依赖链路
 
 参考 `C:\Users\chy\go2`：
 
-- 相机：`stereo_camera_pkg/launch/usb_400.launch.py`
 - 里程计：`go2_driver` 发布 `/odom_leg`
+- 相机：`stereo_camera_pkg/launch/usb_400.launch.py`，或使用本包的 D435i RTAB-Map launch
 - 障碍点云：RTAB-Map 发布 `/local_grid_obstacle`
 - 地面清除点云：RTAB-Map 发布 `/local_grid_ground`
 - 速度执行：`go2_twist_bridge`，必须重映射为订阅 `/cmd_vel_safe`
@@ -40,14 +46,14 @@ safety_mux
 必须有：
 
 ```text
-odom -> base_footprint -> base_link -> camera_link -> camera_left_frame
-                                             -> camera_right_frame
+odom -> base_footprint -> base_link -> camera_link
+base_link -> uwb_link
 ```
 
 - `odom -> base_footprint`：由 `go2_driver` 发布。
 - `base_footprint -> base_link`：由 Go2 URDF / `robot_state_publisher` 发布。
-- 相机 TF：由 Go2 描述或 RTAB-Map launch 发布。
-- UWB 当前默认输出 `base_link` 下的 `x/y`，`follow_goal_node` 会再转成 `odom` 下的 `/goal_update` 给 Nav2。
+- `base_link -> uwb_link`：按 UWB 模块安装位置发布。
+- 点云 frame 必须能通过 TF 转到 `base_link`。
 
 ## 主要话题
 
@@ -56,31 +62,32 @@ odom -> base_footprint -> base_link -> camera_link -> camera_left_frame
 - `/libAoa_robot_publisher`：UWB 数据，类型 `uwb_aoa_pkg/msg/LibAoaRobotMsg`
 - `/odom_leg`：足式里程计
 - `/local_grid_obstacle`：RTAB-Map 障碍点云
-- `/local_grid_ground`：RTAB-Map 地面点云
-- `/cmd_vel_nav`：Nav2 Controller 输出速度
+- `/local_grid_ground`：RTAB-Map 地面点云，供 Nav2 local costmap 清除使用
 
 输出：
 
-- `/one1000/target`：滤波后的 UWB 目标
-- `/follow_goal`：兼容旧链路的保持距离目标
-- `/goal_update`：Nav2 `GoalUpdater` 订阅的动态目标
+- `/one1000/target`：滤波后的 UWB 目标，`base_link` 下
+- `/follow_goal`：保持跟随距离后的局部目标
+- `/local_costmap`：本包自写局部栅格地图，可在 RViz2 中显示
+- `/follow_path`：本包自写 A* 局部路径
+- `/cmd_vel_nav`：Nav2 MPPI 输出速度
 - `/cmd_vel_safe`：安全门控后的最终速度
 - `/follow/target_status`：UWB 状态
-- `/follow/nav2_status`：Nav2 动态跟随 action 状态
+- `/follow/planner_status`：本包 A* 规划状态
 - `/follow/safety_status`：安全门控状态
 
 ## 编译
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd ~/go2_follow_ws
+cd ~/go2_follow
 colcon build --symlink-install
 source install/setup.bash
 ```
 
 每个终端都需要 source Go2 工作空间和本工作空间。
 
-## 推荐启动顺序
+## 启动顺序
 
 先启动 Go2 TF 和里程计：
 
@@ -95,6 +102,7 @@ ros2 run go2_driver driver
 ros2 topic hz /odom_leg
 ros2 run tf2_ros tf2_echo odom base_footprint
 ros2 run tf2_ros tf2_echo base_footprint base_link
+ros2 run tf2_ros tf2_echo base_link uwb_link
 ```
 
 启动 UWB：
@@ -104,6 +112,12 @@ ros2 run uwb_aoa_pkg libAoa_robot_example /dev/ttyUSB0
 ros2 topic hz /libAoa_robot_publisher
 ```
 
+`/libAoa_robot_publisher` 默认按 `1Hz` 发布。需要临时调整频率时：
+
+```bash
+ros2 run uwb_aoa_pkg libAoa_robot_example /dev/ttyUSB0 --ros-args -p publish_rate_hz:=1.0
+```
+
 启动相机和 RTAB-Map：
 
 ```bash
@@ -111,19 +125,29 @@ ros2 launch stereo_camera_pkg usb_400.launch.py
 ros2 launch stereo_camera_pkg navigation.launch.py use_nav2:=false use_viz:=false
 ```
 
-检查：
+如果使用 D435i 红外双目话题测试：
+
+```bash
+ros2 launch go2_dynamic_follow_avoidance d435i_rtabmap.launch.py \
+  base_frame:=base_footprint \
+  odom_topic:=/odom_leg \
+  use_viz:=false
+```
+
+确认点云：
 
 ```bash
 ros2 topic hz /local_grid_obstacle
 ros2 topic hz /local_grid_ground
 ```
 
-启动本包，先不要接 Go2 速度桥：
+启动本包，第一次先不要接速度桥：
 
 ```bash
 ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
   start_nav2_controller:=true \
   start_follow:=true \
+  use_simple_follow:=false \
   start_twist_bridge:=false \
   start_uwb:=false \
   start_go2_driver:=false \
@@ -135,13 +159,13 @@ ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
 
 ```bash
 ros2 topic echo /follow/target_status
-ros2 topic echo /goal_update
-ros2 topic echo /follow/nav2_status
-ros2 topic echo /follow/safety_status
+ros2 topic echo /follow/planner_status
+ros2 topic echo /follow_path
+ros2 topic echo /cmd_vel_nav
 ros2 topic echo /cmd_vel_safe
 ```
 
-确认架空和低速安全后，再启动桥接：
+确认 `/cmd_vel_safe` 正常后，再单独启动桥接：
 
 ```bash
 ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
@@ -149,48 +173,10 @@ ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
   start_nav2_controller:=false \
   start_follow:=false
 ```
-
-这个 launch 会把 `go2_twist_bridge` 的 `cmd_vel` 重映射到 `/cmd_vel_safe`。
-
-## 无相机简单跟随
-
-如果暂时不使用相机和 RTAB-Map，只想用 UWB 让 Go2 低速跟随，可以启动简单模式。这个模式没有避障，只做 UWB 距离跟随和朝向调整，仍然经过 `safety_mux` 输出 `/cmd_vel_safe`。
-
-先启动 Go2 TF、里程计和 UWB，然后运行：
-
-```bash
-ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
-  start_nav2_controller:=false \
-  start_follow:=true \
-  use_simple_follow:=true \
-  require_pointcloud_watchdog:=false \
-  start_twist_bridge:=false
-```
-
-先观察：
-
-```bash
-ros2 topic echo /follow/target_status
-ros2 topic echo /one1000/target
-ros2 topic echo /follow/simple_status
-ros2 topic echo /follow/safety_status
-ros2 topic echo /cmd_vel_safe
-```
-
-确认 `/cmd_vel_safe` 符合预期后，再启动安全桥接：
-
-```bash
-ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
-  start_twist_bridge:=true \
-  start_nav2_controller:=false \
-  start_follow:=false
-```
-
-无相机模式下没有障碍物感知，前方有人或物体不会自动绕开或急停。只建议架空测试、空旷低速测试，遥控器必须随时能接管。
 
 ## 一键启动
 
-第一次不建议一键启动。联调稳定后可以使用：
+联调稳定后可以使用：
 
 ```bash
 ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
@@ -201,24 +187,66 @@ ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
   start_uwb:=true \
   start_nav2_controller:=true \
   start_follow:=true \
+  use_simple_follow:=false \
   uwb_device:=/dev/ttyUSB0 \
-  uwb_frame_id:=base_link
+  uwb_frame_id:=uwb_link \
+  uwb_publish_rate_hz:=1.0
 ```
+
+## 无相机简单跟随
+
+如果暂时不使用相机和 RTAB-Map，只想让 Go2 按 UWB 低速跟随，可以启动简单模式。这个模式没有路径避障，只做 UWB 距离和朝向控制。
+
+```bash
+ros2 launch go2_dynamic_follow_avoidance go2_follow_bringup.launch.py \
+  start_nav2_controller:=false \
+  start_follow:=true \
+  use_simple_follow:=true \
+  require_pointcloud_watchdog:=false \
+  start_twist_bridge:=false
+```
+
+## RViz2 可视化
+
+本包自写局部栅格：
+
+```text
+/local_costmap
+```
+
+在 RViz2 里添加 `Map`，Topic 选 `/local_costmap`。其中：
+
+- `100`：原始障碍
+- `60`：本包膨胀区域
+- `0`：空闲区域
+
+Nav2 MPPI 使用的 local costmap：
+
+```text
+/local_costmap/costmap
+```
+
+本包 A* 使用 `/local_costmap`，MPPI 使用 Nav2 自己的 `/local_costmap/costmap`。两者都来自 `/local_grid_obstacle`，建议保持本包膨胀半径和 Nav2 膨胀半径接近。
 
 ## 关键参数
 
-- `follow_goal_node.nav2_goal_topic: /goal_update`
-- `follow_goal_node.nav2_goal_frame: odom`
-- `follow_goal_node.follow_distance: 1.5`
+- `follow_goal_node.one1000_frame: uwb_link`
+- `follow_goal_node.follow_distance: 2.0`
+- `follow_goal_node.stop_distance: 2.0`
+- `local_path_planner.path_topic: /follow_path`
+- `local_path_planner.inflation_radius: 0.35`
+- `follow_path_action_client.action_name: follow_path`
+- `follow_path_action_client.controller_id: FollowPath`
+- `controller_server.FollowPath.plugin: nav2_mppi_controller::MPPIController`
+- `controller_server.FollowPath.vx_max: 0.5`
+- `controller_server.FollowPath.vx_min: -0.4`
+- `controller_server.FollowPath.wz_max: 1.2`
+- `local_costmap.local_costmap.plugins: [voxel_layer, inflation_layer]`
+- `local_costmap.local_costmap.inflation_layer.inflation_radius: 0.4`
 - `safety_mux.cmd_vel_in: /cmd_vel_nav`
 - `safety_mux.cmd_vel_out: /cmd_vel_safe`
 - `safety_mux.odom_topic: /odom_leg`
-- `safety_mux.require_path_watchdog: false`
-- `controller_server.odom_topic: /odom_leg`
-- `bt_navigator.goal_updater_topic: /goal_update`
-
-`safety_mux` 默认不再依赖旧的 `/follow_path`，因为路径由 Nav2 BT 内部 action 管理。最后安全仍然检查 UWB、`/odom_leg`、RTAB-Map 点云、Nav2 速度和前方障碍。
 
 ## 安全边界
 
-默认 `max_vx=0.2`，前方 `0.45m` 内障碍急停，`1.0m` 内慢行。第一次实测必须架空或低速，遥控器随时准备接管。任何关键输入超时都会让 `/cmd_vel_safe` 归零。
+当前默认 `max_vx=0.5`。第一次实测必须架空或低速，遥控器随时准备接管。确认 `/cmd_vel_safe` 的方向和速度正确以后，再启动 `go2_twist_bridge`。

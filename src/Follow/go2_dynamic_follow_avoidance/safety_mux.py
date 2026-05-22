@@ -27,6 +27,8 @@ class SafetyMux(Node):
         self.declare_parameter("path_topic", "/follow_path")
         self.declare_parameter("target_valid_topic", "/follow/target_valid")
         self.declare_parameter("path_valid_topic", "/follow/path_valid")
+        self.declare_parameter("bypass_safety", False)
+        self.declare_parameter("require_odom_watchdog", True)
         self.declare_parameter("require_path_watchdog", False)
         self.declare_parameter("require_pointcloud_watchdog", True)
         self.declare_parameter("cmd_timeout_sec", 0.3)
@@ -223,7 +225,19 @@ class SafetyMux(Node):
         status = "ok"
         output = self._zero()
 
-        if not self.target_valid or not self._age_ok(
+        if bool(self.get_parameter("bypass_safety").value):
+            if not self.target_valid or not self._age_ok(
+                self.target_valid_time, float(self.get_parameter("target_valid_timeout_sec").value)
+            ):
+                status = "bypass: target stop or invalid"
+                output = self._zero()
+            elif not self._age_ok(self.latest_cmd_time, float(self.get_parameter("cmd_timeout_sec").value)) or self.latest_cmd is None:
+                status = "bypass: /cmd_vel_nav stale"
+                output = self._zero()
+            else:
+                status = "bypass: safety disabled"
+                output = self._clip_cmd(self.latest_cmd)
+        elif not self.target_valid or not self._age_ok(
             self.target_valid_time, float(self.get_parameter("target_valid_timeout_sec").value)
         ):
             status = "stop: UWB target invalid or stale"
@@ -242,7 +256,10 @@ class SafetyMux(Node):
             status = "stop: follow path stale"
         elif bool(self.get_parameter("require_path_watchdog").value) and self.latest_path_pose_count < 1:
             status = "stop: follow path empty"
-        elif not self._age_ok(self.latest_odom_time, float(self.get_parameter("odom_timeout_sec").value)):
+        elif bool(self.get_parameter("require_odom_watchdog").value) and not self._age_ok(
+            self.latest_odom_time,
+            float(self.get_parameter("odom_timeout_sec").value),
+        ):
             status = "stop: /odom_leg stale"
         elif bool(self.get_parameter("require_pointcloud_watchdog").value) and not self._age_ok(
             self.latest_cloud_time,

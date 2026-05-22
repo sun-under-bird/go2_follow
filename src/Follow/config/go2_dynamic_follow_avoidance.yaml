@@ -3,35 +3,34 @@ follow_goal_node:
     one1000_topic: /libAoa_robot_publisher
     one1000_msg_type: uwb_aoa_pkg/msg/LibAoaRobotMsg
     base_frame: base_link
-    one1000_frame: base_link
+    one1000_frame: uwb_link
     use_tf: true
     require_tf: true
     target_topic: /one1000/target
     goal_topic: /follow_goal
-    nav2_goal_topic: /goal_update
-    nav2_goal_frame: odom
-    publish_nav2_goal: true
     valid_topic: /follow/target_valid
     status_topic: /follow/target_status
-    follow_distance: 1.5
+    follow_distance: 2.0
+    stop_distance: 2.0
     goal_tolerance: 0.15
-    confidence_threshold: 50.0
-    target_timeout_sec: 0.3
-    target_hold_sec: 0.5
-    min_valid_samples: 3
-    max_invalid_samples: 4
+    confidence_threshold: 0.0
+    disable_quality_gating: true
+    target_timeout_sec: 3.0
+    target_hold_sec: 3.0
+    min_valid_samples: 1
+    max_invalid_samples: 10
     smoothing_alpha: 0.35
     max_target_jump_m: 1.0
     max_target_speed_mps: 2.5
     min_target_distance: 0.15
     max_target_distance: 8.0
     angle_units: rad
-    x_fields: [x, pos_x, position.x]
-    y_fields: [y, pos_y, position.y]
-    r_fields: [r, distance, range]
-    angle_fields: [a, angle, rad, azimuth]
-    state_fields: [state]
-    confidence_fields: [pos_confidence, confidence]
+    x_fields: ["x", "pos_x", "position.x"]
+    y_fields: ["y", "pos_y", "position.y"]
+    r_fields: ["r", "distance", "range"]
+    angle_fields: ["a", "angle", "rad", "azimuth"]
+    state_fields: ["state"]
+    confidence_fields: ["pos_confidence", "confidence"]
     invert_y: false
     angle_offset_rad: 0.0
     anchor_x_offset: 0.0
@@ -82,35 +81,23 @@ follow_path_action_client:
     resend_interval_sec: 0.5
     minimum_path_poses: 2
 
-nav2_dynamic_follow_client:
-  ros__parameters:
-    goal_update_topic: /goal_update
-    target_valid_topic: /follow/target_valid
-    path_valid_topic: /follow/path_valid
-    status_topic: /follow/nav2_status
-    navigate_action_name: navigate_to_pose
-    behavior_tree: ""
-    server_wait_timeout_sec: 1.0
-    resend_after_result_sec: 0.3
-    publish_rate_hz: 10.0
-
 simple_follow_controller:
   ros__parameters:
     target_topic: /one1000/target
     target_valid_topic: /follow/target_valid
     cmd_vel_out: /cmd_vel_nav
     status_topic: /follow/simple_status
-    target_timeout_sec: 0.4
-    target_valid_timeout_sec: 0.5
+    target_timeout_sec: 3.0
+    target_valid_timeout_sec: 3.2
     publish_rate_hz: 30.0
-    follow_distance: 1.5
+    follow_distance: 2.0
     distance_deadband: 0.15
     lateral_deadband: 0.08
     yaw_deadband: 0.08
     kp_vx: 0.35
     kp_vy: 0.0
     kp_yaw: 1.0
-    max_vx: 0.2
+    max_vx: 0.5
     max_vy: 0.0
     max_vyaw: 0.8
     allow_reverse: false
@@ -125,16 +112,18 @@ safety_mux:
     path_topic: /follow_path
     target_valid_topic: /follow/target_valid
     path_valid_topic: /follow/path_valid
+    bypass_safety: true
+    require_odom_watchdog: true
     require_path_watchdog: false
     require_pointcloud_watchdog: true
     cmd_timeout_sec: 0.3
     odom_timeout_sec: 0.5
     pointcloud_timeout_sec: 0.5
-    target_valid_timeout_sec: 0.5
+    target_valid_timeout_sec: 3.2
     path_valid_timeout_sec: 0.5
     path_timeout_sec: 0.5
     publish_rate_hz: 30.0
-    max_vx: 0.2
+    max_vx: 0.5
     max_vy: 0.3
     max_vyaw: 0.8
     max_reverse_vx: 0.0

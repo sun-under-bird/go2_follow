@@ -29,6 +29,14 @@ public:
   : Node("libAoa_robot_publisher"), running_(false), serial_port_(-1)
   {
     frame_id_ = this->declare_parameter<std::string>("frame_id", "base_link");
+    publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 1.0);
+    if (publish_rate_hz_ <= 0.0) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "publish_rate_hz must be positive, using 1.0 Hz instead");
+      publish_rate_hz_ = 1.0;
+    }
+    publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
     publisher_ = this->create_publisher<uwb_aoa_pkg::msg::LibAoaRobotMsg>(
       "/libAoa_robot_publisher", 10);
 
@@ -85,7 +93,10 @@ public:
 
     running_ = true;
     read_thread_ = std::thread(&LibAoaRobotPublisher::readSerialLoop, this);
-    RCLCPP_INFO(this->get_logger(), "UWB serial publisher started on %s", dev_name.c_str());
+    RCLCPP_INFO(
+      this->get_logger(),
+      "UWB serial publisher started on %s at %.2f Hz",
+      dev_name.c_str(), publish_rate_hz_);
   }
 
   ~LibAoaRobotPublisher() override
@@ -143,6 +154,15 @@ private:
       my_input.t = now;
       algo_uwb_aoa_merge(&my_input, &my_output);
 
+      const auto steady_now = std::chrono::steady_clock::now();
+      if (
+        last_publish_time_ != std::chrono::steady_clock::time_point::min() &&
+        steady_now - last_publish_time_ < publish_period_)
+      {
+        continue;
+      }
+      last_publish_time_ = steady_now;
+
       auto message = uwb_aoa_pkg::msg::LibAoaRobotMsg();
       message.header.stamp = this->now();
       message.header.frame_id = frame_id_;
@@ -175,6 +195,10 @@ private:
   std::atomic<bool> running_;
   int serial_port_;
   std::string frame_id_;
+  double publish_rate_hz_;
+  std::chrono::duration<double> publish_period_{1.0};
+  std::chrono::steady_clock::time_point last_publish_time_{
+    std::chrono::steady_clock::time_point::min()};
 };
 
 
