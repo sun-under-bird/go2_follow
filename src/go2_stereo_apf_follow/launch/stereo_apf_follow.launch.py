@@ -18,6 +18,7 @@ def generate_launch_description():
     config_file = LaunchConfiguration("config_file")
     base_frame = LaunchConfiguration("base_frame")
     pointcloud_topic = LaunchConfiguration("pointcloud_topic")
+    cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     cmd_vel_out = LaunchConfiguration("cmd_vel_out")
     start_go2_driver = LaunchConfiguration("start_go2_driver")
     start_twist_bridge = LaunchConfiguration("start_twist_bridge")
@@ -26,7 +27,6 @@ def generate_launch_description():
     start_uwb = LaunchConfiguration("start_uwb")
     start_seed = LaunchConfiguration("start_seed")
     start_controller = LaunchConfiguration("start_controller")
-    start_safety = LaunchConfiguration("start_safety")
     uwb_device = LaunchConfiguration("uwb_device")
     uwb_frame_id = LaunchConfiguration("uwb_frame_id")
     uwb_publish_rate_hz = LaunchConfiguration("uwb_publish_rate_hz")
@@ -44,7 +44,8 @@ def generate_launch_description():
             DeclareLaunchArgument("config_file", default_value=default_config),
             DeclareLaunchArgument("base_frame", default_value="base_link"),
             DeclareLaunchArgument("pointcloud_topic", default_value="/local_grid_obstacle"),
-            DeclareLaunchArgument("cmd_vel_out", default_value="/cmd_vel_safe"),
+            DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
+            DeclareLaunchArgument("cmd_vel_out", default_value="/cmd_vel"),
             DeclareLaunchArgument("start_go2_driver", default_value="false"),
             DeclareLaunchArgument("start_twist_bridge", default_value="false"),
             DeclareLaunchArgument("start_camera", default_value="false"),
@@ -52,10 +53,9 @@ def generate_launch_description():
             DeclareLaunchArgument("start_uwb", default_value="false"),
             DeclareLaunchArgument("start_seed", default_value="true"),
             DeclareLaunchArgument("start_controller", default_value="true"),
-            DeclareLaunchArgument("start_safety", default_value="true"),
             DeclareLaunchArgument("uwb_device", default_value="/dev/ttyUSB0"),
             DeclareLaunchArgument("uwb_frame_id", default_value="uwb_link"),
-            DeclareLaunchArgument("uwb_publish_rate_hz", default_value="1.0"),
+            DeclareLaunchArgument("uwb_publish_rate_hz", default_value="10.0"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             Node(
                 package="go2_driver",
@@ -127,26 +127,11 @@ def generate_launch_description():
                     {
                         "base_frame": base_frame,
                         "pointcloud_topic": pointcloud_topic,
+                        "cmd_vel_topic": cmd_vel_topic,
                         "use_sim_time": use_sim_time,
                     },
                 ],
                 condition=IfCondition(start_controller),
-            ),
-            Node(
-                package="go2_stereo_apf_follow",
-                executable="apf_safety_mux_node",
-                name="apf_safety_mux_node",
-                output="screen",
-                parameters=[
-                    config_file,
-                    {
-                        "base_frame": base_frame,
-                        "pointcloud_topic": pointcloud_topic,
-                        "cmd_vel_out": cmd_vel_out,
-                        "use_sim_time": use_sim_time,
-                    },
-                ],
-                condition=IfCondition(start_safety),
             ),
         ]
     )

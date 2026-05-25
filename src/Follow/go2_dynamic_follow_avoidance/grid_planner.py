@@ -66,12 +66,11 @@ def build_costmap(
     max_points: int,
     min_points_per_cell: int = 1,
 ) -> CostmapBuildResult:
-    cell_counts: Dict[Cell, int] = {}
+    points_list = points if isinstance(points, list) else list(points)
     nearest_front: Optional[float] = None
     seen = 0
-    min_points_per_cell = max(1, int(min_points_per_cell))
 
-    for px, py, pz in points:
+    for px, py, pz in points_list:
         if seen >= max_points:
             break
         seen += 1
@@ -82,16 +81,95 @@ def build_costmap(
         if not (obstacle_z_min <= pz <= obstacle_z_max):
             continue
 
+        if 0.0 <= px <= emergency_x_max and abs(py) <= emergency_y_abs:
+            nearest_front = px if nearest_front is None else min(nearest_front, px)
+
+    occupied = point_cells(
+        spec,
+        points_list,
+        obstacle_x_min,
+        obstacle_x_max,
+        obstacle_y_abs,
+        obstacle_z_min,
+        obstacle_z_max,
+        max_points,
+        min_points_per_cell,
+    )
+    inflated = inflate_cells(spec, occupied, inflation_radius)
+    return CostmapBuildResult(occupied=occupied, inflated=inflated, nearest_front_obstacle_m=nearest_front)
+
+
+def point_cells(
+    spec: GridSpec,
+    points: Iterable[Tuple[float, float, float]],
+    x_min: float,
+    x_max: float,
+    y_abs: float,
+    z_min: float,
+    z_max: float,
+    max_points: int,
+    min_points_per_cell: int = 1,
+) -> Set[Cell]:
+    cell_counts: Dict[Cell, int] = {}
+    seen = 0
+    min_points_per_cell = max(1, int(min_points_per_cell))
+
+    for px, py, pz in points:
+        if seen >= max_points:
+            break
+        seen += 1
+        if not (x_min <= px <= x_max):
+            continue
+        if abs(py) > y_abs:
+            continue
+        if not (z_min <= pz <= z_max):
+            continue
+
         cell = spec.world_to_cell((px, py))
         if cell is not None:
             cell_counts[cell] = cell_counts.get(cell, 0) + 1
 
-        if 0.0 <= px <= emergency_x_max and abs(py) <= emergency_y_abs:
-            nearest_front = px if nearest_front is None else min(nearest_front, px)
+    return {cell for cell, count in cell_counts.items() if count >= min_points_per_cell}
 
-    occupied = {cell for cell, count in cell_counts.items() if count >= min_points_per_cell}
-    inflated = inflate_cells(spec, occupied, inflation_radius)
-    return CostmapBuildResult(occupied=occupied, inflated=inflated, nearest_front_obstacle_m=nearest_front)
+
+def raytrace_cells(spec: GridSpec, start: Point2D, ends: Iterable[Point2D]) -> Set[Cell]:
+    start_cell = spec.world_to_cell(start)
+    if start_cell is None:
+        return set()
+
+    traced: Set[Cell] = set()
+    for end in ends:
+        end_cell = spec.world_to_cell(end)
+        if end_cell is None:
+            continue
+        traced.update(_bresenham_cells(spec, start_cell, end_cell))
+    return traced
+
+
+def _bresenham_cells(spec: GridSpec, start: Cell, end: Cell) -> Set[Cell]:
+    x0, y0 = start
+    x1, y1 = end
+    dx = abs(x1 - x0)
+    dy = abs(y1 - y0)
+    sx = 1 if x0 < x1 else -1
+    sy = 1 if y0 < y1 else -1
+    err = dx - dy
+    x, y = x0, y0
+    cells: Set[Cell] = set()
+
+    while True:
+        if spec.contains_cell((x, y)):
+            cells.add((x, y))
+        if x == x1 and y == y1:
+            break
+        err2 = 2 * err
+        if err2 > -dy:
+            err -= dy
+            x += sx
+        if err2 < dx:
+            err += dx
+            y += sy
+    return cells
 
 
 def inflate_cells(spec: GridSpec, occupied: Set[Cell], radius_m: float) -> Set[Cell]:

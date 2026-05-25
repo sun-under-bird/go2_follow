@@ -7,22 +7,22 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(uwb_aoa_pkg REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 set(APF_NODE_DEPS
   geometry_msgs
-  nav_msgs
   rclcpp
   sensor_msgs
   std_msgs
   tf2
   tf2_ros
+  visualization_msgs
 )
 
 add_executable(uwb_target_seed_node src/uwb_target_seed_node.cpp)
@@ -39,17 +39,9 @@ target_include_directories(stereo_apf_controller_node PUBLIC
 target_compile_features(stereo_apf_controller_node PUBLIC cxx_std_17)
 ament_target_dependencies(stereo_apf_controller_node ${APF_NODE_DEPS})
 
-add_executable(apf_safety_mux_node src/apf_safety_mux_node.cpp)
-target_include_directories(apf_safety_mux_node PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_compile_features(apf_safety_mux_node PUBLIC cxx_std_17)
-ament_target_dependencies(apf_safety_mux_node ${APF_NODE_DEPS})
-
 install(TARGETS
   uwb_target_seed_node
   stereo_apf_controller_node
-  apf_safety_mux_node
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/

@@ -2,11 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <limits>
 #include <optional>
-#include <utility>
 #include <vector>
 
 namespace go2_stereo_apf_follow
@@ -48,59 +44,50 @@ struct UwbTargetConfig
 
 struct PointFilterConfig
 {
-  double x_min{0.05};
+  double x_min{-4.0};
   double x_max{4.0};
-  double y_abs{1.5};
+  double y_abs{4.0};
   double z_min{0.05};
   double z_max{1.2};
-  double robot_frame_front{0.35};
+  double robot_frame_front{0.15};
   double robot_frame_back{0.35};
-  double robot_frame_left{0.20};
-  double robot_frame_right{0.20};
+  double robot_frame_left{0.15};
+  double robot_frame_right{0.15};
 };
 
 struct TargetTrackingConfig
 {
   double target_radius{0.30};
-  int min_points_in_target{3};
+  int min_points_in_target{1};
   double smoothing_alpha{0.35};
 };
 
 struct ApfConfig
 {
-  double influence_dist{1.2};
-  double repulse_gain{0.08};
-  double max_repulse{0.30};
-  double emergency_dist{0.45};
-  double slowdown_dist{1.0};
-  double corridor_width{0.70};
+  double influence_dist{0.25};
+  double repulse_gain{0.01};
+  double max_repulse{1.0};
+  double emergency_dist{0.2};
+  double slowdown_dist{0.25};
+  double corridor_width{0.35};
 };
 
 struct FollowControlConfig
 {
-  double follow_distance{2.0};
-  double distance_deadband{0.10};
+  double follow_distance{0.4};
+  double distance_deadband{0.05};
   double lateral_deadband{0.03};
-  double yaw_deadband{0.08};
-  double linear_scale{0.40};
-  double lateral_scale{0.60};
+  double yaw_deadband{0.10};
+  double linear_scale{0.50};
+  double lateral_scale{1.0};
   double angular_scale{1.0};
-  double max_vx{0.30};
-  double max_vy{0.20};
-  double max_wz{0.80};
-  double max_reverse_vx{0.0};
-  bool allow_reverse{false};
-};
-
-struct SafetyLimitConfig
-{
-  double max_vx{0.30};
-  double max_vy{0.20};
-  double max_wz{0.80};
-  double max_reverse_vx{0.0};
-  double max_accel_vx{0.6};
-  double max_accel_vy{0.8};
-  double max_accel_wz{1.5};
+  double max_vx{1.0};
+  double max_vy{1.0};
+  double max_wz{1.0};
+  double max_reverse_vx{1.0};
+  double reverse_scale{0.8};
+  double min_vx_abs{0.06};
+  bool allow_reverse{true};
 };
 
 struct ObstacleSummary
@@ -112,19 +99,6 @@ struct ObstacleSummary
   double left_y_min{0.0};
   double right_y_min{0.0};
 };
-
-struct LocalMapConfig
-{
-  double width_m{4.0};
-  double height_m{4.0};
-  double resolution{0.05};
-  double origin_x{0.0};
-  double origin_y{-2.0};
-  double obstacle_hold_sec{0.6};
-  int min_points_per_cell{1};
-};
-
-using GridCell = std::pair<int, int>;
 
 inline double clamp(double value, double low, double high)
 {
@@ -192,157 +166,6 @@ inline std::vector<Point3D> filter_points(
   }
   return filtered;
 }
-
-inline int grid_width_cells(const LocalMapConfig & config)
-{
-  return std::max(1, static_cast<int>(std::round(config.width_m / config.resolution)));
-}
-
-inline int grid_height_cells(const LocalMapConfig & config)
-{
-  return std::max(1, static_cast<int>(std::round(config.height_m / config.resolution)));
-}
-
-inline std::optional<GridCell> world_to_cell(const Point2D & point, const LocalMapConfig & config)
-{
-  if (!is_finite(point) || config.resolution <= 0.0) {
-    return std::nullopt;
-  }
-  const int cx = static_cast<int>(std::floor((point.x - config.origin_x) / config.resolution));
-  const int cy = static_cast<int>(std::floor((point.y - config.origin_y) / config.resolution));
-  if (cx < 0 || cy < 0 || cx >= grid_width_cells(config) || cy >= grid_height_cells(config)) {
-    return std::nullopt;
-  }
-  return GridCell{cx, cy};
-}
-
-inline Point2D cell_to_world(const GridCell & cell, const LocalMapConfig & config)
-{
-  return Point2D{
-    config.origin_x + (static_cast<double>(cell.first) + 0.5) * config.resolution,
-    config.origin_y + (static_cast<double>(cell.second) + 0.5) * config.resolution};
-}
-
-class LocalObstacleMap
-{
-public:
-  explicit LocalObstacleMap(LocalMapConfig config = LocalMapConfig())
-  {
-    configure(config);
-  }
-
-  void configure(const LocalMapConfig & config)
-  {
-    config_ = config;
-    if (config_.resolution <= 0.0) {
-      config_.resolution = 0.05;
-    }
-    const std::size_t size =
-      static_cast<std::size_t>(width_cells()) * static_cast<std::size_t>(height_cells());
-    last_seen_.assign(size, stale_stamp());
-  }
-
-  const LocalMapConfig & config() const
-  {
-    return config_;
-  }
-
-  int width_cells() const
-  {
-    return grid_width_cells(config_);
-  }
-
-  int height_cells() const
-  {
-    return grid_height_cells(config_);
-  }
-
-  std::size_t index(const GridCell & cell) const
-  {
-    return static_cast<std::size_t>(cell.first + cell.second * width_cells());
-  }
-
-  void update(const std::vector<Point3D> & points, double now_sec)
-  {
-    std::vector<int> counts(last_seen_.size(), 0);
-    for (const auto & point : points) {
-      auto cell = world_to_cell(Point2D{point.x, point.y}, config_);
-      if (cell.has_value()) {
-        ++counts[index(cell.value())];
-      }
-    }
-
-    const int min_count = std::max(1, config_.min_points_per_cell);
-    for (std::size_t idx = 0; idx < counts.size(); ++idx) {
-      if (counts[idx] >= min_count) {
-        last_seen_[idx] = now_sec;
-      }
-    }
-    prune(now_sec);
-  }
-
-  void prune(double now_sec)
-  {
-    for (auto & stamp : last_seen_) {
-      if (!stamp_is_active(stamp, now_sec)) {
-        stamp = stale_stamp();
-      }
-    }
-  }
-
-  bool is_occupied(const GridCell & cell, double now_sec) const
-  {
-    if (cell.first < 0 || cell.second < 0 || cell.first >= width_cells() || cell.second >= height_cells()) {
-      return false;
-    }
-    return stamp_is_active(last_seen_[index(cell)], now_sec);
-  }
-
-  std::vector<Point3D> occupied_points(double now_sec) const
-  {
-    std::vector<Point3D> points;
-    points.reserve(last_seen_.size());
-    for (int y = 0; y < height_cells(); ++y) {
-      for (int x = 0; x < width_cells(); ++x) {
-        const GridCell cell{x, y};
-        if (!is_occupied(cell, now_sec)) {
-          continue;
-        }
-        const auto point = cell_to_world(cell, config_);
-        points.push_back(Point3D{point.x, point.y, 0.0});
-      }
-    }
-    return points;
-  }
-
-  std::vector<int8_t> occupancy_data(double now_sec) const
-  {
-    std::vector<int8_t> data(last_seen_.size(), 0);
-    for (int y = 0; y < height_cells(); ++y) {
-      for (int x = 0; x < width_cells(); ++x) {
-        const GridCell cell{x, y};
-        if (is_occupied(cell, now_sec)) {
-          data[index(cell)] = 100;
-        }
-      }
-    }
-    return data;
-  }
-
-private:
-  static double stale_stamp()
-  {
-    return -std::numeric_limits<double>::infinity();
-  }
-
-  bool stamp_is_active(double stamp, double now_sec) const
-  {
-    return std::isfinite(stamp) && now_sec - stamp <= std::max(0.0, config_.obstacle_hold_sec);
-  }
-
-  LocalMapConfig config_;
-  std::vector<double> last_seen_;
-};
 
 inline std::optional<Point2D> parse_uwb_target(
   double x,
@@ -475,8 +298,13 @@ inline TwistCommand compute_follow_command(
   const double distance_error = target.x - control_config.follow_distance;
   if (std::abs(distance_error) >= control_config.distance_deadband) {
     cmd.vx = distance_error * control_config.linear_scale;
+    if (cmd.vx < 0.0) {
+      cmd.vx *= control_config.reverse_scale;
+    }
     if (!control_config.allow_reverse) {
       cmd.vx = std::max(0.0, cmd.vx);
+    } else if (control_config.min_vx_abs > 0.0 && std::abs(cmd.vx) < control_config.min_vx_abs) {
+      cmd.vx = cmd.vx > 0.0 ? control_config.min_vx_abs : -control_config.min_vx_abs;
     }
   }
 
@@ -498,7 +326,7 @@ inline TwistCommand compute_follow_command(
 
   if (
     obstacles.has_nearest && obstacles.nearest_dist < apf_config.slowdown_dist &&
-    cmd.vx > 0.0)
+    std::abs(cmd.vx) > 0.0)
   {
     const double scale =
       (obstacles.nearest_dist - apf_config.emergency_dist) /
@@ -511,38 +339,6 @@ inline TwistCommand compute_follow_command(
   cmd.vy = clamp(cmd.vy, -control_config.max_vy, control_config.max_vy);
   cmd.wz = clamp(cmd.wz, -control_config.max_wz, control_config.max_wz);
   return cmd;
-}
-
-inline double limit_delta(double current, double target, double max_delta)
-{
-  if (target > current + max_delta) {
-    return current + max_delta;
-  }
-  if (target < current - max_delta) {
-    return current - max_delta;
-  }
-  return target;
-}
-
-inline TwistCommand clip_command(const TwistCommand & cmd, const SafetyLimitConfig & config)
-{
-  return TwistCommand{
-    clamp(cmd.vx, -std::max(0.0, config.max_reverse_vx), config.max_vx),
-    clamp(cmd.vy, -config.max_vy, config.max_vy),
-    clamp(cmd.wz, -config.max_wz, config.max_wz)};
-}
-
-inline TwistCommand ramp_command(
-  const TwistCommand & current,
-  const TwistCommand & target,
-  double dt,
-  const SafetyLimitConfig & config)
-{
-  const double safe_dt = std::max(1e-3, dt);
-  return TwistCommand{
-    limit_delta(current.vx, target.vx, config.max_accel_vx * safe_dt),
-    limit_delta(current.vy, target.vy, config.max_accel_vy * safe_dt),
-    limit_delta(current.wz, target.wz, config.max_accel_wz * safe_dt)};
 }
 
 }  // namespace go2_stereo_apf_follow

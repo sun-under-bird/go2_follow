@@ -38,9 +38,7 @@ def generate_launch_description():
     camera_launch = PathJoinSubstitution(
         [FindPackageShare("stereo_camera_pkg"), "launch", "usb_400.launch.py"]
     )
-    rtabmap_launch = PathJoinSubstitution(
-        [FindPackageShare("stereo_camera_pkg"), "launch", "navigation.launch.py"]
-    )
+    rtabmap_launch = os.path.join(pkg_share, "launch", "d435i_rtabmap.launch.py")
 
     return LaunchDescription(
         [
@@ -84,9 +82,9 @@ def generate_launch_description():
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(rtabmap_launch),
                 launch_arguments={
-                    "use_nav2": "false",
+                    "base_frame": "base_footprint",
+                    "odom_topic": "/odom_leg",
                     "use_viz": "false",
-                    "use_sim_time": use_sim_time,
                 }.items(),
                 condition=IfCondition(start_rtabmap),
             ),

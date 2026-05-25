@@ -42,6 +42,7 @@ local_path_planner:
     base_frame: base_link
     path_frame: odom
     pointcloud_topic: /local_grid_obstacle
+    ground_topic: /local_grid_ground
     goal_topic: /follow_goal
     target_valid_topic: /follow/target_valid
     path_topic: /follow_path
@@ -55,7 +56,7 @@ local_path_planner:
     obstacle_x_min: 0.05
     obstacle_x_max: 4.0
     obstacle_y_abs: 1.5
-    obstacle_z_min: 0.05
+    obstacle_z_min: 0.10
     obstacle_z_max: 1.2
     inflation_radius: 0.35
     start_clear_radius: 0.30
@@ -63,8 +64,16 @@ local_path_planner:
     goal_reached_tolerance: 0.15
     path_spacing: 0.10
     pointcloud_timeout_sec: 0.5
-    obstacle_hold_sec: 0.6
-    min_points_per_cell: 2
+    obstacle_hold_sec: 0.2
+    min_points_per_cell: 3
+    ground_clear_enabled: true
+    ground_timeout_sec: 0.7
+    ground_z_min: 0.0
+    ground_z_max: 0.25
+    ground_clear_radius: 0.12
+    ground_min_points_per_cell: 1
+    ground_clear_overrides_obstacles: true
+    ground_raytrace_clear_enabled: true
     goal_projection_enabled: true
     publish_rate_hz: 10.0
     emergency_x_max: 0.45

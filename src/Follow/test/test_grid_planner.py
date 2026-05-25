@@ -3,7 +3,9 @@ from go2_dynamic_follow_avoidance.grid_planner import (
     astar,
     build_costmap,
     clear_radius,
+    point_cells,
     project_goal_to_grid,
+    raytrace_cells,
 )
 
 
@@ -66,6 +68,32 @@ def test_costmap_requires_multiple_points_per_cell():
 
     assert result.nearest_front_obstacle_m == 0.4
     assert len(result.occupied) == 1
+
+
+def test_point_cells_filters_ground_clear_points():
+    spec = GridSpec(width_m=2.0, height_m=2.0, resolution=0.1, origin_x=-0.5, origin_y=-1.0)
+    cells = point_cells(
+        spec,
+        [(0.4, 0.0, 0.05), (0.42, 0.01, 0.08), (0.5, 0.0, 0.4), (1.0, 1.3, 0.05)],
+        x_min=0.05,
+        x_max=2.0,
+        y_abs=1.0,
+        z_min=0.0,
+        z_max=0.25,
+        max_points=100,
+        min_points_per_cell=2,
+    )
+
+    assert cells == {spec.world_to_cell((0.4, 0.0))}
+
+
+def test_raytrace_cells_clears_between_base_and_ground():
+    spec = GridSpec(width_m=2.0, height_m=2.0, resolution=0.1, origin_x=-0.5, origin_y=-1.0)
+    cells = raytrace_cells(spec, (0.0, 0.0), [(0.6, 0.0)])
+
+    assert spec.world_to_cell((0.0, 0.0)) in cells
+    assert spec.world_to_cell((0.3, 0.0)) in cells
+    assert spec.world_to_cell((0.6, 0.0)) in cells
 
 
 def test_project_goal_to_grid_clips_to_front_edge():

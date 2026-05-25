@@ -1,0 +1,29 @@
+uwb_path_tracker_node:
+  ros__parameters:
+    uwb_topic: /libAoa_robot_publisher
+    odom_frame: odom
+    base_frame: base_link
+    uwb_frame: uwb_link
+    use_tf_for_uwb: true
+
+    target_path_topic: /uwb_target_history
+    follow_path_topic: /follow_path
+    target_valid_topic: /follow/target_valid
+    status_topic: /follow/uwb_path_status
+
+    follow_path_action: follow_path
+    controller_id: FollowPath
+    goal_checker_id: ""
+
+    follow_distance_m: 1.2
+    history_length_m: 6.0
+    min_sample_spacing_m: 0.10
+    max_target_jump_m: 1.5
+    max_target_speed_mps: 3.0
+    min_target_distance_m: 0.25
+    max_target_distance_m: 8.0
+    target_timeout_sec: 2.0
+
+    publish_rate_hz: 10.0
+    action_resend_period_sec: 0.5
+    min_path_poses: 2

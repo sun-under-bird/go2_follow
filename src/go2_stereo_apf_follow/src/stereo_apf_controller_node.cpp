@@ -6,13 +6,14 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
@@ -24,6 +25,8 @@
 #include "tf2/time.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 #include "go2_stereo_apf_follow/apf_core.hpp"
 
@@ -87,10 +90,11 @@ public:
     seed_valid_topic_ = declare_parameter<std::string>("seed_valid_topic", "/stereo_apf/seed_valid");
     manual_target_topic_ = declare_parameter<std::string>("manual_target_topic", "/stereo_apf/manual_target");
     enabled_topic_ = declare_parameter<std::string>("enabled_topic", "/stereo_apf/enabled");
-    cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_apf");
+    cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
     target_topic_ = declare_parameter<std::string>("target_topic", "/stereo_apf/target");
     status_topic_ = declare_parameter<std::string>("status_topic", "/stereo_apf/status");
-    local_map_topic_ = declare_parameter<std::string>("local_map_topic", "/stereo_apf/local_map");
+    potential_field_topic_ =
+      declare_parameter<std::string>("potential_field_topic", "/stereo_apf/potential_field");
     enabled_ = declare_parameter<bool>("enabled_default", true);
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 30.0);
     pointcloud_timeout_sec_ = declare_parameter<double>("pointcloud_timeout_sec", 0.5);
@@ -99,48 +103,48 @@ public:
     seed_reset_distance_ = declare_parameter<double>("seed_reset_distance", 1.0);
     max_points_per_cloud_ = declare_parameter<int>("max_points_per_cloud", 60000);
 
-    filter_config_.x_min = declare_parameter<double>("obstacle_x_min", 0.05);
+    filter_config_.x_min = declare_parameter<double>("obstacle_x_min", -4.0);
     filter_config_.x_max = declare_parameter<double>("obstacle_x_max", 4.0);
-    filter_config_.y_abs = declare_parameter<double>("obstacle_y_abs", 1.5);
+    filter_config_.y_abs = declare_parameter<double>("obstacle_y_abs", 4.0);
     filter_config_.z_min = declare_parameter<double>("obstacle_z_min", 0.05);
     filter_config_.z_max = declare_parameter<double>("obstacle_z_max", 1.2);
-    filter_config_.robot_frame_front = declare_parameter<double>("robot_frame_front", 0.35);
+    filter_config_.robot_frame_front = declare_parameter<double>("robot_frame_front", 0.15);
     filter_config_.robot_frame_back = declare_parameter<double>("robot_frame_back", 0.35);
-    filter_config_.robot_frame_left = declare_parameter<double>("robot_frame_left", 0.20);
-    filter_config_.robot_frame_right = declare_parameter<double>("robot_frame_right", 0.20);
-
-    local_map_config_.width_m = declare_parameter<double>("local_map_width_m", 4.0);
-    local_map_config_.height_m = declare_parameter<double>("local_map_height_m", 4.0);
-    local_map_config_.resolution = declare_parameter<double>("local_map_resolution", 0.05);
-    local_map_config_.origin_x = declare_parameter<double>("local_map_origin_x", 0.0);
-    local_map_config_.origin_y = declare_parameter<double>("local_map_origin_y", -2.0);
-    local_map_config_.obstacle_hold_sec = declare_parameter<double>("obstacle_hold_sec", 0.6);
-    local_map_config_.min_points_per_cell = declare_parameter<int>("local_map_min_points_per_cell", 1);
-    local_map_.configure(local_map_config_);
+    filter_config_.robot_frame_left = declare_parameter<double>("robot_frame_left", 0.15);
+    filter_config_.robot_frame_right = declare_parameter<double>("robot_frame_right", 0.15);
 
     tracking_config_.target_radius = declare_parameter<double>("target_radius", 0.30);
-    tracking_config_.min_points_in_target = declare_parameter<int>("min_points_in_target", 3);
+    tracking_config_.min_points_in_target = declare_parameter<int>("min_points_in_target", 1);
     tracking_config_.smoothing_alpha = declare_parameter<double>("smoothing_alpha", 0.35);
 
-    apf_config_.influence_dist = declare_parameter<double>("apf_influence_dist", 1.2);
-    apf_config_.repulse_gain = declare_parameter<double>("apf_repulse_gain", 0.08);
-    apf_config_.max_repulse = declare_parameter<double>("apf_max_repulse", 0.30);
-    apf_config_.emergency_dist = declare_parameter<double>("apf_emergency_dist", 0.45);
-    apf_config_.slowdown_dist = declare_parameter<double>("apf_slowdown_dist", 1.0);
-    apf_config_.corridor_width = declare_parameter<double>("corridor_width", 0.70);
+    apf_config_.influence_dist = declare_parameter<double>("apf_influence_dist", 0.25);
+    apf_config_.repulse_gain = declare_parameter<double>("apf_repulse_gain", 0.01);
+    apf_config_.max_repulse = declare_parameter<double>("apf_max_repulse", 1.0);
+    apf_config_.emergency_dist = declare_parameter<double>("apf_emergency_dist", 0.2);
+    apf_config_.slowdown_dist = declare_parameter<double>("apf_slowdown_dist", 0.25);
+    apf_config_.corridor_width = declare_parameter<double>("corridor_width", 0.35);
 
-    control_config_.follow_distance = declare_parameter<double>("follow_distance", 2.0);
-    control_config_.distance_deadband = declare_parameter<double>("distance_deadband", 0.10);
+    control_config_.follow_distance = declare_parameter<double>("follow_distance", 0.4);
+    control_config_.distance_deadband = declare_parameter<double>("distance_deadband", 0.05);
     control_config_.lateral_deadband = declare_parameter<double>("lateral_deadband", 0.03);
-    control_config_.yaw_deadband = declare_parameter<double>("yaw_deadband", 0.08);
-    control_config_.linear_scale = declare_parameter<double>("linear_scale", 0.40);
-    control_config_.lateral_scale = declare_parameter<double>("lateral_scale", 0.60);
+    control_config_.yaw_deadband = declare_parameter<double>("yaw_deadband", 0.10);
+    control_config_.linear_scale = declare_parameter<double>("linear_scale", 0.50);
+    control_config_.lateral_scale = declare_parameter<double>("lateral_scale", 1.0);
     control_config_.angular_scale = declare_parameter<double>("angular_scale", 1.0);
-    control_config_.max_vx = declare_parameter<double>("max_vx", 0.30);
-    control_config_.max_vy = declare_parameter<double>("max_vy", 0.20);
-    control_config_.max_wz = declare_parameter<double>("max_vyaw", 0.80);
-    control_config_.max_reverse_vx = declare_parameter<double>("max_reverse_vx", 0.0);
-    control_config_.allow_reverse = declare_parameter<bool>("allow_reverse", false);
+    control_config_.max_vx = declare_parameter<double>("max_vx", 1.0);
+    control_config_.max_vy = declare_parameter<double>("max_vy", 1.0);
+    control_config_.max_wz = declare_parameter<double>("max_vyaw", 1.0);
+    control_config_.max_reverse_vx = declare_parameter<double>("max_reverse_vx", 1.0);
+    control_config_.reverse_scale = declare_parameter<double>("reverse_scale", 0.8);
+    control_config_.min_vx_abs = declare_parameter<double>("min_vx_abs", 0.06);
+    control_config_.allow_reverse = declare_parameter<bool>("allow_reverse", true);
+
+    publish_potential_field_ = declare_parameter<bool>("publish_potential_field", false);
+    potential_field_sample_step_ = declare_parameter<double>("potential_field_sample_step", 0.40);
+    potential_field_arrow_length_ = declare_parameter<double>("potential_field_arrow_length", 0.18);
+    potential_field_attraction_gain_ = declare_parameter<double>("potential_field_attraction_gain", 1.0);
+    potential_field_min_vector_norm_ = declare_parameter<double>("potential_field_min_vector_norm", 0.02);
+    potential_field_max_arrows_ = declare_parameter<int>("potential_field_max_arrows", 300);
 
     cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       pointcloud_topic_,
@@ -166,7 +170,8 @@ public:
     cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
     target_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(target_topic_, 10);
     status_pub_ = create_publisher<std_msgs::msg::String>(status_topic_, 10);
-    local_map_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(local_map_topic_, 2);
+    potential_field_pub_ =
+      create_publisher<visualization_msgs::msg::MarkerArray>(potential_field_topic_, 2);
 
     const auto period = std::chrono::duration<double>(1.0 / std::max(1.0, publish_rate_hz_));
     timer_ = create_wall_timer(
@@ -221,8 +226,7 @@ private:
     }
 
     const auto current_time = now();
-    local_map_.update(points, current_time.seconds());
-    latest_points_ = local_map_.occupied_points(current_time.seconds());
+    latest_points_ = std::move(points);
     latest_cloud_time_ = current_time;
     have_cloud_ = true;
   }
@@ -321,21 +325,20 @@ private:
   void tick()
   {
     const auto current_time = now();
-    local_map_.prune(current_time.seconds());
-    latest_points_ = local_map_.occupied_points(current_time.seconds());
-    publish_local_map(current_time.seconds());
-
     if (!enabled_) {
+      publish_potential_field_delete();
       publish_zero("stop: disabled");
       return;
     }
     if (!have_cloud_ || !age_ok(latest_cloud_time_, pointcloud_timeout_sec_)) {
+      publish_potential_field_delete();
       publish_zero("stop: obstacle cloud stale");
       return;
     }
 
     if (!have_target_) {
       if (!refresh_target_from_seed(true)) {
+        publish_potential_field_delete();
         publish_zero("stop: target unavailable");
         return;
       }
@@ -357,6 +360,7 @@ private:
     } else if ((now() - target_time_).seconds() > target_hold_sec_) {
       if (!refresh_target_from_seed(true)) {
         have_target_ = false;
+        publish_potential_field_delete();
         publish_zero("stop: target lost");
         return;
       }
@@ -373,6 +377,7 @@ private:
       control_config_);
     cmd_pub_->publish(to_twist(cmd));
     publish_target();
+    publish_potential_field();
 
     if (summary.has_nearest && summary.nearest_dist < apf_config_.emergency_dist) {
       publish_status("stop: obstacle emergency");
@@ -394,19 +399,127 @@ private:
     target_pub_->publish(pose);
   }
 
-  void publish_local_map(double now_sec)
+  go2_stereo_apf_follow::Point2D potential_vector_at(
+    const go2_stereo_apf_follow::Point2D & sample) const
   {
-    nav_msgs::msg::OccupancyGrid grid;
-    grid.header.stamp = now();
-    grid.header.frame_id = base_frame_;
-    grid.info.resolution = local_map_config_.resolution;
-    grid.info.width = static_cast<unsigned int>(local_map_.width_cells());
-    grid.info.height = static_cast<unsigned int>(local_map_.height_cells());
-    grid.info.origin.position.x = local_map_config_.origin_x;
-    grid.info.origin.position.y = local_map_config_.origin_y;
-    grid.info.origin.orientation.w = 1.0;
-    grid.data = local_map_.occupancy_data(now_sec);
-    local_map_pub_->publish(grid);
+    go2_stereo_apf_follow::Point2D vector{
+      potential_field_attraction_gain_ * (target_.x - sample.x),
+      potential_field_attraction_gain_ * (target_.y - sample.y)};
+
+    for (const auto & obstacle : latest_points_) {
+      const double dx = sample.x - obstacle.x;
+      const double dy = sample.y - obstacle.y;
+      const double dist = std::hypot(dx, dy);
+      if (dist <= 1e-6 || dist >= apf_config_.influence_dist) {
+        continue;
+      }
+      const double force =
+        apf_config_.repulse_gain * (1.0 / dist - 1.0 / apf_config_.influence_dist) / (dist * dist);
+      vector.x += force * dx / dist;
+      vector.y += force * dy / dist;
+    }
+    return vector;
+  }
+
+  bool sample_has_obstacle(
+    const go2_stereo_apf_follow::Point2D & sample,
+    double radius) const
+  {
+    for (const auto & obstacle : latest_points_) {
+      if (std::hypot(sample.x - obstacle.x, sample.y - obstacle.y) <= radius) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void publish_potential_field_delete()
+  {
+    if (!publish_potential_field_) {
+      return;
+    }
+    visualization_msgs::msg::MarkerArray markers;
+    visualization_msgs::msg::Marker marker;
+    marker.header.stamp = now();
+    marker.header.frame_id = base_frame_;
+    marker.ns = "stereo_apf_potential_field";
+    marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    markers.markers.push_back(marker);
+    potential_field_pub_->publish(markers);
+  }
+
+  void publish_potential_field()
+  {
+    if (!publish_potential_field_) {
+      return;
+    }
+    const double step = std::max(0.05, potential_field_sample_step_);
+    const double arrow_length = std::max(0.01, potential_field_arrow_length_);
+    const int max_arrows = std::max(1, potential_field_max_arrows_);
+
+    visualization_msgs::msg::MarkerArray markers;
+    visualization_msgs::msg::Marker clear_marker;
+    clear_marker.header.stamp = now();
+    clear_marker.header.frame_id = base_frame_;
+    clear_marker.ns = "stereo_apf_potential_field";
+    clear_marker.action = visualization_msgs::msg::Marker::DELETEALL;
+    markers.markers.push_back(clear_marker);
+
+    int id = 0;
+    const double min_x = std::max(-2.0, filter_config_.x_min);
+    const double max_x = std::min(4.0, filter_config_.x_max);
+    const double min_y = -std::min(2.0, filter_config_.y_abs);
+    const double max_y = std::min(2.0, filter_config_.y_abs);
+
+    for (double x = min_x + 0.5 * step; x <= max_x && id < max_arrows; x += step) {
+      for (double y = min_y + 0.5 * step; y <= max_y && id < max_arrows; y += step) {
+        const go2_stereo_apf_follow::Point2D sample{x, y};
+        const auto vector = potential_vector_at(sample);
+        const double norm = std::hypot(vector.x, vector.y);
+        if (norm < potential_field_min_vector_norm_) {
+          continue;
+        }
+
+        geometry_msgs::msg::Point start;
+        start.x = sample.x;
+        start.y = sample.y;
+        start.z = 0.05;
+        geometry_msgs::msg::Point end;
+        end.x = sample.x + arrow_length * vector.x / norm;
+        end.y = sample.y + arrow_length * vector.y / norm;
+        end.z = 0.05;
+
+        visualization_msgs::msg::Marker marker;
+        marker.header.stamp = now();
+        marker.header.frame_id = base_frame_;
+        marker.ns = "stereo_apf_potential_field";
+        marker.id = id++;
+        marker.type = visualization_msgs::msg::Marker::ARROW;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.points.push_back(start);
+        marker.points.push_back(end);
+        marker.scale.x = 0.025;
+        marker.scale.y = 0.055;
+        marker.scale.z = 0.055;
+        marker.color.a = 0.85;
+
+        const bool occupied = sample_has_obstacle(sample, step * 0.5);
+        if (occupied) {
+          marker.color.r = 1.0;
+          marker.color.g = 0.1;
+          marker.color.b = 0.05;
+        } else {
+          const double obstacle_intensity = go2_stereo_apf_follow::clamp(norm / 2.0, 0.0, 1.0);
+          marker.color.r = obstacle_intensity;
+          marker.color.g = 0.35;
+          marker.color.b = 1.0 - 0.6 * obstacle_intensity;
+        }
+
+        markers.markers.push_back(marker);
+      }
+    }
+
+    potential_field_pub_->publish(markers);
   }
 
   void publish_zero(const std::string & status)
@@ -436,7 +549,7 @@ private:
   std::string cmd_vel_topic_;
   std::string target_topic_;
   std::string status_topic_;
-  std::string local_map_topic_;
+  std::string potential_field_topic_;
   bool enabled_{true};
   double publish_rate_hz_{30.0};
   double pointcloud_timeout_sec_{0.5};
@@ -446,11 +559,15 @@ private:
   int max_points_per_cloud_{60000};
 
   go2_stereo_apf_follow::PointFilterConfig filter_config_;
-  go2_stereo_apf_follow::LocalMapConfig local_map_config_;
-  go2_stereo_apf_follow::LocalObstacleMap local_map_;
   go2_stereo_apf_follow::TargetTrackingConfig tracking_config_;
   go2_stereo_apf_follow::ApfConfig apf_config_;
   go2_stereo_apf_follow::FollowControlConfig control_config_;
+  bool publish_potential_field_{false};
+  double potential_field_sample_step_{0.40};
+  double potential_field_arrow_length_{0.18};
+  double potential_field_attraction_gain_{1.0};
+  double potential_field_min_vector_norm_{0.02};
+  int potential_field_max_arrows_{300};
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -462,7 +579,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr target_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr status_pub_;
-  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr local_map_pub_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr potential_field_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::vector<go2_stereo_apf_follow::Point3D> latest_points_;
