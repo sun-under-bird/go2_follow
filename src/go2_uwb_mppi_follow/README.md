@@ -18,7 +18,7 @@ UWB 相对目标坐标
   -> MPPI 障碍物代价
 ```
 
-UWB 用来回答“目标在哪里、刚才怎么走”，双目局部地图用来回答“机器狗前方哪里不能走”。本包不直接处理点云，也不直接输出速度，而是输出 MPPI 可以跟踪的局部参考路径。
+UWB 用来回答“目标在哪里、刚才怎么走”，双目局部地图用来回答“机器狗前方哪里不能走”。本包输出 MPPI 可以跟踪的局部参考路径，并提供目标障碍过滤节点，避免被跟随的人被双目点云持续当成障碍物。
 
 ## 主要节点
 
@@ -38,6 +38,29 @@ UWB 用来回答“目标在哪里、刚才怎么走”，双目局部地图用�
 - `/follow_path`：发送给 MPPI 跟踪的滞后参考路径，类型为 `nav_msgs/msg/Path`
 - `/follow/target_valid`：目标是否有效，类型为 `std_msgs/msg/Bool`
 - `/follow/uwb_path_status`：节点状态，类型为 `std_msgs/msg/String`
+
+### `target_obstacle_filter_node`
+
+订阅原始障碍点云和 UWB 目标历史路径，删除目标人附近的小圆柱点云。
+
+输入：
+
+- `/local_grid_obstacle`：RTAB-Map 或双目节点发布的原始障碍点云
+- `/uwb_target_history`：UWB 目标历史路径，最后一个点作为当前目标位置
+
+输出：
+
+- `/local_grid_obstacle_filtered`：过滤掉被跟随目标附近点云后的障碍点云
+
+默认清除区域：
+
+```yaml
+clear_radius_m: 0.45
+clear_z_min_m: 0.05
+clear_z_max_m: 2.0
+```
+
+这个区域只应该覆盖被跟随的人，不建议设得过大，否则会误删目标附近的桌腿、墙角或其他真实障碍。
 
 ## 必要 TF
 
@@ -100,12 +123,12 @@ ros2 launch go2_uwb_mppi_follow uwb_mppi_follow.launch.py \
 
 ## 与 Nav2 MPPI 的关系
 
-本包只负责生成 `/follow_path` 并发送 `FollowPath` action。MPPI 控制器、local costmap、双目点云输入仍然需要由 Nav2 配置提供。
+本包负责生成 `/follow_path` 并发送 `FollowPath` action。MPPI 控制器和 local costmap 由 Nav2 配置提供。
 
-典型 Nav2 local costmap 输入可以是：
+当前 Nav2 local costmap 的障碍输入使用过滤后的点云：
 
 ```text
-/local_grid_obstacle
+/local_grid_obstacle_filtered
 /local_grid_ground
 ```
 
@@ -135,4 +158,4 @@ ros2 topic echo /uwb_target_history
 - 依赖短时 `odom` 和 yaw 稳定性。
 - UWB 多径或跳点严重时，需要继续收紧过滤参数。
 - 只有前置双目时，应保持低速，并在 local costmap 无效时停车。
-- 本包不会替代 Nav2 local costmap，也不会直接处理深度图或点云。
+- 本包不会替代 Nav2 local costmap，只会对目标人附近的障碍点云做局部剔除。

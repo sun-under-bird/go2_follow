@@ -5,31 +5,36 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-# 创建启动描述，声明参数文件并启动 UWB 路径跟随节点。
 def generate_launch_description():
+    use_sim_time = LaunchConfiguration("use_sim_time")
     params_file = LaunchConfiguration("params_file")
 
     default_params_file = PathJoinSubstitution(
         [
-            FindPackageShare("go2_uwb_mppi_follow"),
+            FindPackageShare("go2_uwb_dwb_follow"),
             "config",
-            "uwb_mppi_follow.yaml",
+            "uwb_dwb_follow.yaml",
         ]
     )
 
     return LaunchDescription(
         [
             DeclareLaunchArgument(
+                "use_sim_time",
+                default_value="false",
+                description="Use simulation clock if true.",
+            ),
+            DeclareLaunchArgument(
                 "params_file",
                 default_value=default_params_file,
-                description="UWB MPPI follow parameter file.",
+                description="Parameter file for UWB DWB follow helper nodes.",
             ),
             Node(
-                package="go2_uwb_mppi_follow",
-                executable="uwb_path_tracker_node",
-                name="uwb_path_tracker_node",
+                package="go2_uwb_dwb_follow",
+                executable="uwb_point_follow_node",
+                name="uwb_point_follow_node",
                 output="screen",
-                parameters=[params_file],
+                parameters=[params_file, {"use_sim_time": use_sim_time}],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
         ]

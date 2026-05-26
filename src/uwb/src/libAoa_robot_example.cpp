@@ -29,12 +29,12 @@ public:
   : Node("libAoa_robot_publisher"), running_(false), serial_port_(-1)
   {
     frame_id_ = this->declare_parameter<std::string>("frame_id", "base_link");
-    publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 1.0);
+    publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 10.0);
     if (publish_rate_hz_ <= 0.0) {
       RCLCPP_WARN(
         this->get_logger(),
-        "publish_rate_hz must be positive, using 1.0 Hz instead");
-      publish_rate_hz_ = 1.0;
+        "publish_rate_hz must be positive, using 10.0 Hz instead");
+      publish_rate_hz_ = 10.0;
     }
     publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
     publisher_ = this->create_publisher<uwb_aoa_pkg::msg::LibAoaRobotMsg>(

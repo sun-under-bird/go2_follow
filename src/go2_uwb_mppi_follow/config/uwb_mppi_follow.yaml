@@ -5,6 +5,9 @@ uwb_path_tracker_node:
     base_frame: base_link
     uwb_frame: uwb_link
     use_tf_for_uwb: true
+    use_latest_tf: true
+    prefer_range_angle: true
+    transform_timeout_sec: 0.2
 
     target_path_topic: /uwb_target_history
     follow_path_topic: /follow_path
@@ -20,10 +23,24 @@ uwb_path_tracker_node:
     min_sample_spacing_m: 0.10
     max_target_jump_m: 1.5
     max_target_speed_mps: 3.0
-    min_target_distance_m: 0.25
+    min_target_distance_m: 0.05
     max_target_distance_m: 8.0
     target_timeout_sec: 2.0
 
     publish_rate_hz: 10.0
     action_resend_period_sec: 0.5
     min_path_poses: 2
+
+target_obstacle_filter_node:
+  ros__parameters:
+    input_cloud_topic: /local_grid_obstacle
+    output_cloud_topic: /local_grid_obstacle_filtered
+    target_path_topic: /uwb_target_history
+    filter_frame: base_link
+    target_timeout_sec: 0.8
+    transform_timeout_sec: 0.2
+    clear_radius_m: 0.55
+    clear_z_min_m: 0.05
+    clear_z_max_m: 2.0
+    pass_through_without_target: true
+    use_latest_tf: true

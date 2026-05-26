@@ -5,26 +5,25 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-# 创建完整启动描述，同时启动 UWB 路径节点和 Nav2 MPPI 控制器。
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
-    uwb_params_file = LaunchConfiguration("uwb_params_file")
+    follow_params_file = LaunchConfiguration("follow_params_file")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
     cmd_vel_out = LaunchConfiguration("cmd_vel_out")
 
-    default_uwb_params_file = PathJoinSubstitution(
+    default_follow_params_file = PathJoinSubstitution(
         [
-            FindPackageShare("go2_uwb_mppi_follow"),
+            FindPackageShare("go2_uwb_dwb_follow"),
             "config",
-            "uwb_mppi_follow.yaml",
+            "uwb_dwb_follow.yaml",
         ]
     )
     default_nav2_params_file = PathJoinSubstitution(
         [
-            FindPackageShare("go2_uwb_mppi_follow"),
+            FindPackageShare("go2_uwb_dwb_follow"),
             "config",
-            "nav2_mppi_controller.yaml",
+            "nav2_dwb_controller.yaml",
         ]
     )
 
@@ -41,14 +40,14 @@ def generate_launch_description():
                 description="Automatically configure and activate Nav2 lifecycle nodes.",
             ),
             DeclareLaunchArgument(
-                "uwb_params_file",
-                default_value=default_uwb_params_file,
-                description="Parameter file for the UWB path tracker node.",
+                "follow_params_file",
+                default_value=default_follow_params_file,
+                description="Parameter file for UWB DWB follow helper nodes.",
             ),
             DeclareLaunchArgument(
                 "nav2_params_file",
                 default_value=default_nav2_params_file,
-                description="Parameter file for Nav2 controller server and local costmap.",
+                description="Parameter file for Nav2 DWB controller server and local costmap.",
             ),
             DeclareLaunchArgument(
                 "cmd_vel_out",
@@ -77,19 +76,11 @@ def generate_launch_description():
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
-                package="go2_uwb_mppi_follow",
-                executable="uwb_path_tracker_node",
-                name="uwb_path_tracker_node",
+                package="go2_uwb_dwb_follow",
+                executable="uwb_point_follow_node",
+                name="uwb_point_follow_node",
                 output="screen",
-                parameters=[uwb_params_file, {"use_sim_time": use_sim_time}],
-                arguments=["--ros-args", "--log-level", "warn"],
-            ),
-            Node(
-                package="go2_uwb_mppi_follow",
-                executable="target_obstacle_filter_node",
-                name="target_obstacle_filter_node",
-                output="screen",
-                parameters=[uwb_params_file, {"use_sim_time": use_sim_time}],
+                parameters=[follow_params_file, {"use_sim_time": use_sim_time}],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
         ]

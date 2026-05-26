@@ -78,7 +78,7 @@ UwbPathTrackerNode::UwbPathTrackerNode()
     timer_period,
     std::bind(&UwbPathTrackerNode::timerCallback, this));
 
-  RCLCPP_INFO(get_logger(), "uwb_path_tracker_node started");
+  RCLCPP_WARN(get_logger(), "uwb_path_tracker_node started");
 }
 
 // 声明节点使用的所有可调 ROS 参数。
@@ -100,13 +100,16 @@ void UwbPathTrackerNode::declareParameters()
   declare_parameter<double>("min_sample_spacing_m", 0.10);
   declare_parameter<double>("max_target_jump_m", 1.5);
   declare_parameter<double>("max_target_speed_mps", 3.0);
-  declare_parameter<double>("min_target_distance_m", 0.25);
+  declare_parameter<double>("min_target_distance_m", 0.05);
   declare_parameter<double>("max_target_distance_m", 8.0);
   declare_parameter<double>("target_timeout_sec", 2.0);
   declare_parameter<double>("publish_rate_hz", 10.0);
   declare_parameter<double>("action_resend_period_sec", 0.5);
+  declare_parameter<double>("transform_timeout_sec", 0.2);
   declare_parameter<int>("min_path_poses", 2);
   declare_parameter<bool>("use_tf_for_uwb", true);
+  declare_parameter<bool>("use_latest_tf", true);
+  declare_parameter<bool>("prefer_range_angle", true);
 }
 
 // 读取 ROS 参数并缓存到跟随配置中。
@@ -133,8 +136,11 @@ void UwbPathTrackerNode::loadParameters()
   config_.target_timeout_sec = get_parameter("target_timeout_sec").as_double();
   config_.publish_rate_hz = get_parameter("publish_rate_hz").as_double();
   config_.action_resend_period_sec = get_parameter("action_resend_period_sec").as_double();
+  config_.transform_timeout_sec = get_parameter("transform_timeout_sec").as_double();
   config_.min_path_poses = get_parameter("min_path_poses").as_int();
   config_.use_tf_for_uwb = get_parameter("use_tf_for_uwb").as_bool();
+  config_.use_latest_tf = get_parameter("use_latest_tf").as_bool();
+  config_.prefer_range_angle = get_parameter("prefer_range_angle").as_bool();
 }
 
 // 接收原始 UWB 数据，转换到 odom 后写入短时目标历史路径。
@@ -206,11 +212,17 @@ std::optional<geometry_msgs::msg::Point> UwbPathTrackerNode::parseUwbTarget(
   }
 
   const bool xy_valid = isFinite(msg.x) && isFinite(msg.y);
+  const bool range_angle_valid = isFinite(msg.r) && isFinite(msg.a) && msg.r > 1e-6;
+
+  if (config_.prefer_range_angle && range_angle_valid) {
+    return makePoint(msg.r * std::cos(msg.a), msg.r * std::sin(msg.a));
+  }
+
   if (xy_valid && std::hypot(msg.x, msg.y) > 1e-6) {
     return makePoint(msg.x, msg.y);
   }
 
-  if (isFinite(msg.r) && isFinite(msg.a)) {
+  if (range_angle_valid) {
     return makePoint(msg.r * std::cos(msg.a), msg.r * std::sin(msg.a));
   }
 
@@ -237,14 +249,14 @@ std::optional<geometry_msgs::msg::Point> UwbPathTrackerNode::targetToOdom(
 
   geometry_msgs::msg::PointStamped source;
   source.header.frame_id = source_frame;
-  source.header.stamp = stamp;
+  source.header.stamp = config_.use_latest_tf ? rclcpp::Time(0, 0, get_clock()->get_clock_type()) : stamp;
   source.point = target;
 
   try {
     const auto transformed = tf_buffer_->transform(
       source,
       config_.odom_frame,
-      tf2::durationFromSec(0.05));
+      tf2::durationFromSec(config_.transform_timeout_sec));
     return transformed.point;
   } catch (const tf2::TransformException & exc) {
     RCLCPP_WARN_THROTTLE(
@@ -267,14 +279,14 @@ std::optional<geometry_msgs::msg::Point> UwbPathTrackerNode::robotPointInOdom(
 
   geometry_msgs::msg::PointStamped source;
   source.header.frame_id = config_.base_frame;
-  source.header.stamp = stamp;
+  source.header.stamp = config_.use_latest_tf ? rclcpp::Time(0, 0, get_clock()->get_clock_type()) : stamp;
   source.point = makePoint(0.0, 0.0);
 
   try {
     const auto transformed = tf_buffer_->transform(
       source,
       config_.odom_frame,
-      tf2::durationFromSec(0.05));
+      tf2::durationFromSec(config_.transform_timeout_sec));
     return transformed.point;
   } catch (const tf2::TransformException & exc) {
     RCLCPP_WARN_THROTTLE(
@@ -435,8 +447,7 @@ std::optional<nav_msgs::msg::Path> UwbPathTrackerNode::buildFollowPath(
   }
 
   if (!found_follow_point) {
-    follow_point = target_history_.front().point;
-    follow_prev_index = 0;
+    return std::nullopt;
   }
 
   std::size_t nearest_index = 0;
@@ -495,7 +506,11 @@ void UwbPathTrackerNode::publishStatus(const std::string & status)
   std_msgs::msg::String msg;
   msg.data = status;
   status_pub_->publish(msg);
-  RCLCPP_INFO(get_logger(), "%s", status.c_str());
+  if (status.rfind("tracking:", 0) == 0 || status.rfind("skip:", 0) == 0) {
+    RCLCPP_DEBUG(get_logger(), "%s", status.c_str());
+    return;
+  }
+  RCLCPP_WARN(get_logger(), "%s", status.c_str());
 }
 
 // 目标跟踪无效时取消当前 FollowPath 目标。

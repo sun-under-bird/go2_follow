@@ -49,8 +49,11 @@ struct TrackerConfig
   double target_timeout_sec;
   double publish_rate_hz;
   double action_resend_period_sec;
+  double transform_timeout_sec;
   int min_path_poses;
   bool use_tf_for_uwb;
+  bool use_latest_tf;
+  bool prefer_range_angle;
 };
 
 class UwbPathTrackerNode : public rclcpp::Node
