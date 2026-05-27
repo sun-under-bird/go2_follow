@@ -5,7 +5,6 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-# 创建启动描述，声明参数文件并启动 UWB 路径跟随节点。
 def generate_launch_description():
     params_file = LaunchConfiguration("params_file")
 
@@ -22,12 +21,12 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "params_file",
                 default_value=default_params_file,
-                description="UWB MPPI follow parameter file.",
+                description="UWB short-path follow parameter file.",
             ),
             Node(
                 package="go2_uwb_mppi_follow",
-                executable="uwb_path_tracker_node",
-                name="uwb_path_tracker_node",
+                executable="uwb_follow_path_node",
+                name="uwb_follow_path_node",
                 output="screen",
                 parameters=[params_file],
                 arguments=["--ros-args", "--log-level", "warn"],

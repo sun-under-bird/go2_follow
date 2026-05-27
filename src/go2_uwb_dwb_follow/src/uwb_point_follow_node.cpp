@@ -118,7 +118,7 @@ private:
 
     declare_parameter<std::string>("follow_path_action", "follow_path");
     declare_parameter<std::string>("controller_id", "FollowPath");
-    declare_parameter<std::string>("goal_checker_id", "");
+    declare_parameter<std::string>("goal_checker_id", "general_goal_checker");
 
     declare_parameter<double>("follow_distance_m", 1.2);
     declare_parameter<double>("goal_tolerance_m", 0.15);
@@ -524,7 +524,7 @@ private:
     std_msgs::msg::String msg;
     msg.data = status;
     status_pub_->publish(msg);
-    if (status.rfind("tracking:", 0) == 0) {
+    if (status.rfind("tracking:", 0) == 0 || status.rfind("hold:", 0) == 0) {
       RCLCPP_DEBUG(get_logger(), "%s", status.c_str());
       return;
     }

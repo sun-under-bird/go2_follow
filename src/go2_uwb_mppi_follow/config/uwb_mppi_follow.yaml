@@ -1,46 +1,39 @@
-uwb_path_tracker_node:
+uwb_follow_path_node:
   ros__parameters:
-    uwb_topic: /libAoa_robot_publisher
+    uwb_topic: /uwb/target_point
     odom_frame: odom
     base_frame: base_link
-    uwb_frame: uwb_link
-    use_tf_for_uwb: true
     use_latest_tf: true
-    prefer_range_angle: true
     transform_timeout_sec: 0.2
 
-    target_path_topic: /uwb_target_history
-    follow_path_topic: /follow_path
+    follow_path_topic: /uwb_follow/path
+    target_filtered_topic: /uwb_follow/target_filtered
     target_valid_topic: /follow/target_valid
     status_topic: /follow/uwb_path_status
 
-    follow_path_action: follow_path
+    follow_path_action: /follow_path
     controller_id: FollowPath
-    goal_checker_id: ""
+    goal_checker_id: general_goal_checker
 
-    follow_distance_m: 1.2
-    history_length_m: 6.0
-    min_sample_spacing_m: 0.10
-    max_target_jump_m: 1.5
-    max_target_speed_mps: 3.0
+    follow_distance_m: 1.0
+    distance_deadband_m: 0.15
+    min_goal_distance_m: 0.25
+    max_goal_distance_m: 2.0
+    path_resolution_m: 0.05
+
+    target_timeout_sec: 0.4
     min_target_distance_m: 0.05
     max_target_distance_m: 8.0
-    target_timeout_sec: 2.0
+    max_target_jump_m: 0.7
+    max_target_speed_mps: 3.0
+    smoothing_alpha: 0.35
 
-    publish_rate_hz: 10.0
-    action_resend_period_sec: 0.5
+    publish_rate_hz: 5.0
+    goal_update_distance_m: 0.10
+    goal_update_angle_rad: 0.0872664626
+    slow_turn_angle_rad: 1.0471975512
+    slow_turn_goal_scale: 0.5
     min_path_poses: 2
 
-target_obstacle_filter_node:
-  ros__parameters:
-    input_cloud_topic: /local_grid_obstacle
-    output_cloud_topic: /local_grid_obstacle_filtered
-    target_path_topic: /uwb_target_history
-    filter_frame: base_link
-    target_timeout_sec: 0.8
-    transform_timeout_sec: 0.2
-    clear_radius_m: 0.55
-    clear_z_min_m: 0.05
-    clear_z_max_m: 2.0
-    pass_through_without_target: true
-    use_latest_tf: true
+    publish_zero_velocity_on_stop: true
+    stop_cmd_vel_topic: /cmd_vel_nav

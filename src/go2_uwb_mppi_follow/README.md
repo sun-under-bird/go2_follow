@@ -1,105 +1,103 @@
-# Go2 UWB MPPI 跟随避障
+# Go2 UWB MPPI 无全局地图跟随避障
 
-本功能包用于实现“方案 B”：将 UWB 发布的目标相对坐标转换到 `odom` 坐标系，维护一段短时目标历史路径，再生成机器狗滞后跟随的参考路径，交给 Nav2 MPPI 控制器结合双目局部地图完成避障跟随。
+本包用于短距离 UWB 跟随。当前 MPPI 版本不依赖全局地图、`planner_server`、`NavigateToPose` 或全局路径规划；节点只把最新 UWB 相对目标点转换成一条短局部直线路径，并通过 Nav2 `FollowPath` action 交给 `controller_server` 的 MPPI 控制器。
 
-## 核心思路
+双目/深度点云仍然进入 Nav2 local costmap。短路径只表达“目标在这个方向、距离还差多少”，局部避障由 MPPI 的 `ObstaclesCritic`、`CostCritic` 和 local costmap 负责；当局部窗口内无法安全通过时，机器人应减速或停车，而不是盲目追踪。
+
+## 数据流
 
 ```text
-UWB 相对目标坐标
-  -> TF 转换到 odom
-  -> 跳点、速度、距离过滤
-  -> 短时目标历史路径
-  -> 按跟随距离生成 /follow_path
-  -> Nav2 FollowPath(MPPI)
-  -> cmd_vel
+/uwb/target_point (geometry_msgs/msg/PointStamped, base_link)
+  -> uwb_follow_path_node
+  -> /uwb_follow/target_filtered
+  -> /uwb_follow/path
+  -> /follow_path action
+  -> controller_server / MPPI
+  -> velocity_smoother
+  -> /cmd_vel_safe
 
-前置双目 / 深度点云
-  -> Nav2 local costmap
-  -> MPPI 障碍物代价
+/local_grid_obstacle
+/local_grid_ground
+  -> local_costmap
+  -> MPPI obstacle / cost critics
 ```
-
-UWB 用来回答“目标在哪里、刚才怎么走”，双目局部地图用来回答“机器狗前方哪里不能走”。本包输出 MPPI 可以跟踪的局部参考路径，并提供目标障碍过滤节点，避免被跟随的人被双目点云持续当成障碍物。
 
 ## 主要节点
 
-### `uwb_path_tracker_node`
-
-订阅 UWB 目标数据，生成短时历史路径和 MPPI 参考路径。
+### `uwb_follow_path_node`
 
 输入：
 
-- `/libAoa_robot_publisher`：UWB 数据，类型为 `uwb_aoa_pkg/msg/LibAoaRobotMsg`
-- TF：`odom -> base_link -> uwb_link`
-- Nav2 FollowPath action：默认 action 名称为 `follow_path`
+- `/uwb/target_point`：`geometry_msgs/msg/PointStamped`
+- 坐标系约定为 `base_link`，`x` 为前方，`y` 为左方，`z` 忽略
+- 必要 TF：`odom -> base_link`
 
 输出：
 
-- `/uwb_target_history`：已接收的 UWB 目标历史路径，类型为 `nav_msgs/msg/Path`
-- `/follow_path`：发送给 MPPI 跟踪的滞后参考路径，类型为 `nav_msgs/msg/Path`
-- `/follow/target_valid`：目标是否有效，类型为 `std_msgs/msg/Bool`
-- `/follow/uwb_path_status`：节点状态，类型为 `std_msgs/msg/String`
+- `/uwb_follow/target_filtered`：滤波后的最新 UWB 目标点，`PointStamped`
+- `/uwb_follow/path`：发送给 MPPI 的短直线路径，`nav_msgs/msg/Path`
+- `/follow/target_valid`：当前目标是否有效，`std_msgs/msg/Bool`
+- `/follow/uwb_path_status`：节点状态，`std_msgs/msg/String`
+- `/follow_path`：Nav2 `nav2_msgs/action/FollowPath`
 
-### `target_obstacle_filter_node`
+节点只使用最新滤波后的 UWB 点，不会把 UWB 历史点串成路径。
 
-订阅原始障碍点云和 UWB 目标历史路径，删除目标人附近的小圆柱点云。
+## 局部路径规则
 
-输入：
+每次使用最新有效 UWB 点 `(x, y)`：
 
-- `/local_grid_obstacle`：RTAB-Map 或双目节点发布的原始障碍点云
-- `/uwb_target_history`：UWB 目标历史路径，最后一个点作为当前目标位置
+- `r = hypot(x, y)`
+- `theta = atan2(y, x)`
+- 若 `r <= follow_distance_m + distance_deadband_m`，取消当前 `FollowPath` goal 并发布零速
+- 否则生成从 `base_link` 原点到目标方向的短直线路径
+- 终点距离为 `clamp(r - follow_distance_m, min_goal_distance_m, max_goal_distance_m)`
+- 路径按 `path_resolution_m` 插值，默认 `0.05 m`
+- 每个 pose 朝向设为 `theta`
+- 路径通过 TF 转到 `odom` 后发布并发送给 `FollowPath`
 
-输出：
-
-- `/local_grid_obstacle_filtered`：过滤掉被跟随目标附近点云后的障碍点云
-
-默认清除区域：
-
-```yaml
-clear_radius_m: 0.45
-clear_z_min_m: 0.05
-clear_z_max_m: 2.0
-```
-
-这个区域只应该覆盖被跟随的人，不建议设得过大，否则会误删目标附近的桌腿、墙角或其他真实障碍。
-
-## 必要 TF
-
-至少需要：
-
-```text
-odom -> base_link
-base_link -> uwb_link
-```
-
-如果 UWB 坐标已经是 `base_link` 下的目标坐标，可以在参数中设置：
-
-```yaml
-use_tf_for_uwb: false
-```
-
-此时节点会把 UWB 坐标当成 `base_link` 坐标使用。
+为减少抖动，目标终点变化小于 `goal_update_distance_m` 且角度变化小于 `goal_update_angle_rad` 时，不重复发送新的 action goal。
 
 ## 关键参数
 
-配置文件位于：
+配置文件：`config/uwb_mppi_follow.yaml`
 
-```text
-config/uwb_mppi_follow.yaml
-```
+- `uwb_topic`：默认 `/uwb/target_point`
+- `follow_distance_m`：默认 `1.0`
+- `distance_deadband_m`：默认 `0.15`
+- `min_goal_distance_m`：默认 `0.25`
+- `max_goal_distance_m`：默认 `2.0`
+- `path_resolution_m`：默认 `0.05`
+- `target_timeout_sec`：默认 `0.4`
+- `max_target_jump_m`：默认 `0.7`
+- `publish_rate_hz`：默认 `5.0`
+- `slow_turn_angle_rad`：默认约 `60 deg`，目标角度更大时缩短目标路径，让 MPPI 优先转向
 
-常用参数：
+## Nav2 组件
 
-- `follow_distance_m`：机器狗与目标保持的距离，默认 `1.2`
-- `history_length_m`：保留的 UWB 历史路径长度，默认 `6.0`
-- `min_sample_spacing_m`：相邻 UWB 历史点最小间距，默认 `0.10`
-- `max_target_jump_m`：允许的最大 UWB 跳变距离，默认 `1.5`
-- `max_target_speed_mps`：允许的目标最大速度，默认 `3.0`
-- `target_timeout_sec`：目标超时时间，默认 `2.0`
-- `controller_id`：Nav2 MPPI 控制器 ID，默认 `FollowPath`
+默认启动文件只启动局部导航链路：
 
-## 运行方式
+- `controller_server`
+- `local_costmap`
+- `velocity_smoother`
+- `lifecycle_manager`
+- `uwb_follow_path_node`
 
-编译：
+不启动：
+
+- `map_server`
+- `amcl`
+- `planner_server`
+- `global_costmap`
+
+local costmap 使用：
+
+- `global_frame: odom`
+- `robot_base_frame: base_link`
+- `rolling_window: true`
+- 障碍点云：`/local_grid_obstacle`
+- 地面/清障点云：`/local_grid_ground`
+
+## 运行
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -108,54 +106,42 @@ colcon build --symlink-install --packages-select go2_uwb_mppi_follow
 source install/setup.bash
 ```
 
-启动本包节点：
+只启动 UWB 路径节点：
 
 ```bash
 ros2 launch go2_uwb_mppi_follow uwb_mppi_follow.launch.py
 ```
 
-如果要指定参数文件：
+启动 UWB 路径节点和 Nav2 MPPI 局部控制链路：
 
 ```bash
-ros2 launch go2_uwb_mppi_follow uwb_mppi_follow.launch.py \
-  params_file:=/path/to/uwb_mppi_follow.yaml
+ros2 launch go2_uwb_mppi_follow uwb_mppi_nav2.launch.py
 ```
 
-## 与 Nav2 MPPI 的关系
+## 测试建议
 
-本包负责生成 `/follow_path` 并发送 `FollowPath` action。MPPI 控制器和 local costmap 由 Nav2 配置提供。
-
-当前 Nav2 local costmap 的障碍输入使用过滤后的点云：
-
-```text
-/local_grid_obstacle_filtered
-/local_grid_ground
-```
-
-MPPI 会根据 `/follow_path` 的参考路径和 local costmap 的障碍物代价，选择一条短时安全轨迹并输出速度。
-
-## 调试建议
-
-先不要直接接入机器狗速度执行，建议先观察：
+发布测试目标点：
 
 ```bash
-ros2 topic echo /follow/uwb_path_status
-ros2 topic echo /follow/target_valid
-ros2 topic echo /follow_path
-ros2 topic echo /uwb_target_history
+ros2 topic pub /uwb/target_point geometry_msgs/msg/PointStamped "{header: {frame_id: base_link}, point: {x: 2.0, y: 0.0, z: 0.0}}"
 ```
 
-在 RViz2 中查看：
+检查：
 
-- `/uwb_target_history`
-- `/follow_path`
-- Nav2 local costmap
+- `/uwb_follow/target_filtered`
+- `/uwb_follow/path`
+- `/transformed_global_plan`
+- local costmap 障碍层
+- `/cmd_vel_safe`
 
-确认路径方向、距离和 TF 坐标都正确后，再接入 MPPI 输出速度和机器狗执行端。
+典型现象：
 
-## 当前限制
+- UWB 为 `(2.0, 0.0)` 时，路径终点约在前方 `1.0 m`
+- UWB 为 `(1.05, 0.0)` 时，进入跟随距离死区并停车
+- UWB 为 `(1.5, 0.8)` 时，生成斜前方短路径
+- UWB 断开约 `0.4 s` 后取消 `FollowPath` 并停车
+- 前方出现障碍后，MPPI 应小范围绕行、减速或停车
 
-- 依赖短时 `odom` 和 yaw 稳定性。
-- UWB 多径或跳点严重时，需要继续收紧过滤参数。
-- 只有前置双目时，应保持低速，并在 local costmap 无效时停车。
-- 本包不会替代 Nav2 local costmap，只会对目标人附近的障碍点云做局部剔除。
+## 限制
+
+本方案只保证局部窗口内避障。目标跑到墙后、跨房间、或需要绕远路时，机器人应停住等待新的可行局部目标，不会做全局绕行追踪。

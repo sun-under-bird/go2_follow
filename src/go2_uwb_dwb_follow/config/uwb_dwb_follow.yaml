@@ -16,7 +16,7 @@ uwb_point_follow_node:
 
     follow_path_action: follow_path
     controller_id: FollowPath
-    goal_checker_id: ""
+    goal_checker_id: general_goal_checker
 
     follow_distance_m: 1.2
     goal_tolerance_m: 0.15

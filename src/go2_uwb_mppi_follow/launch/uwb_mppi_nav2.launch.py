@@ -5,12 +5,12 @@ from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
-# 创建完整启动描述，同时启动 UWB 路径节点和 Nav2 MPPI 控制器。
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
     uwb_params_file = LaunchConfiguration("uwb_params_file")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
+    cmd_vel_nav = LaunchConfiguration("cmd_vel_nav")
     cmd_vel_out = LaunchConfiguration("cmd_vel_out")
 
     default_uwb_params_file = PathJoinSubstitution(
@@ -43,17 +43,22 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "uwb_params_file",
                 default_value=default_uwb_params_file,
-                description="Parameter file for the UWB path tracker node.",
+                description="Parameter file for the UWB short-path follow node.",
             ),
             DeclareLaunchArgument(
                 "nav2_params_file",
                 default_value=default_nav2_params_file,
-                description="Parameter file for Nav2 controller server and local costmap.",
+                description="Parameter file for Nav2 controller, costmap, and velocity smoother.",
+            ),
+            DeclareLaunchArgument(
+                "cmd_vel_nav",
+                default_value="/cmd_vel_nav",
+                description="Raw velocity topic from Nav2 controller_server.",
             ),
             DeclareLaunchArgument(
                 "cmd_vel_out",
                 default_value="/cmd_vel_safe",
-                description="Topic used by the Go2 velocity bridge.",
+                description="Smoothed velocity topic used by the Go2 velocity bridge.",
             ),
             Node(
                 package="nav2_controller",
@@ -61,7 +66,19 @@ def generate_launch_description():
                 name="controller_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[("cmd_vel", cmd_vel_out)],
+                remappings=[("cmd_vel", cmd_vel_nav)],
+                arguments=["--ros-args", "--log-level", "warn"],
+            ),
+            Node(
+                package="nav2_velocity_smoother",
+                executable="velocity_smoother",
+                name="velocity_smoother",
+                output="screen",
+                parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
+                remappings=[
+                    ("cmd_vel", cmd_vel_nav),
+                    ("cmd_vel_smoothed", cmd_vel_out),
+                ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
@@ -72,24 +89,20 @@ def generate_launch_description():
                 parameters=[
                     {"use_sim_time": use_sim_time},
                     {"autostart": autostart},
-                    {"node_names": ["controller_server"]},
+                    {"node_names": ["controller_server", "velocity_smoother"]},
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
                 package="go2_uwb_mppi_follow",
-                executable="uwb_path_tracker_node",
-                name="uwb_path_tracker_node",
+                executable="uwb_follow_path_node",
+                name="uwb_follow_path_node",
                 output="screen",
-                parameters=[uwb_params_file, {"use_sim_time": use_sim_time}],
-                arguments=["--ros-args", "--log-level", "warn"],
-            ),
-            Node(
-                package="go2_uwb_mppi_follow",
-                executable="target_obstacle_filter_node",
-                name="target_obstacle_filter_node",
-                output="screen",
-                parameters=[uwb_params_file, {"use_sim_time": use_sim_time}],
+                parameters=[
+                    uwb_params_file,
+                    {"use_sim_time": use_sim_time},
+                    {"stop_cmd_vel_topic": cmd_vel_nav},
+                ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
         ]

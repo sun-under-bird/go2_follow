@@ -42,11 +42,15 @@ include_directories(include)
 add_executable(uwb_path_tracker_node src/uwb_path_tracker_node.cpp)
 ament_target_dependencies(uwb_path_tracker_node ${dependencies})
 
+add_executable(uwb_follow_path_node src/uwb_follow_path_node.cpp)
+ament_target_dependencies(uwb_follow_path_node ${dependencies})
+
 add_executable(target_obstacle_filter_node src/target_obstacle_filter_node.cpp)
 ament_target_dependencies(target_obstacle_filter_node ${dependencies})
 
 install(
   TARGETS
+    uwb_follow_path_node
     uwb_path_tracker_node
     target_obstacle_filter_node
   DESTINATION lib/${PROJECT_NAME}
