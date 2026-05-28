@@ -1,147 +1,151 @@
-# Go2 UWB MPPI 无全局地图跟随避障
+# Go2 UWB Smac Hybrid + MPPI 跟随避障
 
-本包用于短距离 UWB 跟随。当前 MPPI 版本不依赖全局地图、`planner_server`、`NavigateToPose` 或全局路径规划；节点只把最新 UWB 相对目标点转换成一条短局部直线路径，并通过 Nav2 `FollowPath` action 交给 `controller_server` 的 MPPI 控制器。
+本包用于 Unitree Go2 的 UWB 目标跟随。当前链路是：UWB 目标点有效后，直接把 UWB 点作为 Nav2 Smac Hybrid 的规划目标，`planner_server` 先在 `odom` 下的 rolling `global_costmap` 中计算路径，再交给 `controller_server` 的 MPPI `FollowPath` 控制器跟踪。
 
-双目/深度点云仍然进入 Nav2 local costmap。短路径只表达“目标在这个方向、距离还差多少”，局部避障由 MPPI 的 `ObstaclesCritic`、`CostCritic` 和 local costmap 负责；当局部窗口内无法安全通过时，机器人应减速或停车，而不是盲目追踪。
+当 UWB 目标距离小于 `follow_distance_m` 时，节点不规划、不跟踪，直接取消当前 action 并向 `/cmd_vel_nav` 发布 0 速度。
 
 ## 数据流
 
 ```text
-/uwb/target_point (geometry_msgs/msg/PointStamped, base_link)
+/libAoa_robot_publisher
+  -> one1000_target_point_node
+  -> /uwb/target_point
   -> uwb_follow_path_node
-  -> /uwb_follow/target_filtered
+  -> /compute_path_to_pose
+  -> planner_server / SmacPlannerHybrid
   -> /uwb_follow/path
-  -> /follow_path action
+  -> /follow_path
   -> controller_server / MPPI
+  -> /cmd_vel_nav
   -> velocity_smoother
   -> /cmd_vel_safe
 
 /local_grid_obstacle
+  -> target_obstacle_filter_node
+  -> /local_grid_obstacle_filtered
+  -> global_costmap + local_costmap
+
 /local_grid_ground
-  -> local_costmap
-  -> MPPI obstacle / cost critics
+  -> global_costmap + local_costmap clearing
 ```
 
 ## 主要节点
 
+### `one1000_target_point_node`
+
+订阅 `/libAoa_robot_publisher`，输出统一目标点 `/uwb/target_point`。
+
+有效性判断只看 `LibAoaRobotMsg.state`，默认 `state >= 0` 接收。节点不按 `pos_confidence`、RSSI、跳变距离或目标速度拒绝目标。
+
+保留的基础检查：
+
+- 坐标必须是有限值
+- 距离必须在 `min_target_distance_m` 到 `max_target_distance_m` 之间
+- 开启 `require_tf` 时，TF 转换失败会丢弃该目标
+
 ### `uwb_follow_path_node`
 
-输入：
+订阅 `/uwb/target_point`，将目标转换到 `base_footprint` 和 `odom`。
 
-- `/uwb/target_point`：`geometry_msgs/msg/PointStamped`
-- 坐标系约定为 `base_link`，`x` 为前方，`y` 为左方，`z` 忽略
-- 必要 TF：`odom -> base_link`
+规则：
 
-输出：
+- 若 UWB 目标距离 `< follow_distance_m`，发布 0 速度并清空 `/uwb_follow/path`
+- 若 UWB 目标距离 `>= follow_distance_m`，直接把 UWB 点作为 `/compute_path_to_pose` 的 goal
+- Smac Hybrid 返回路径后，发布 `/uwb_follow/path`
+- 随后把路径发送给 `/follow_path`，由 MPPI 跟踪
+- 目标变化小于 `goal_update_distance_m` 且角度变化小于 `goal_update_angle_rad` 时，不重复规划
 
-- `/uwb_follow/target_filtered`：滤波后的最新 UWB 目标点，`PointStamped`
-- `/uwb_follow/path`：发送给 MPPI 的短直线路径，`nav_msgs/msg/Path`
-- `/follow/target_valid`：当前目标是否有效，`std_msgs/msg/Bool`
-- `/follow/uwb_path_status`：节点状态，`std_msgs/msg/String`
-- `/follow_path`：Nav2 `nav2_msgs/action/FollowPath`
+### `target_obstacle_filter_node`
 
-节点只使用最新滤波后的 UWB 点，不会把 UWB 历史点串成路径。
+订阅 `/uwb_follow/target_filtered` 和 `/local_grid_obstacle`，清除 UWB 目标附近一小段圆柱区域内的点云，输出 `/local_grid_obstacle_filtered`。
 
-## 局部路径规则
+这样可以降低“被跟随的人本身被双目点云当成障碍，导致规划目标不可达”的概率。
 
-每次使用最新有效 UWB 点 `(x, y)`：
+## Nav2 配置
 
-- `r = hypot(x, y)`
-- `theta = atan2(y, x)`
-- 若 `r <= follow_distance_m + distance_deadband_m`，取消当前 `FollowPath` goal 并发布零速
-- 否则生成从 `base_link` 原点到目标方向的短直线路径
-- 终点距离为 `clamp(r - follow_distance_m, min_goal_distance_m, max_goal_distance_m)`
-- 路径按 `path_resolution_m` 插值，默认 `0.05 m`
-- 每个 pose 朝向设为 `theta`
-- 路径通过 TF 转到 `odom` 后发布并发送给 `FollowPath`
+`nav2_mppi_controller.yaml` 中启动：
 
-为减少抖动，目标终点变化小于 `goal_update_distance_m` 且角度变化小于 `goal_update_angle_rad` 时，不重复发送新的 action goal。
+- `planner_server`
+- `controller_server`
+- `global_costmap`
+- `local_costmap`
+- `velocity_smoother`
+
+全局规划器：
+
+- 插件：`nav2_smac_planner/SmacPlannerHybrid`
+- `motion_model_for_search: DUBIN`
+- 不使用倒车路径
+
+地图：
+
+- 不使用静态大地图
+- `global_costmap` 和 `local_costmap` 都是 `odom` 下 rolling window
+- 两个 costmap 都使用 `/local_grid_obstacle_filtered` 和 `/local_grid_ground`
 
 ## 关键参数
 
 配置文件：`config/uwb_mppi_follow.yaml`
 
-- `uwb_topic`：默认 `/uwb/target_point`
-- `follow_distance_m`：默认 `1.0`
-- `distance_deadband_m`：默认 `0.15`
-- `min_goal_distance_m`：默认 `0.25`
-- `max_goal_distance_m`：默认 `2.0`
-- `path_resolution_m`：默认 `0.05`
-- `target_timeout_sec`：默认 `0.4`
-- `max_target_jump_m`：默认 `0.7`
-- `publish_rate_hz`：默认 `5.0`
-- `slow_turn_angle_rad`：默认约 `60 deg`，目标角度更大时缩短目标路径，让 MPPI 优先转向
-
-## Nav2 组件
-
-默认启动文件只启动局部导航链路：
-
-- `controller_server`
-- `local_costmap`
-- `velocity_smoother`
-- `lifecycle_manager`
-- `uwb_follow_path_node`
-
-不启动：
-
-- `map_server`
-- `amcl`
-- `planner_server`
-- `global_costmap`
-
-local costmap 使用：
-
-- `global_frame: odom`
-- `robot_base_frame: base_link`
-- `rolling_window: true`
-- 障碍点云：`/local_grid_obstacle`
-- 地面/清障点云：`/local_grid_ground`
+- `follow_distance_m`：UWB 目标小于该距离时发布 0 速度，默认 `1.0`
+- `planner_action`：默认 `/compute_path_to_pose`
+- `planner_id`：默认 `GridBased`
+- `planner_timeout_sec`：全局规划等待超时，默认 `1.0`
+- `follow_path_action`：默认 `/follow_path`
+- `controller_id`：默认 `FollowPath`
+- `target_timeout_sec`：UWB 超时停车时间，默认 `1.0`
+- `smoothing_alpha`：默认 `1.0`，即不平滑，直接使用 UWB 点
 
 ## 运行
 
 ```bash
 source /opt/ros/humble/setup.bash
 cd ~/go2_follow
-colcon build --symlink-install --packages-select go2_uwb_mppi_follow
+colcon build --symlink-install --packages-select uwb_aoa_pkg go2_uwb_mppi_follow
 source install/setup.bash
 ```
 
-只启动 UWB 路径节点：
-
-```bash
-ros2 launch go2_uwb_mppi_follow uwb_mppi_follow.launch.py
-```
-
-启动 UWB 路径节点和 Nav2 MPPI 局部控制链路：
+启动 UWB 转换、目标规划、Smac Hybrid、MPPI 和速度平滑：
 
 ```bash
 ros2 launch go2_uwb_mppi_follow uwb_mppi_nav2.launch.py
 ```
 
-## 测试建议
+速度桥接节点应订阅：
 
-发布测试目标点：
-
-```bash
-ros2 topic pub /uwb/target_point geometry_msgs/msg/PointStamped "{header: {frame_id: base_link}, point: {x: 2.0, y: 0.0, z: 0.0}}"
+```text
+/cmd_vel_safe
 ```
 
-检查：
+## 检查
 
-- `/uwb_follow/target_filtered`
-- `/uwb_follow/path`
-- `/transformed_global_plan`
-- local costmap 障碍层
-- `/cmd_vel_safe`
+```bash
+ros2 node list
+ros2 action list | grep compute_path_to_pose
+ros2 action list | grep follow_path
+ros2 topic echo /follow/uwb_path_status
+ros2 topic echo /uwb_follow/path --once
+ros2 topic echo /cmd_vel_safe --once
+```
 
-典型现象：
+关键节点应包含：
 
-- UWB 为 `(2.0, 0.0)` 时，路径终点约在前方 `1.0 m`
-- UWB 为 `(1.05, 0.0)` 时，进入跟随距离死区并停车
-- UWB 为 `(1.5, 0.8)` 时，生成斜前方短路径
-- UWB 断开约 `0.4 s` 后取消 `FollowPath` 并停车
-- 前方出现障碍后，MPPI 应小范围绕行、减速或停车
+- `/planner_server`
+- `/controller_server`
+- `/velocity_smoother`
+- `/one1000_target_point_node`
+- `/uwb_follow_path_node`
+- `/target_obstacle_filter_node`
+
+## 典型现象
+
+- `state >= 0` 且 `pos_confidence = 0` 时，UWB 目标仍应被接收
+- `state < 0` 时，UWB 目标会被拒绝
+- UWB 目标距离 `< follow_distance_m` 时，`/cmd_vel_nav` 发布 0
+- UWB 目标距离 `>= follow_distance_m` 时，请求 `/compute_path_to_pose`
+- RViz 中 `/uwb_follow/path` 应来自 Smac Hybrid 规划结果
+- MPPI 输出 `/cmd_vel_nav`，速度平滑后输出 `/cmd_vel_safe`
 
 ## 限制
 
-本方案只保证局部窗口内避障。目标跑到墙后、跨房间、或需要绕远路时，机器人应停住等待新的可行局部目标，不会做全局绕行追踪。
+这里的“全局规划”不是静态大地图导航，而是在 `odom` rolling `global_costmap` 中规划。目标超出 rolling 窗口、走到墙后或需要长距离绕行时，规划可能失败，节点会停车等待新的可行 UWB 目标。

@@ -5,7 +5,7 @@
 #include <string>
 
 #include "geometry_msgs/msg/point.hpp"
-#include "nav_msgs/msg/path.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "tf2_ros/buffer.h"
@@ -18,7 +18,7 @@ struct TargetFilterConfig
 {
   std::string input_cloud_topic;
   std::string output_cloud_topic;
-  std::string target_path_topic;
+  std::string target_topic;
   std::string filter_frame;
   double target_timeout_sec;
   double transform_timeout_sec;
@@ -39,7 +39,7 @@ struct TargetPoint
 class TargetObstacleFilterNode : public rclcpp::Node
 {
 public:
-  // 构造目标障碍过滤节点，并初始化点云、目标路径和 TF 接口。
+  // 构造目标障碍过滤节点，并初始化点云、目标点和 TF 接口。
   TargetObstacleFilterNode();
 
 private:
@@ -49,8 +49,8 @@ private:
   // 读取 ROS 参数并缓存到过滤配置中。
   void loadParameters();
 
-  // 接收 UWB 目标历史路径，并缓存最新目标点。
-  void targetPathCallback(const nav_msgs::msg::Path::SharedPtr msg);
+  // 接收 UWB 目标点，并缓存为当前被跟随目标。
+  void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr msg);
 
   // 接收障碍点云，删除目标人附近的小圆柱点云后发布。
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
@@ -73,7 +73,7 @@ private:
   std::optional<TargetPoint> latest_target_;
 
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
-  rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr target_path_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr target_sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_pub_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

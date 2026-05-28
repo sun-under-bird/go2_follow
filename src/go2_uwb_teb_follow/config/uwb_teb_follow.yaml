@@ -1,0 +1,30 @@
+uwb_teb_follow_node:
+  ros__parameters:
+    uwb_topic: /libAoa_robot_publisher
+    odom_frame: odom
+    base_frame: base_link
+    uwb_frame: base_link
+    use_latest_tf: true
+    transform_timeout_sec: 0.2
+
+    target_topic: /uwb_teb/target
+    path_topic: /uwb_teb/path
+    target_valid_topic: /follow/target_valid
+    status_topic: /follow/uwb_teb_status
+
+    planner_action: /compute_path_to_pose
+    planner_id: GridBased
+    follow_path_action: /follow_path
+    controller_id: FollowPath
+    goal_checker_id: general_goal_checker
+
+    follow_distance_m: 1.0
+    target_timeout_sec: 1.0
+    planner_timeout_sec: 1.0
+    goal_update_distance_m: 0.10
+    goal_update_angle_rad: 0.0872664626
+    min_path_poses: 2
+
+    publish_rate_hz: 5.0
+    publish_zero_velocity_on_stop: true
+    stop_cmd_vel_topic: /cmd_vel_nav

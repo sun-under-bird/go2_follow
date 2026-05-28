@@ -1,6 +1,0 @@
-{
-  "package_name": "uwb_aoa_pkg",
-  "non_idl_tuples": [
-    "/root/go2_follow/src/uwb:msg/LibAoaRobotMsg.msg"
-  ]
-}

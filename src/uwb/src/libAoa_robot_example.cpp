@@ -28,7 +28,7 @@ public:
   explicit LibAoaRobotPublisher(const std::string & dev_name)
   : Node("libAoa_robot_publisher"), running_(false), serial_port_(-1)
   {
-    frame_id_ = this->declare_parameter<std::string>("frame_id", "base_link");
+    frame_id_ = this->declare_parameter<std::string>("frame_id", "uwb_link");
     publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 10.0);
     if (publish_rate_hz_ <= 0.0) {
       RCLCPP_WARN(

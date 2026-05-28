@@ -15,16 +15,16 @@ def generate_launch_description():
 
     default_uwb_params_file = PathJoinSubstitution(
         [
-            FindPackageShare("go2_uwb_mppi_follow"),
+            FindPackageShare("go2_uwb_teb_follow"),
             "config",
-            "uwb_mppi_follow.yaml",
+            "uwb_teb_follow.yaml",
         ]
     )
     default_nav2_params_file = PathJoinSubstitution(
         [
-            FindPackageShare("go2_uwb_mppi_follow"),
+            FindPackageShare("go2_uwb_teb_follow"),
             "config",
-            "nav2_mppi_controller.yaml",
+            "nav2_smac_teb.yaml",
         ]
     )
 
@@ -43,12 +43,12 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "uwb_params_file",
                 default_value=default_uwb_params_file,
-                description="Parameter file for the UWB target and planner client nodes.",
+                description="Parameter file for the UWB TEB follow node.",
             ),
             DeclareLaunchArgument(
                 "nav2_params_file",
                 default_value=default_nav2_params_file,
-                description="Parameter file for Nav2 planner, controller, costmaps, and velocity smoother.",
+                description="Parameter file for Smac Hybrid, TEB, rolling costmaps, and velocity smoother.",
             ),
             DeclareLaunchArgument(
                 "cmd_vel_nav",
@@ -92,7 +92,7 @@ def generate_launch_description():
             Node(
                 package="nav2_lifecycle_manager",
                 executable="lifecycle_manager",
-                name="lifecycle_manager_controller",
+                name="lifecycle_manager_smac_teb",
                 output="screen",
                 parameters=[
                     {"use_sim_time": use_sim_time},
@@ -102,31 +102,9 @@ def generate_launch_description():
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
-                package="go2_uwb_mppi_follow",
-                executable="one1000_target_point_node",
-                name="one1000_target_point_node",
-                output="screen",
-                parameters=[
-                    uwb_params_file,
-                    {"use_sim_time": use_sim_time},
-                ],
-                arguments=["--ros-args", "--log-level", "warn"],
-            ),
-            Node(
-                package="go2_uwb_mppi_follow",
-                executable="target_obstacle_filter_node",
-                name="target_obstacle_filter_node",
-                output="screen",
-                parameters=[
-                    uwb_params_file,
-                    {"use_sim_time": use_sim_time},
-                ],
-                arguments=["--ros-args", "--log-level", "warn"],
-            ),
-            Node(
-                package="go2_uwb_mppi_follow",
-                executable="uwb_follow_path_node",
-                name="uwb_follow_path_node",
+                package="go2_uwb_teb_follow",
+                executable="uwb_teb_follow_node",
+                name="uwb_teb_follow_node",
                 output="screen",
                 parameters=[
                     uwb_params_file,

@@ -21,7 +21,15 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "params_file",
                 default_value=default_params_file,
-                description="UWB short-path follow parameter file.",
+                description="UWB planner client parameter file.",
+            ),
+            Node(
+                package="go2_uwb_mppi_follow",
+                executable="one1000_target_point_node",
+                name="one1000_target_point_node",
+                output="screen",
+                parameters=[params_file],
+                arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
                 package="go2_uwb_mppi_follow",

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libuart_stack.a CMakeFiles/uart_stack.dir/src/uart_stack.c.o
-/usr/bin/ranlib libuart_stack.a

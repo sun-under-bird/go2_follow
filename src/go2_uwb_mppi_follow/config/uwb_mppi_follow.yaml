@@ -1,8 +1,29 @@
+one1000_target_point_node:
+  ros__parameters:
+    one1000_topic: /libAoa_robot_publisher
+    target_point_topic: /uwb/target_point
+    target_frame: base_footprint
+    one1000_frame: base_link
+    use_tf: true
+    require_tf: true
+    use_latest_tf: true
+    transform_timeout_sec: 0.2
+
+    prefer_xy: true
+    angle_in_degrees: false
+    invert_y: false
+    angle_offset_rad: 0.0
+    anchor_x_offset: 0.0
+    anchor_y_offset: 0.0
+    require_valid_state: true
+    min_target_distance_m: 0.0
+    max_target_distance_m: 8.0
+
 uwb_follow_path_node:
   ros__parameters:
     uwb_topic: /uwb/target_point
     odom_frame: odom
-    base_frame: base_link
+    base_frame: base_footprint
     use_latest_tf: true
     transform_timeout_sec: 0.2
 
@@ -11,29 +32,38 @@ uwb_follow_path_node:
     target_valid_topic: /follow/target_valid
     status_topic: /follow/uwb_path_status
 
+    planner_action: /compute_path_to_pose
+    planner_id: GridBased
     follow_path_action: /follow_path
     controller_id: FollowPath
     goal_checker_id: general_goal_checker
 
     follow_distance_m: 1.0
-    distance_deadband_m: 0.15
-    min_goal_distance_m: 0.25
-    max_goal_distance_m: 2.0
-    path_resolution_m: 0.05
 
-    target_timeout_sec: 0.4
-    min_target_distance_m: 0.05
+    target_timeout_sec: 1.0
+    min_target_distance_m: 0.0
     max_target_distance_m: 8.0
-    max_target_jump_m: 0.7
-    max_target_speed_mps: 3.0
-    smoothing_alpha: 0.35
+    smoothing_alpha: 1.0
 
     publish_rate_hz: 5.0
+    planner_timeout_sec: 1.0
     goal_update_distance_m: 0.10
     goal_update_angle_rad: 0.0872664626
-    slow_turn_angle_rad: 1.0471975512
-    slow_turn_goal_scale: 0.5
     min_path_poses: 2
 
     publish_zero_velocity_on_stop: true
     stop_cmd_vel_topic: /cmd_vel_nav
+
+target_obstacle_filter_node:
+  ros__parameters:
+    input_cloud_topic: /local_grid_obstacle
+    output_cloud_topic: /local_grid_obstacle_filtered
+    target_topic: /uwb_follow/target_filtered
+    filter_frame: base_link
+    target_timeout_sec: 0.8
+    transform_timeout_sec: 0.2
+    clear_radius_m: 0.55
+    clear_z_min_m: 0.05
+    clear_z_max_m: 2.0
+    pass_through_without_target: true
+    use_latest_tf: true

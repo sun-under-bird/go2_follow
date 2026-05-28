@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(go2_uwb_mppi_follow)
+project(go2_uwb_teb_follow)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,13 +9,11 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(builtin_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -23,13 +21,11 @@ find_package(tf2_ros REQUIRED)
 find_package(uwb_aoa_pkg REQUIRED)
 
 set(dependencies
-  builtin_interfaces
   geometry_msgs
   nav2_msgs
   nav_msgs
   rclcpp
   rclcpp_action
-  sensor_msgs
   std_msgs
   tf2
   tf2_geometry_msgs
@@ -39,20 +35,12 @@ set(dependencies
 
 include_directories(include)
 
-add_executable(uwb_follow_path_node src/uwb_follow_path_node.cpp)
-ament_target_dependencies(uwb_follow_path_node ${dependencies})
-
-add_executable(one1000_target_point_node src/one1000_target_point_node.cpp)
-ament_target_dependencies(one1000_target_point_node ${dependencies})
-
-add_executable(target_obstacle_filter_node src/target_obstacle_filter_node.cpp)
-ament_target_dependencies(target_obstacle_filter_node ${dependencies})
+add_executable(uwb_teb_follow_node src/uwb_teb_follow_node.cpp)
+ament_target_dependencies(uwb_teb_follow_node ${dependencies})
 
 install(
   TARGETS
-    one1000_target_point_node
-    uwb_follow_path_node
-    target_obstacle_filter_node
+    uwb_teb_follow_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

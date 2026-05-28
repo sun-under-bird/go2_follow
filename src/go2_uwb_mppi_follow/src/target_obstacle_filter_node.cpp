@@ -26,10 +26,10 @@ TargetObstacleFilterNode::TargetObstacleFilterNode()
   tf_buffer_ = std::make_shared<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-  target_path_sub_ = create_subscription<nav_msgs::msg::Path>(
-    config_.target_path_topic,
+  target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+    config_.target_topic,
     10,
-    std::bind(&TargetObstacleFilterNode::targetPathCallback, this, std::placeholders::_1));
+    std::bind(&TargetObstacleFilterNode::targetCallback, this, std::placeholders::_1));
 
   cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
     config_.input_cloud_topic,
@@ -46,7 +46,7 @@ void TargetObstacleFilterNode::declareParameters()
 {
   declare_parameter<std::string>("input_cloud_topic", "/local_grid_obstacle");
   declare_parameter<std::string>("output_cloud_topic", "/local_grid_obstacle_filtered");
-  declare_parameter<std::string>("target_path_topic", "/uwb_target_history");
+  declare_parameter<std::string>("target_topic", "/uwb_follow/target_filtered");
   declare_parameter<std::string>("filter_frame", "base_link");
   declare_parameter<double>("target_timeout_sec", 0.8);
   declare_parameter<double>("transform_timeout_sec", 0.2);
@@ -62,7 +62,7 @@ void TargetObstacleFilterNode::loadParameters()
 {
   config_.input_cloud_topic = get_parameter("input_cloud_topic").as_string();
   config_.output_cloud_topic = get_parameter("output_cloud_topic").as_string();
-  config_.target_path_topic = get_parameter("target_path_topic").as_string();
+  config_.target_topic = get_parameter("target_topic").as_string();
   config_.filter_frame = get_parameter("filter_frame").as_string();
   config_.target_timeout_sec = get_parameter("target_timeout_sec").as_double();
   config_.transform_timeout_sec = get_parameter("transform_timeout_sec").as_double();
@@ -73,22 +73,17 @@ void TargetObstacleFilterNode::loadParameters()
   config_.use_latest_tf = get_parameter("use_latest_tf").as_bool();
 }
 
-// 接收 UWB 目标历史路径，并取最后一个点作为当前被跟随目标。
-void TargetObstacleFilterNode::targetPathCallback(const nav_msgs::msg::Path::SharedPtr msg)
+// 接收 UWB 目标点，并缓存为当前被跟随目标。
+void TargetObstacleFilterNode::targetCallback(
+  const geometry_msgs::msg::PointStamped::SharedPtr msg)
 {
-  if (msg->poses.empty()) {
-    latest_target_.reset();
-    return;
-  }
-
-  const auto & pose = msg->poses.back();
-  const rclcpp::Time stamp = pose.header.stamp.sec == 0 && pose.header.stamp.nanosec == 0 ?
-    now() : rclcpp::Time(pose.header.stamp, get_clock()->get_clock_type());
+  const rclcpp::Time stamp = msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0 ?
+    now() : rclcpp::Time(msg->header.stamp, get_clock()->get_clock_type());
 
   TargetPoint target;
   target.stamp = stamp;
-  target.frame_id = pose.header.frame_id.empty() ? msg->header.frame_id : pose.header.frame_id;
-  target.point = pose.pose.position;
+  target.frame_id = msg->header.frame_id.empty() ? config_.filter_frame : msg->header.frame_id;
+  target.point = msg->point;
   latest_target_ = target;
 }
 
