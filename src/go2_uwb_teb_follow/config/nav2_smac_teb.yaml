@@ -71,10 +71,11 @@ controller_server:
       wheelbase: 0.0
       cmd_angle_instead_rotvel: false
       footprint_model:
-        type: "polygon"
-        vertices: [[0.35, 0.16], [0.35, -0.16], [-0.35, -0.16], [-0.35, 0.16]]
-      min_obstacle_dist: 0.10
-      inflation_dist: 0.2
+        type: "line"
+        line_start: [-0.35, 0.0]
+        line_end: [0.35, 0.0]
+      min_obstacle_dist: 0.2
+      inflation_dist: 0.25
       include_costmap_obstacles: true
       costmap_obstacles_behind_robot_dist: 0.8
       obstacle_poses_affected: 15

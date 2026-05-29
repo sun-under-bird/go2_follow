@@ -52,7 +52,7 @@ uwb_follow_path_node:
     min_path_poses: 2
 
     publish_zero_velocity_on_stop: true
-    stop_cmd_vel_topic: /cmd_vel_nav
+    stop_cmd_vel_topic: /cmd_vel_safe
 
 target_obstacle_filter_node:
   ros__parameters:
