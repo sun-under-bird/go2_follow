@@ -1,0 +1,84 @@
+# 这个文件只包含和双目相机 + BackUpTwzFree 有关的 Nav2 参数片段。
+# 使用时把对应片段合并进自己的 nav2_params.yaml，不要直接覆盖完整 Nav2 配置。
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 10.0
+      publish_frequency: 10.0
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      width: 4.0
+      height: 4.0
+      resolution: 0.05
+      robot_radius: 0.25
+
+      # 前方双目相机看不到侧后方，建议保留 unknown，避免未观测区域被脱困插件当成自由空间。
+      track_unknown_space: true
+
+      plugins: ["obstacle_layer", "inflation_layer"]
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        footprint_clearing_enabled: true
+        observation_sources: stereo_points
+
+        stereo_points:
+          # 改成你的双目相机点云话题；如果你使用 depthimage_to_laserscan，则这里换成 LaserScan 配置。
+          topic: /stereo/points
+          data_type: "PointCloud2"
+          marking: true
+          clearing: true
+          obstacle_min_range: 0.15
+          obstacle_max_range: 3.0
+          raytrace_min_range: 0.15
+          raytrace_max_range: 3.5
+          min_obstacle_height: 0.05
+          max_obstacle_height: 1.5
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        inflation_radius: 0.35
+        cost_scaling_factor: 5.0
+
+      always_send_full_costmap: true
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+
+    # backup 仍然使用 Nav2 标准 BackUp BT 节点，只是底层 behavior 插件替换为 BackUpTwzFree。
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUpTwzFree"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.1
+    use_sim_time: false
+    simulate_ahead_time: 1.5
+    max_rotational_vel: 1.0
+    min_rotational_vel: 0.2
+    rotational_acc_lim: 2.5
+
+    # BackUpTwzFree 参数。
+    robot_radius: 0.25
+    max_radius: 2.0
+    service_name: "local_costmap/get_costmap"
+    free_threshold: 5
+    cost_threshold: 0.0
+    visualization: true
+
+    # 全向底盘设为 true；差速底盘设为 false，避免发布 linear.y。
+    enable_strafe: true
