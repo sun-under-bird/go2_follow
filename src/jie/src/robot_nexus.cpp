@@ -81,7 +81,7 @@ private:
     double scan_timeout_sec_ = 0.5;
     bool has_scan_ = false;
     std::chrono::steady_clock::time_point last_scan_time_{};
-    std::string target_frame_ = "base_footprint";
+    std::string target_frame_ = "base_link";
     std::string uwb_input_frame_ = "uwb_link";
 
     // Declare ROS parameters and copy them into the controller config.
@@ -90,7 +90,7 @@ private:
         this->declare_parameter<std::string>("scan_topic", "/scan");
         this->declare_parameter<std::string>("uwb_target_topic", "/uwb_target");
         this->declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_safe");
-        this->declare_parameter<std::string>("target_frame", "base_footprint");
+        this->declare_parameter<std::string>("target_frame", "base_link");
         this->declare_parameter<std::string>("uwb_input_frame", "uwb_link");
         this->declare_parameter<double>("follow_dist", 1.0);
         this->declare_parameter<double>("target_timeout_sec", 0.5);

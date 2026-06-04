@@ -3,7 +3,7 @@
 <package format="3">
   <name>jie_deamon</name>
   <version>1.0.0</version>
-  <description>UWB 跟随与前向双目避障核心节点</description>
+  <description>UWB follow and forward stereo obstacle avoidance core node</description>
   <maintainer email="zhangwanjie@6-robot.com">ZhangWanjie</maintainer>
   <license>MIT</license>
 

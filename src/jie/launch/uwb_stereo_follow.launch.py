@@ -8,7 +8,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("cloud_in", default_value="/local_grid_obstacle"),
         DeclareLaunchArgument("scan_topic", default_value="/scan"),
-        DeclareLaunchArgument("target_frame", default_value="base_footprint"),
+        DeclareLaunchArgument("target_frame", default_value="base_link"),
         DeclareLaunchArgument("uwb_target_topic", default_value="/libAoa_robot_publisher"),
         DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel_safe"),
         DeclareLaunchArgument("uwb_input_frame", default_value="uwb_link"),

@@ -2,9 +2,9 @@ one1000_target_point_node:
   ros__parameters:
     one1000_topic: /libAoa_robot_publisher
     target_point_topic: /uwb/target_point
-    target_frame: base_footprint
+    target_frame: base_link
     one1000_frame: base_link
-    use_tf: true
+    use_tf: false
     require_tf: true
     use_latest_tf: true
     transform_timeout_sec: 0.2
@@ -23,7 +23,7 @@ uwb_follow_path_node:
   ros__parameters:
     uwb_topic: /uwb/target_point
     odom_frame: odom
-    base_frame: base_footprint
+    base_frame: base_link
     use_latest_tf: true
     transform_timeout_sec: 0.2
 

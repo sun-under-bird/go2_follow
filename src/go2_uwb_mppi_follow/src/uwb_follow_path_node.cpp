@@ -95,7 +95,7 @@ void UwbFollowPathNode::declareParameters()
 {
   declare_parameter<std::string>("uwb_topic", "/uwb/target_point");
   declare_parameter<std::string>("odom_frame", "odom");
-  declare_parameter<std::string>("base_frame", "base_footprint");
+  declare_parameter<std::string>("base_frame", "base_link");
   declare_parameter<std::string>("follow_path_topic", "/uwb_follow/path");
   declare_parameter<std::string>("target_filtered_topic", "/uwb_follow/target_filtered");
   declare_parameter<std::string>("target_valid_topic", "/follow/target_valid");

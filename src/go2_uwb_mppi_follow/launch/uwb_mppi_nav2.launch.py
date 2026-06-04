@@ -77,6 +77,16 @@ def generate_launch_description():
                 remappings=[("cmd_vel", cmd_vel_nav)],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
+            # 启动 Nav2 恢复行为服务器，用于加载 BackUpTwzFree 脱困插件。
+            Node(
+                package="nav2_behaviors",
+                executable="behavior_server",
+                name="behavior_server",
+                output="screen",
+                parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
+                remappings=[("cmd_vel", cmd_vel_nav)],
+                arguments=["--ros-args", "--log-level", "warn"],
+            ),
             Node(
                 package="nav2_velocity_smoother",
                 executable="velocity_smoother",
@@ -97,7 +107,14 @@ def generate_launch_description():
                 parameters=[
                     {"use_sim_time": use_sim_time},
                     {"autostart": autostart},
-                    {"node_names": ["planner_server", "controller_server", "velocity_smoother"]},
+                    {
+                        "node_names": [
+                            "planner_server",
+                            "controller_server",
+                            "behavior_server",
+                            "velocity_smoother",
+                        ]
+                    },
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
