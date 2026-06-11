@@ -3,7 +3,7 @@
 <package format="3">
   <name>go2_stereo_apf_follow</name>
   <version>0.1.0</version>
-  <description>C++ stereo point-cloud APF follow and safety pipeline for Unitree Go2.</description>
+  <description>C++ stereo point-cloud APF/VFH follow and safety pipeline for Unitree Go2.</description>
   <maintainer email="one1000@example.com">one1000</maintainer>
   <license>MIT</license>
 

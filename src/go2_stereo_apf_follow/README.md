@@ -19,6 +19,44 @@
 
 参考仓库没有独立安全门控。它的急停在 APF 控制内部完成：最近障碍距离 `< 0.20m` 时发布 0 速度；障碍离开后下一帧自动恢复。
 
+## VFH 绕障链路
+
+本包另外提供 `stereo_vfh_controller_node`，用于 UWB 标签在前、双目点云中有人挡在机器狗和标签之间时的低速稳定绕障。它保留 UWB seed 和点云输入方式，但把 APF 斥力替换为 VFH 方向直方图、左右绕障侧锁定和通道清空恢复逻辑。
+
+```text
+/libAoa_robot_publisher
+  -> uwb_target_seed_node
+  -> /stereo_vfh/seed_target
+
+/local_grid_obstacle
+  -> stereo_vfh_controller_node
+  -> VFH 扇区膨胀 + 左右绕障锁定
+  -> /stereo_vfh/follow_goal
+  -> /stereo_vfh/markers
+  -> /cmd_vel
+```
+
+VFH 默认参数更保守，速度上限为 `max_vx: 0.45`、`max_vy: 0.35`、`max_vyaw: 0.8`。首次联调仍建议先不接速度桥：
+
+```bash
+ros2 launch go2_stereo_apf_follow stereo_vfh_follow.launch.py \
+  start_camera:=true \
+  start_rtabmap:=true \
+  start_uwb:=true \
+  start_twist_bridge:=false \
+  uwb_device:=/dev/ttyUSB0
+```
+
+检查 VFH 输入、状态和可视化：
+
+```bash
+ros2 topic echo /stereo_vfh/seed_target --once
+ros2 topic echo /stereo_vfh/target
+ros2 topic echo /stereo_vfh/follow_goal
+ros2 topic echo /stereo_vfh/status
+ros2 topic echo /cmd_vel
+```
+
 ## 编译
 
 ```bash

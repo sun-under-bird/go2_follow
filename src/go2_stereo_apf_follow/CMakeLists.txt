@@ -39,9 +39,17 @@ target_include_directories(stereo_apf_controller_node PUBLIC
 target_compile_features(stereo_apf_controller_node PUBLIC cxx_std_17)
 ament_target_dependencies(stereo_apf_controller_node ${APF_NODE_DEPS})
 
+add_executable(stereo_vfh_controller_node src/stereo_vfh_controller_node.cpp)
+target_include_directories(stereo_vfh_controller_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(stereo_vfh_controller_node PUBLIC cxx_std_17)
+ament_target_dependencies(stereo_vfh_controller_node ${APF_NODE_DEPS})
+
 install(TARGETS
   uwb_target_seed_node
   stereo_apf_controller_node
+  stereo_vfh_controller_node
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY include/
@@ -56,6 +64,11 @@ if(BUILD_TESTING)
   if(TARGET test_apf_core)
     target_include_directories(test_apf_core PRIVATE include)
     target_compile_features(test_apf_core PUBLIC cxx_std_17)
+  endif()
+  ament_add_gtest(test_vfh_core test/test_vfh_core.cpp)
+  if(TARGET test_vfh_core)
+    target_include_directories(test_vfh_core PRIVATE include)
+    target_compile_features(test_vfh_core PUBLIC cxx_std_17)
   endif()
 endif()
 
