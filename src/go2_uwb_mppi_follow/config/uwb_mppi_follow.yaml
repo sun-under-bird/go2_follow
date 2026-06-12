@@ -2,8 +2,8 @@ one1000_target_point_node:
   ros__parameters:
     one1000_topic: /libAoa_robot_publisher
     target_point_topic: /uwb/target_point
-    target_frame: base_link
-    one1000_frame: base_link
+    target_frame: base_footprint
+    one1000_frame: base_footprint
     use_tf: false
     require_tf: true
     use_latest_tf: true
@@ -23,7 +23,7 @@ uwb_follow_path_node:
   ros__parameters:
     uwb_topic: /uwb/target_point
     odom_frame: odom
-    base_frame: base_link
+    base_frame: base_footprint
     use_latest_tf: true
     transform_timeout_sec: 0.2
 
@@ -67,7 +67,7 @@ target_obstacle_filter_node:
     input_cloud_topic: /local_grid_obstacle
     output_cloud_topic: /local_grid_obstacle_filtered
     target_topic: /uwb_follow/target_filtered
-    filter_frame: base_link
+    filter_frame: base_footprint
     target_timeout_sec: 0.8
     transform_timeout_sec: 0.2
     clear_radius_m: 0.55
@@ -81,7 +81,7 @@ stereo_cloud_filter_node:
     input_cloud_topic: /stereo/points2
     obstacle_cloud_topic: /local_grid_obstacle
     ground_cloud_topic: /local_grid_ground
-    target_frame: base_link
+    target_frame: base_footprint
     use_latest_tf: true
     transform_timeout_sec: 0.2
     voxel_leaf_size: 0.05

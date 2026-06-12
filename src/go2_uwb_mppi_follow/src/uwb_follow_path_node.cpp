@@ -98,7 +98,7 @@ void UwbFollowPathNode::declareParameters()
 {
   declare_parameter<std::string>("uwb_topic", "/uwb/target_point");
   declare_parameter<std::string>("odom_frame", "odom");
-  declare_parameter<std::string>("base_frame", "base_link");
+  declare_parameter<std::string>("base_frame", "base_footprint");
   declare_parameter<std::string>("follow_path_topic", "/uwb_follow/path");
   declare_parameter<std::string>("target_filtered_topic", "/uwb_follow/target_filtered");
   declare_parameter<std::string>("follow_goal_topic", "/uwb_follow/follow_goal");
@@ -167,9 +167,11 @@ void UwbFollowPathNode::loadParameters()
     std::max(0.0, get_parameter("hold_rotate_max_angular_vel").as_double());
   config_.hold_rotate_yaw_deadband_rad =
     std::max(0.0, get_parameter("hold_rotate_yaw_deadband_rad").as_double());
-  config_.min_valid_samples = std::max(1, get_parameter("min_valid_samples").as_int());
-  config_.max_invalid_samples = std::max(0, get_parameter("max_invalid_samples").as_int());
-  config_.min_path_poses = get_parameter("min_path_poses").as_int();
+  config_.min_valid_samples =
+    std::max(1, static_cast<int>(get_parameter("min_valid_samples").as_int()));
+  config_.max_invalid_samples =
+    std::max(0, static_cast<int>(get_parameter("max_invalid_samples").as_int()));
+  config_.min_path_poses = static_cast<int>(get_parameter("min_path_poses").as_int());
   config_.use_latest_tf = get_parameter("use_latest_tf").as_bool();
   config_.publish_zero_velocity_on_stop =
     get_parameter("publish_zero_velocity_on_stop").as_bool();
@@ -696,7 +698,7 @@ void UwbFollowPathNode::publishHoldRotateVelocity(const geometry_msgs::msg::Poin
     std::abs(yaw_error) > config_.hold_rotate_yaw_deadband_rad &&
     config_.hold_rotate_max_angular_vel > 0.0)
   {
-    // 角速度只负责把 base_link 的 x 轴转向 UWB 目标方向，不产生前进速度。
+    // 角速度只负责把 base_footprint 的 x 轴转向 UWB 目标方向，不产生前进速度。
     const double angular_z = config_.hold_rotate_yaw_gain * yaw_error;
     twist.angular.z = std::clamp(
       angular_z,

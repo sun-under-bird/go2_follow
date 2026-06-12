@@ -109,7 +109,7 @@ private:
     declare_parameter<std::string>("input_cloud_topic", "/stereo/points2");
     declare_parameter<std::string>("obstacle_cloud_topic", "/local_grid_obstacle");
     declare_parameter<std::string>("ground_cloud_topic", "/local_grid_ground");
-    declare_parameter<std::string>("target_frame", "base_link");
+    declare_parameter<std::string>("target_frame", "base_footprint");
     declare_parameter<bool>("use_latest_tf", true);
     declare_parameter<double>("transform_timeout_sec", 0.2);
     declare_parameter<double>("voxel_leaf_size", 0.05);
@@ -141,7 +141,7 @@ private:
     obstacle_z_min_ = get_parameter("obstacle_z_min").as_double();
 
     if (target_frame_.empty()) {
-      target_frame_ = "base_link";
+      target_frame_ = "base_footprint";
     }
     if (max_x_ <= min_x_) {
       max_x_ = min_x_ + 0.5;

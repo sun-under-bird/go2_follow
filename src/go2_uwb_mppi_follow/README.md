@@ -70,7 +70,7 @@
 
 ### `stereo_cloud_filter_node`
 
-订阅 `/stereo/points2`，转换到 `base_link` 后按前视 ROI、地面高度和障碍高度拆分点云：
+订阅 `/stereo/points2`，转换到 `base_footprint` 后按前视 ROI、地面高度和障碍高度拆分点云：
 
 - `/local_grid_obstacle`：供 STVL 标记障碍
 - `/local_grid_ground`：供 STVL 清除地面方向空间

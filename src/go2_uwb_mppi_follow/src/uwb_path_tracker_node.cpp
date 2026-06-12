@@ -86,7 +86,7 @@ void UwbPathTrackerNode::declareParameters()
 {
   declare_parameter<std::string>("uwb_topic", "/libAoa_robot_publisher");
   declare_parameter<std::string>("odom_frame", "odom");
-  declare_parameter<std::string>("base_frame", "base_link");
+  declare_parameter<std::string>("base_frame", "base_footprint");
   declare_parameter<std::string>("uwb_frame", "uwb_link");
   declare_parameter<std::string>("target_path_topic", "/uwb_target_history");
   declare_parameter<std::string>("follow_path_topic", "/follow_path");

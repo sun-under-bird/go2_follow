@@ -47,7 +47,7 @@ void TargetObstacleFilterNode::declareParameters()
   declare_parameter<std::string>("input_cloud_topic", "/local_grid_obstacle");
   declare_parameter<std::string>("output_cloud_topic", "/local_grid_obstacle_filtered");
   declare_parameter<std::string>("target_topic", "/uwb_follow/target_filtered");
-  declare_parameter<std::string>("filter_frame", "base_link");
+  declare_parameter<std::string>("filter_frame", "base_footprint");
   declare_parameter<double>("target_timeout_sec", 0.8);
   declare_parameter<double>("transform_timeout_sec", 0.2);
   declare_parameter<double>("clear_radius_m", 0.45);

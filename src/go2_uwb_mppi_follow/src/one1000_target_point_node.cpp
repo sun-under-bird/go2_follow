@@ -79,8 +79,8 @@ private:
   {
     declare_parameter<std::string>("one1000_topic", "/libAoa_robot_publisher");
     declare_parameter<std::string>("target_point_topic", "/uwb/target_point");
-    declare_parameter<std::string>("target_frame", "base_link");
-    declare_parameter<std::string>("one1000_frame", "base_link");
+    declare_parameter<std::string>("target_frame", "base_footprint");
+    declare_parameter<std::string>("one1000_frame", "base_footprint");
     declare_parameter<bool>("use_tf", false);
     declare_parameter<bool>("require_tf", true);
     declare_parameter<bool>("use_latest_tf", true);
