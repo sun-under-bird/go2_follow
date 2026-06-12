@@ -17,24 +17,29 @@
 
 #include "common_types.hpp"
 #include "follow_avoid_controller.hpp"
+#include "local_obstacle_map.hpp"
 
 class RobotNexusNode : public rclcpp::Node {
 public:
+    // 初始化 UWB 跟随、相机 scan 输入、局部地图和安全速度发布。
     RobotNexusNode() : Node("robot_nexus") {
         const auto config = loadConfig();
         active_ = config.active;
         target_timeout_sec_ = config.target_timeout_sec;
         scan_timeout_sec_ = config.scan_timeout_sec;
+        local_map_enabled_ = config.local_map_enabled;
 
         const std::string scan_topic = this->get_parameter("scan_topic").as_string();
         const std::string uwb_target_topic = this->get_parameter("uwb_target_topic").as_string();
         const std::string cmd_vel_topic = this->get_parameter("cmd_vel_topic").as_string();
         target_frame_ = this->get_parameter("target_frame").as_string();
         uwb_input_frame_ = this->get_parameter("uwb_input_frame").as_string();
+        local_map_frame_ = this->get_parameter("local_map_frame").as_string();
 
         tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
+        local_map_ = std::make_unique<LocalObstacleMap>(config);
         controller_ = std::make_unique<FollowAvoidController>(shared_state_, config);
         cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 1);
         controller_->setVelocityCallback([this](const geometry_msgs::msg::Twist& cmd) {
@@ -57,17 +62,20 @@ public:
 
         RCLCPP_INFO(
             this->get_logger(),
-            "robot_nexus started: scan=%s, uwb_target=%s, cmd_vel=%s, follow_dist=%.2f, target_frame=%s",
+            "robot_nexus started: scan=%s, uwb_target=%s, cmd_vel=%s, follow_dist=%.2f, target_frame=%s, local_map=%s/%s",
             scan_topic.c_str(),
             uwb_target_topic.c_str(),
             cmd_vel_topic.c_str(),
             config.follow_dist,
-            target_frame_.c_str());
+            target_frame_.c_str(),
+            local_map_enabled_ ? "on" : "off",
+            local_map_frame_.c_str());
     }
 
 private:
     SharedState shared_state_;
     std::unique_ptr<FollowAvoidController> controller_;
+    std::unique_ptr<LocalObstacleMap> local_map_;
 
     rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
@@ -80,11 +88,13 @@ private:
     double target_timeout_sec_ = 0.5;
     double scan_timeout_sec_ = 0.5;
     bool has_scan_ = false;
+    bool local_map_enabled_ = true;
     std::chrono::steady_clock::time_point last_scan_time_{};
     std::string target_frame_ = "base_link";
     std::string uwb_input_frame_ = "uwb_link";
+    std::string local_map_frame_ = "odom";
 
-    // Declare ROS parameters and copy them into the controller config.
+    // 声明 ROS 参数，并同步到控制器和局部地图配置。
     FollowConfig loadConfig() {
         this->declare_parameter<bool>("active", true);
         this->declare_parameter<std::string>("scan_topic", "/scan");
@@ -92,13 +102,14 @@ private:
         this->declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_safe");
         this->declare_parameter<std::string>("target_frame", "base_link");
         this->declare_parameter<std::string>("uwb_input_frame", "uwb_link");
+        this->declare_parameter<std::string>("local_map_frame", "odom");
         this->declare_parameter<double>("follow_dist", 1.0);
         this->declare_parameter<double>("target_timeout_sec", 0.5);
         this->declare_parameter<double>("scan_timeout_sec", 0.5);
         this->declare_parameter<double>("target_exclusion_radius", 0.35);
-        this->declare_parameter<double>("apf_influence_dist", 0.3);
-        this->declare_parameter<double>("apf_slowdown_dist", 0.3);
-        this->declare_parameter<double>("apf_emergency_dist", 0.2);
+        this->declare_parameter<double>("apf_influence_dist", 0.6);
+        this->declare_parameter<double>("apf_slowdown_dist", 0.6);
+        this->declare_parameter<double>("apf_emergency_dist", 0.3);
         this->declare_parameter<double>("apf_repulse_gain", 0.01);
         this->declare_parameter<double>("max_linear_speed", 0.5);
         this->declare_parameter<double>("max_lateral_speed", 0.12);
@@ -111,7 +122,20 @@ private:
         this->declare_parameter<double>("angle_deadband", 0.08);
         this->declare_parameter<double>("rotate_only_angle", 0.45);
         this->declare_parameter<double>("min_forward_speed", 0.06);
-        this->declare_parameter<double>("rectangle_width", 0.35);
+        this->declare_parameter<double>("rectangle_width", 0.4);
+        this->declare_parameter<double>("robot_frame_front", 0.25);
+        this->declare_parameter<double>("robot_frame_back", 0.25);
+        this->declare_parameter<double>("robot_frame_left", 0.16);
+        this->declare_parameter<double>("robot_frame_right", 0.16);
+        this->declare_parameter<bool>("local_map_enabled", true);
+        this->declare_parameter<double>("local_map_size_x", 1.0);
+        this->declare_parameter<double>("local_map_size_y", 1.0);
+        this->declare_parameter<double>("local_map_resolution", 0.05);
+        this->declare_parameter<double>("local_map_lifetime_sec", 2.0);
+        this->declare_parameter<int>("local_map_max_points", 1600);
+        this->declare_parameter<bool>("local_map_ray_clear_enabled", true);
+        this->declare_parameter<double>("local_map_ray_clear_radius", 0.06);
+        this->declare_parameter<double>("local_map_ray_clear_hit_margin", 0.08);
 
         FollowConfig config;
         config.active = this->get_parameter("active").as_bool();
@@ -135,18 +159,69 @@ private:
         config.rotate_only_angle = this->get_parameter("rotate_only_angle").as_double();
         config.min_forward_speed = this->get_parameter("min_forward_speed").as_double();
         config.rectangle_width = this->get_parameter("rectangle_width").as_double();
+        config.robot_frame_front = this->get_parameter("robot_frame_front").as_double();
+        config.robot_frame_back = this->get_parameter("robot_frame_back").as_double();
+        config.robot_frame_left = this->get_parameter("robot_frame_left").as_double();
+        config.robot_frame_right = this->get_parameter("robot_frame_right").as_double();
+        config.local_map_enabled = this->get_parameter("local_map_enabled").as_bool();
+        config.local_map_size_x = this->get_parameter("local_map_size_x").as_double();
+        config.local_map_size_y = this->get_parameter("local_map_size_y").as_double();
+        config.local_map_resolution = this->get_parameter("local_map_resolution").as_double();
+        config.local_map_lifetime_sec = this->get_parameter("local_map_lifetime_sec").as_double();
+        config.local_map_max_points = static_cast<int>(this->get_parameter("local_map_max_points").as_int());
+        config.local_map_ray_clear_enabled = this->get_parameter("local_map_ray_clear_enabled").as_bool();
+        config.local_map_ray_clear_radius = this->get_parameter("local_map_ray_clear_radius").as_double();
+        config.local_map_ray_clear_hit_margin =
+            this->get_parameter("local_map_ray_clear_hit_margin").as_double();
 
         return config;
     }
 
-    // Handle the converted stereo scan and let the controller compute /cmd_vel_safe.
+    // 处理相机转出的 scan，优先写入局部地图后再计算速度。
     void scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) {
         last_scan_time_ = std::chrono::steady_clock::now();
         has_scan_ = true;
-        controller_->processScan(scan_msg);
+
+        if (!local_map_enabled_ || !scan_msg) {
+            controller_->processScan(scan_msg);
+            return;
+        }
+
+        try {
+            const std::string scan_frame = resolveScanFrame(scan_msg);
+            const auto scan_to_map = tf_buffer_->lookupTransform(
+                local_map_frame_,
+                scan_frame,
+                tf2::TimePointZero,
+                tf2::durationFromSec(0.05));
+            const auto map_to_target = tf_buffer_->lookupTransform(
+                target_frame_,
+                local_map_frame_,
+                tf2::TimePointZero,
+                tf2::durationFromSec(0.05));
+
+            local_map_->updateFromScan(scan_msg, scan_to_map, map_to_target);
+            controller_->processObstaclePoints(local_map_->getObstaclePoints(map_to_target));
+        } catch (const tf2::TransformException& ex) {
+            RCLCPP_WARN_THROTTLE(
+                this->get_logger(),
+                *this->get_clock(),
+                2000,
+                "Local map TF failed, fallback to current scan only: %s",
+                ex.what());
+            controller_->processScan(scan_msg);
+        }
     }
 
-    // Transform the custom UWB message into the configured planar follow frame.
+    // 解析 scan 的坐标系，缺省时使用控制坐标系兜底。
+    std::string resolveScanFrame(const sensor_msgs::msg::LaserScan::SharedPtr& scan_msg) const {
+        if (scan_msg && !scan_msg->header.frame_id.empty()) {
+            return scan_msg->header.frame_id;
+        }
+        return target_frame_;
+    }
+
+    // 将 UWB 自定义消息转换到配置的平面跟随坐标系。
     void uwbTargetCallback(const uwb_aoa_pkg::msg::LibAoaRobotMsg::SharedPtr msg) {
         if (!msg || !std::isfinite(msg->x) || !std::isfinite(msg->y)) {
             RCLCPP_WARN(this->get_logger(), "Ignored invalid UWB target");
@@ -189,7 +264,7 @@ private:
         }
     }
 
-    // Stop the robot when target or scan data becomes stale.
+    // 数据超时或节点关闭时发布零速度。
     void watchdogCallback() {
         double target_x = 0.0;
         double target_y = 0.0;
@@ -206,7 +281,7 @@ private:
         }
     }
 
-    // Publish and cache a zero velocity command.
+    // 发布并缓存零速度。
     void publishStop() {
         geometry_msgs::msg::Twist stop;
         shared_state_.setVelocity(0.0, 0.0, 0.0);
@@ -214,6 +289,7 @@ private:
     }
 };
 
+// 启动 ROS2 节点主循环。
 int main(int argc, char** argv) {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<RobotNexusNode>());

@@ -1,44 +1,45 @@
 # jie_deamon
 
-`jie_deamon` 是一个精简后的 ROS 2 跟随避障节点。当前版本只保留核心能力：
-
-- UWB 提供跟随目标位置。
-- 前向双目点云转换成 `/scan` 后提供前方障碍信息。
-- 节点根据 UWB 目标、前方可通行 gap 和急停/减速逻辑发布 `/cmd_vel_safe`。
-
-本项目不再包含 Android App、Web 可视化、键盘控制、直控模式和动作指令。
+`jie_deamon` 是一个 ROS 2 UWB 跟随避障节点。当前版本使用 UWB 提供跟随目标位置，使用前向相机点云转换出的 `/scan` 提供前方障碍信息，并维护一个短时局部地图来补足侧向障碍记忆，然后发布 `/cmd_vel_safe`。
 
 ## ROS 2 接口
 
 | 方向 | 话题 | 类型 | 说明 |
 | --- | --- | --- | --- |
 | 订阅 | `/libAoa_robot_publisher` | `uwb_aoa_pkg/msg/LibAoaRobotMsg` | UWB 目标位置 |
-| 订阅 | `/scan` | `sensor_msgs/msg/LaserScan` | 双目点云转换后的前向扫描 |
+| 订阅 | `/scan` | `sensor_msgs/msg/LaserScan` | 相机点云转换后的前向扫描 |
 | 发布 | `/cmd_vel_safe` | `geometry_msgs/msg/Twist` | 底盘安全速度指令 |
 
-UWB 目标坐标默认来自 `uwb_link`，节点会通过 TF 转换到 `base_footprint` 后再控制：
+UWB 目标坐标默认来自 `uwb_link`，节点会通过 TF 转换到 `target_frame` 后再控制：
 
-- `x`：`uwb_link` 下的前方为正。
-- `y`：`uwb_link` 下的左侧为正。
+- `x`：前方为正。
+- `y`：左侧为正。
 - `state`：必须等于 `1` 才认为定位有效。
-- `pos_confidence`：当前不参与过滤，不管置信度多少都跟随。
+- `pos_confidence`：当前不参与过滤。
 
-运行时需要 TF 树中存在 `base_footprint` 到 `uwb_link` 的变换链。如果你已经发布 `base_link` 到 `uwb_link`，还需要系统里同时有 `base_footprint` 到 `base_link` 的变换。`uwb_input_frame` 只在 UWB 消息没有填写 `header.frame_id` 时作为兜底值。
+## 局部地图
+
+节点维护一个以机器人为中心的 `1m x 1m` 局部障碍记忆：
+
+1. `/scan` 中的前向障碍点先通过 TF 写入 `local_map_frame`，默认是 `odom`。
+2. 每帧 `/scan` 会先沿相机视野光束清除自由空间内的历史障碍点。
+3. 每帧控制前再把地图点转换回 `target_frame`，得到当前机器人周围的障碍点。
+4. 地图只保留当前机器人周围 `local_map_size_x x local_map_size_y` 范围内的点。
+5. 超过 `local_map_lifetime_sec` 没刷新的点会自动删除。
+6. 如果局部地图 TF 不可用，节点会退回到只使用当前 `/scan` 的旧逻辑。
+
+这个局部地图只能记住“之前进入过前向相机视野”的障碍。侧面突然出现、从未被相机看见过的障碍仍然无法感知。
 
 ## 控制策略
 
-跟随目标距离默认是 `1.0m`。机器人只使用前进和转向绕障：
-
-- 不自动后退：`linear.x >= 0`。
-- 不横移绕障：`linear.y = 0`。
-- 前方没有近距离障碍时，按 UWB 目标方向跟随。
-- 前方出现近距离障碍时，节点把障碍按 `gap_min_width` 膨胀到角度栅格中，寻找连续可通行 gap。
-- gap 选择优先接近 UWB 目标方向，同时惩罚过大的转向和上一帧差异，避免左右抖动。
-- 选中 gap 后，机器人用 `angular.z` 平滑转向 gap，再用 `linear.x` 前进。
-- 小于 `apf_slowdown_dist` 时开始减速，小于 `apf_emergency_dist` 时急停。
-- UWB 目标超时或 `/scan` 超时后发布零速度。
-
-`/scan` 中落在 UWB 目标附近 `target_exclusion_radius` 范围内的点会先被排除，不参与急停、减速和 gap 占用，避免跟随目标自身点云触发避障。
+- 跟随目标距离默认是 `1.0m`。
+- 机器人默认不主动后退，`linear.x` 最终会被限制为 `>= 0`。
+- 目标角度较大时优先转向，角度较小时才前进。
+- 障碍小于 `apf_influence_dist` 时产生 APF 斥力。
+- 障碍小于 `apf_slowdown_dist` 时开始减速。
+- 障碍小于 `apf_emergency_dist` 时直接急停。
+- `/scan` 中落在 UWB 目标附近 `target_exclusion_radius` 范围内的点会被排除，避免跟随对象自身触发避障。
+- 目标方向矩形走廊会统计左右占用，并输出 `linear.y` 做侧向避障；实际是否横移取决于底盘是否执行 `Twist.linear.y`。
 
 ## 参数
 
@@ -48,18 +49,30 @@ UWB 目标坐标默认来自 `uwb_link`，节点会通过 TF 转换到 `base_foo
 | `target_timeout_sec` | `0.5` | UWB 目标超时时间 |
 | `scan_timeout_sec` | `0.5` | `/scan` 超时时间 |
 | `target_exclusion_radius` | `0.35` | 排除 UWB 目标自身点云的半径 |
-| `apf_influence_dist` | `0.8` | 前方减速斥力影响距离，主要用于降低 `linear.x` |
-| `apf_slowdown_dist` | `0.8` | 前方减速距离 |
-| `apf_emergency_dist` | `0.4` | 急停距离 |
+| `apf_influence_dist` | `0.6` | APF 斥力影响距离 |
+| `apf_slowdown_dist` | `0.6` | 前方减速距离 |
+| `apf_emergency_dist` | `0.3` | 急停距离 |
 | `max_linear_speed` | `0.5` | 最大前进速度 |
+| `max_lateral_speed` | `0.12` | 最大横向速度 |
 | `max_angular_speed` | `1.0` | 最大角速度 |
-| `gap_detection_dist` | `1.5` | 在该距离内的障碍会参与 gap 占用计算 |
-| `gap_min_width` | `0.45` | 可通行 gap 的最小安全宽度，用于障碍角度膨胀 |
-| `gap_turn_penalty` | `0.35` | 惩罚过大的转向角，越大越偏向走正前方 |
-| `gap_stability_penalty` | `0.8` | 惩罚与上一帧 gap 差异，越大越不容易左右跳变 |
-| `gap_heading_smoothing_alpha` | `0.35` | gap 方向平滑系数，越小越平滑但响应越慢 |
+| `linear_y_scale_factor` | `1.0` | 侧向避障比例系数 |
+| `rectangle_width` | `0.4` | 目标方向矩形走廊宽度 |
+| `robot_frame_front` | `0.25` | 机器人自身前向排除距离 |
+| `robot_frame_back` | `0.25` | 机器人自身后向排除距离 |
+| `robot_frame_left` | `0.16` | 机器人自身左侧排除距离 |
+| `robot_frame_right` | `0.16` | 机器人自身右侧排除距离 |
+| `local_map_enabled` | `true` | 是否启用局部地图 |
+| `local_map_frame` | `odom` | 局部地图固定坐标系 |
+| `local_map_size_x` | `1.0` | 局部地图前后尺寸，单位 m |
+| `local_map_size_y` | `1.0` | 局部地图左右尺寸，单位 m |
+| `local_map_resolution` | `0.05` | 障碍点合并分辨率，单位 m |
+| `local_map_lifetime_sec` | `2.0` | 障碍点保留时间 |
+| `local_map_max_points` | `1600` | 局部地图最大点数 |
+| `local_map_ray_clear_enabled` | `true` | 是否开启相机视野射线清除 |
+| `local_map_ray_clear_radius` | `0.06` | 射线附近多宽范围内的历史点会被清除 |
+| `local_map_ray_clear_hit_margin` | `0.08` | 有命中障碍时，命中点前保留的末端保护距离 |
 | `uwb_input_frame` | `uwb_link` | UWB 消息缺省坐标系 |
-| `target_frame` | `base_footprint` | 跟随控制和 `/scan` 投影使用的目标坐标系 |
+| `target_frame` | `base_link` | 跟随控制和 `/scan` 使用的目标坐标系 |
 
 ## 启动
 
@@ -75,28 +88,15 @@ ros2 launch jie_deamon uwb_stereo_follow.launch.py
 ros2 launch jie_deamon uwb_stereo_follow.launch.py cloud_in:=/camera/depth/points
 ```
 
-如果 `/local_grid_obstacle` 不是 `sensor_msgs/msg/PointCloud2`，请把 `cloud_in` 改成实际的 PointCloud2 话题，例如 `/local_costmap/voxel_marked_cloud`。当前节点不订阅 `/odom_leg`，里程计只需要由系统用于维护 `base_footprint`、`base_link`、`uwb_link`、点云坐标系之间的 TF。
+如果没有 `odom -> base_link` 或等价 TF，局部地图不能做运动补偿。此时可以临时关闭局部地图：
 
-默认点云转换参数：
-
-| 参数 | 默认值 |
-| --- | --- |
-| `target_frame` | `base_footprint` |
-| `angle_min` | `-1.57` |
-| `angle_max` | `1.57` |
-| `angle_increment` | `0.0087` |
-| `range_min` | `0.01` |
-| `range_max` | `3.0` |
-| `min_height` | `0.02` |
-| `max_height` | `0.8` |
-| `use_inf` | `true` |
-
-当前点云转换会把 `base_footprint` 坐标系下高度约 `2cm` 到 `0.8m`、水平角约 `-90` 到 `90` 度的点压到 XY 平面生成 `/scan`。如果输入是原始双目点云，地面点或噪声可能影响避障，更推荐输入已经去地面后的障碍点云，例如 `/local_grid_obstacle`。
+```bash
+ros2 launch jie_deamon uwb_stereo_follow.launch.py local_map_enabled:=false
+```
 
 ## 注意事项
 
-- 前向双目只能覆盖前方视场，本节点不承诺侧后方避障。
-- gap 选择是局部避障，不是全局路径规划；如果当前视野里没有足够宽的 gap，节点会停止前进。
-- 如果 UWB 只提供距离而没有方向，不能直接用于本节点；上游需要先解算为二维位置。
-- 当前 launch 默认在 `1.5m` 内识别 gap，占用 `0.8m` 内开始减速，`0.4m` 内急停；实际机器人速度较高时仍建议在设备上重新评估安全余量。
+- 前向相机只能覆盖前方视场，局部地图只提供短期历史记忆，不是全向传感器。
+- 局部地图依赖 TF/里程计质量；位姿漂移会让历史障碍点位置不准。
+- 地面点或点云噪声会影响避障，建议输入已经去地面后的障碍点云。
 - 本机没有 ROS 2 环境，代码修改后不做编译检查。

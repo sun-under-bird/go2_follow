@@ -1,37 +1,9 @@
-planner_server:
-  ros__parameters:
-    use_sim_time: false
-    expected_planner_frequency: 5.0
-    planner_plugins: [GridBased]
-
-    GridBased:
-      plugin: "nav2_smac_planner/SmacPlannerHybrid"
-      tolerance: 0.25
-      downsample_costmap: false
-      allow_unknown: true
-      max_iterations: 100000
-      max_on_approach_iterations: 1000
-      max_planning_time: 1.0
-      motion_model_for_search: "DUBIN"
-      angle_quantization_bins: 72
-      analytic_expansion_ratio: 3.5
-      analytic_expansion_max_length: 3.0
-      minimum_turning_radius: 0.40
-      reverse_penalty: 2.0
-      change_penalty: 0.0
-      non_straight_penalty: 1.20
-      cost_penalty: 2.0
-      retrospective_penalty: 0.015
-      lookup_table_size: 20.0
-      cache_obstacle_heuristic: false
-      smooth_path: true
-
 controller_server:
   ros__parameters:
     use_sim_time: false
     verbose: false
     controller_frequency: 20.0
-    odom_topic: /odometry/filtered
+    odom_topic: /odom_leg
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
@@ -64,7 +36,7 @@ controller_server:
       temperature: 0.3
       gamma: 0.015
       vx_max: 0.45
-      vx_min: -0.08
+      vx_min: 0.0
       vy_max: 0.0
       wz_max: 1.0
       vx_std: 0.25
@@ -105,7 +77,7 @@ controller_server:
 
       GoalCritic:
         cost_power: 1
-        cost_weight: 5.0
+        cost_weight: 8.0
         threshold_to_consider: 1.4
 
       PathAlignCritic:
@@ -135,7 +107,7 @@ controller_server:
       PreferForwardCritic:
         enabled: true
         cost_power: 1
-        cost_weight: 6.0
+        cost_weight: 8.0
         threshold_to_consider: 0.5
 
       TwirlingCritic:
@@ -230,89 +202,6 @@ local_costmap:
 
       always_send_full_costmap: false
 
-global_costmap:
-  global_costmap:
-    ros__parameters:
-      update_frequency: 10.0
-      publish_frequency: 10.0
-      global_frame: odom
-      robot_base_frame: base_link
-      use_sim_time: false
-      transform_tolerance: 0.2
-      rolling_window: true
-      width: 4
-      height: 4
-      resolution: 0.05
-      robot_radius: 0.0
-      footprint: "[[0.35, 0.18], [0.35, -0.18], [-0.35, -0.18], [-0.35, 0.18]]"
-      plugins: [stvl_layer, inflation_layer]
-
-      stvl_layer:
-        plugin: "spatio_temporal_voxel_layer/SpatioTemporalVoxelLayer"
-        enabled: true
-        voxel_decay: 1.5
-        decay_model: 0
-        voxel_size: 0.05
-        track_unknown_space: false
-        unknown_threshold: 15
-        mark_threshold: 0
-        update_footprint_enabled: true
-        combination_method: 1
-        origin_z: 0.0
-        publish_voxel_map: true
-        transform_tolerance: 0.2
-        mapping_mode: false
-        map_save_duration: 60.0
-        observation_sources: obstacle ground
-        obstacle:
-          topic: /local_grid_obstacle_filtered
-          data_type: PointCloud2
-          marking: true
-          clearing: true
-          obstacle_range: 3.0
-          min_obstacle_height: 0.10
-          max_obstacle_height: 2.0
-          expected_update_rate: 0.0
-          observation_persistence: 0.0
-          inf_is_valid: false
-          filter: voxel
-          voxel_min_points: 0
-          clear_after_reading: true
-          max_z: 2.0
-          min_z: 0.10
-          vertical_fov_angle: 0.8745
-          horizontal_fov_angle: 1.048
-          decay_acceleration: 1.0
-          model_type: 0
-        ground:
-          topic: /local_grid_ground
-          data_type: PointCloud2
-          marking: false
-          clearing: true
-          obstacle_range: 3.0
-          min_obstacle_height: 0.0
-          max_obstacle_height: 0.25
-          expected_update_rate: 0.0
-          observation_persistence: 0.0
-          inf_is_valid: false
-          filter: voxel
-          voxel_min_points: 0
-          clear_after_reading: true
-          max_z: 0.25
-          min_z: 0.0
-          vertical_fov_angle: 0.8745
-          horizontal_fov_angle: 1.048
-          decay_acceleration: 1.0
-          model_type: 0
-
-      inflation_layer:
-        plugin: nav2_costmap_2d::InflationLayer
-        enabled: true
-        cost_scaling_factor: 5.0
-        inflation_radius: 0.4
-
-      always_send_full_costmap: false
-
 velocity_smoother:
   ros__parameters:
     use_sim_time: false
@@ -320,35 +209,10 @@ velocity_smoother:
     scale_velocities: false
     feedback: OPEN_LOOP
     max_velocity: [0.45, 0.0, 1.0]
-    min_velocity: [-0.08, 0.0, -1.0]
+    min_velocity: [0.0, 0.0, -1.0]
     max_accel: [0.4, 0.0, 1.2]
     max_decel: [-0.5, 0.0, -1.4]
-    odom_topic: /odometry/filtered
+    odom_topic: /odom_leg
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 0.5
-
-behavior_server:
-  ros__parameters:
-    costmap_topic: local_costmap/costmap_raw
-    footprint_topic: local_costmap/published_footprint
-    cycle_frequency: 10.0
-    behavior_plugins: [backup]
-
-    backup:
-      plugin: nav2_behaviors/BackUpTwzFree
-
-    global_frame: odom
-    robot_base_frame: base_link
-    transform_tolerance: 0.2
-    use_sim_time: false
-    simulate_ahead_time: 1.5
-
-    # BackUpTwzFree 参数：Go2 按差速模型处理，不发布 linear.y。
-    robot_radius: 0.40
-    max_radius: 2.0
-    service_name: local_costmap/get_costmap
-    free_threshold: 5
-    cost_threshold: 0.0
-    visualization: true
-    enable_strafe: false

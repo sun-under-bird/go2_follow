@@ -1,0 +1,9 @@
+Repository: https://github.com/caseypen/EXACT-mppi
+Pinned commit: 54dcd24ae7284f6779adb8e72cc702c3a6d65095
+
+Install on Orin Nano:
+  git clone https://github.com/caseypen/EXACT-mppi.git third_party/EXACT-mppi
+  cd third_party/EXACT-mppi
+  git checkout 54dcd24ae7284f6779adb8e72cc702c3a6d65095
+  python -m pip install -U "jax[cuda12]"
+  python -m pip install -e ./EXACT_MPPI_core

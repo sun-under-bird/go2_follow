@@ -8,6 +8,7 @@
 #include <functional>
 #include <limits>
 #include <utility>
+#include <vector>
 
 #include <geometry_msgs/msg/twist.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
@@ -16,17 +17,28 @@ class FollowAvoidController {
 public:
     using VelocityCallback = std::function<void(const geometry_msgs::msg::Twist&)>;
 
+    // 构造跟随避障控制器，并绑定共享目标状态。
     FollowAvoidController(SharedState& state, FollowConfig config)
         : state_(state), config_(config) {}
 
-    // Set the publisher callback used by this pure controller.
+    // 设置速度发布回调，控制器本身不直接依赖 ROS publisher。
     void setVelocityCallback(VelocityCallback cb) {
         velocity_callback_ = std::move(cb);
     }
 
-    // Convert one LaserScan frame plus the latest UWB target into a velocity command.
+    // 使用当前 LaserScan 直接计算跟随避障速度。
     void processScan(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) {
-        if (!config_.active || !scan_msg || scan_msg->ranges.empty()) {
+        if (!scan_msg || scan_msg->ranges.empty()) {
+            publishZero();
+            return;
+        }
+
+        processObstaclePoints(scanToObstaclePoints(scan_msg));
+    }
+
+    // 使用障碍点集合计算 /cmd_vel_safe。
+    void processObstaclePoints(const std::vector<ObstaclePoint2D>& obstacle_points) {
+        if (!config_.active) {
             publishZero();
             return;
         }
@@ -40,7 +52,7 @@ public:
             return;
         }
 
-        const auto obstacle = extractObstacle(scan_msg, target_x, target_y);
+        const auto obstacle = extractObstacle(obstacle_points, target_x, target_y);
         geometry_msgs::msg::Twist cmd;
         calculateVelocity(cmd, target_x, target_y, obstacle);
         publishVelocity(cmd);
@@ -59,8 +71,28 @@ private:
     FollowConfig config_;
     VelocityCallback velocity_callback_;
 
+    // 将 LaserScan 转为机器人平面坐标点。
+    std::vector<ObstaclePoint2D> scanToObstaclePoints(
+        const sensor_msgs::msg::LaserScan::SharedPtr& scan_msg) const {
+        std::vector<ObstaclePoint2D> points;
+        points.reserve(scan_msg->ranges.size());
+
+        for (size_t i = 0; i < scan_msg->ranges.size(); ++i) {
+            const float range = scan_msg->ranges[i];
+            if (!std::isfinite(range) || range < scan_msg->range_min || range > scan_msg->range_max) {
+                continue;
+            }
+
+            const double angle = scan_msg->angle_min + static_cast<double>(i) * scan_msg->angle_increment;
+            points.push_back({range * std::cos(angle), range * std::sin(angle)});
+        }
+
+        return points;
+    }
+
+    // 从障碍点提取最近距离、APF 斥力和目标走廊左右占用。
     ObstacleInfo extractObstacle(
-        const sensor_msgs::msg::LaserScan::SharedPtr& scan_msg,
+        const std::vector<ObstaclePoint2D>& obstacle_points,
         double target_x,
         double target_y) const {
         ObstacleInfo obstacle;
@@ -69,43 +101,28 @@ private:
 
         const double target_vec_len = std::hypot(target_x, target_y);
 
-        for (size_t i = 0; i < scan_msg->ranges.size(); ++i) {
-            const float range = scan_msg->ranges[i];
-            if (!std::isfinite(range)) {
+        for (const auto& point : obstacle_points) {
+            if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
                 continue;
             }
-            if (range < scan_msg->range_min || range > scan_msg->range_max) {
-                continue;
-            }
-
-            const double angle = scan_msg->angle_min + static_cast<double>(i) * scan_msg->angle_increment;
-            const double point_x = range * std::cos(angle);
-            const double point_y = range * std::sin(angle);
-            if (point_x < 0.0) {
+            if (isInRobotFrame(point.x, point.y) || isTargetPoint(point.x, point.y, target_x, target_y)) {
                 continue;
             }
 
-            if (isInRobotFrame(point_x, point_y) || isTargetPoint(point_x, point_y, target_x, target_y)) {
-                continue;
-            }
-
-            const double dist = std::hypot(point_x, point_y);
+            const double dist = std::hypot(point.x, point.y);
             obstacle.min_dist = std::min(obstacle.min_dist, dist);
 
             if (dist < config_.apf_influence_dist && dist > 1e-6) {
                 const double force = config_.apf_repulse_gain *
                     (1.0 / dist - 1.0 / config_.apf_influence_dist) / (dist * dist);
-                obstacle.repulse_x -= force * point_x / dist;
-                obstacle.repulse_y -= force * point_y / dist;
+                obstacle.repulse_x -= force * point.x / dist;
+                obstacle.repulse_y -= force * point.y / dist;
             }
 
-            // Same corridor idea as the original lidar tracker: project points into
-            // the rectangle between robot and target, then find the occupied side.
+            // 模仿上游 lidar_tracker：把障碍投影到机器人到目标的矩形走廊，判断左右哪侧更拥挤。
             if (target_vec_len > 1e-6) {
-                const double proj_x = (point_x * target_x + point_y * target_y) / target_vec_len;
-                // base_link uses y-left, so this lateral axis is right-positive.
-                // That keeps the original lateral_error formula pushing away from the occupied side.
-                const double proj_y = (point_x * target_y - point_y * target_x) / target_vec_len;
+                const double proj_x = (point.x * target_x + point.y * target_y) / target_vec_len;
+                const double proj_y = (-point.x * target_y + point.y * target_x) / target_vec_len;
 
                 if (proj_x >= 0.0 &&
                     proj_x <= target_vec_len &&
@@ -119,6 +136,12 @@ private:
             }
         }
 
+        normalizeRepulse(obstacle);
+        return obstacle;
+    }
+
+    // 限制斥力大小，避免近距离噪声点让速度突变。
+    void normalizeRepulse(ObstacleInfo& obstacle) const {
         const double repulse_mag = std::hypot(obstacle.repulse_x, obstacle.repulse_y);
         if (repulse_mag > 1.0) {
             obstacle.repulse_x /= repulse_mag;
@@ -130,9 +153,9 @@ private:
             obstacle.repulse_y,
             -config_.max_lateral_speed,
             config_.max_lateral_speed);
-        return obstacle;
     }
 
+    // 判断障碍点是否落在机器人自身包围框内。
     bool isInRobotFrame(double x, double y) const {
         return x > -config_.robot_frame_back &&
                x < config_.robot_frame_front &&
@@ -140,12 +163,12 @@ private:
                y < config_.robot_frame_left;
     }
 
-    // Exclude points near the tracked UWB target before obstacle force is calculated.
+    // 排除 UWB 目标附近点，避免把跟随对象自己当作障碍。
     bool isTargetPoint(double x, double y, double target_x, double target_y) const {
         return std::hypot(x - target_x, y - target_y) < config_.target_exclusion_radius;
     }
 
-    // Calculate the final follow command using target error, corridor offset, and APF.
+    // 根据目标误差、走廊横向误差和 APF 斥力生成最终速度。
     void calculateVelocity(
         geometry_msgs::msg::Twist& cmd,
         double target_x,
@@ -199,10 +222,12 @@ private:
         cmd.angular.z = std::clamp(cmd.angular.z, -config_.max_angular_speed, config_.max_angular_speed);
     }
 
+    // 发布零速度。
     void publishZero() {
         publishVelocity(geometry_msgs::msg::Twist{});
     }
 
+    // 缓存并发布速度指令。
     void publishVelocity(const geometry_msgs::msg::Twist& cmd) {
         state_.setVelocity(cmd.linear.x, cmd.linear.y, cmd.angular.z);
         if (velocity_callback_) {

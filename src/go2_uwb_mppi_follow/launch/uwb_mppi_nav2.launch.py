@@ -1,5 +1,7 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -12,6 +14,11 @@ def generate_launch_description():
     nav2_params_file = LaunchConfiguration("nav2_params_file")
     cmd_vel_nav = LaunchConfiguration("cmd_vel_nav")
     cmd_vel_out = LaunchConfiguration("cmd_vel_out")
+    start_stereo_camera = LaunchConfiguration("start_stereo_camera")
+    start_stereo_cloud_filter = LaunchConfiguration("start_stereo_cloud_filter")
+    video_device = LaunchConfiguration("video_device")
+    left_info_url = LaunchConfiguration("left_info_url")
+    right_info_url = LaunchConfiguration("right_info_url")
 
     default_uwb_params_file = PathJoinSubstitution(
         [
@@ -25,6 +32,13 @@ def generate_launch_description():
             FindPackageShare("go2_uwb_mppi_follow"),
             "config",
             "nav2_mppi_controller.yaml",
+        ]
+    )
+    default_stereo_camera_launch = PathJoinSubstitution(
+        [
+            FindPackageShare("go2_stereo_camera"),
+            "launch",
+            "stereo_camera.launch.py",
         ]
     )
 
@@ -43,12 +57,12 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "uwb_params_file",
                 default_value=default_uwb_params_file,
-                description="Parameter file for the UWB target and planner client nodes.",
+                description="Parameter file for the UWB target and direct MPPI follow nodes.",
             ),
             DeclareLaunchArgument(
                 "nav2_params_file",
                 default_value=default_nav2_params_file,
-                description="Parameter file for Nav2 planner, controller, costmaps, and velocity smoother.",
+                description="Parameter file for Nav2 controller, local costmap, and velocity smoother.",
             ),
             DeclareLaunchArgument(
                 "cmd_vel_nav",
@@ -60,28 +74,56 @@ def generate_launch_description():
                 default_value="/cmd_vel_safe",
                 description="Smoothed velocity topic used by the Go2 velocity bridge.",
             ),
+            DeclareLaunchArgument(
+                "start_stereo_camera",
+                default_value="false",
+                description="Start v4l2 stitched stereo camera splitting and point cloud pipeline.",
+            ),
+            DeclareLaunchArgument(
+                "start_stereo_cloud_filter",
+                default_value="true",
+                description="Filter /stereo/points2 into local obstacle and ground clouds.",
+            ),
+            DeclareLaunchArgument(
+                "video_device",
+                default_value="/dev/video0",
+                description="Linux v4l2 device for the stitched stereo camera.",
+            ),
+            DeclareLaunchArgument(
+                "left_info_url",
+                default_value="",
+                description="Left camera calibration YAML path.",
+            ),
+            DeclareLaunchArgument(
+                "right_info_url",
+                default_value="",
+                description="Right camera calibration YAML path.",
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(default_stereo_camera_launch),
+                launch_arguments={
+                    "video_device": video_device,
+                    "left_info_url": left_info_url,
+                    "right_info_url": right_info_url,
+                }.items(),
+                condition=IfCondition(start_stereo_camera),
+            ),
             Node(
-                package="nav2_planner",
-                executable="planner_server",
-                name="planner_server",
+                package="go2_uwb_mppi_follow",
+                executable="stereo_cloud_filter_node",
+                name="stereo_cloud_filter_node",
                 output="screen",
-                parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
+                parameters=[
+                    uwb_params_file,
+                    {"use_sim_time": use_sim_time},
+                ],
+                condition=IfCondition(start_stereo_cloud_filter),
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
                 package="nav2_controller",
                 executable="controller_server",
                 name="controller_server",
-                output="screen",
-                parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[("cmd_vel", cmd_vel_nav)],
-                arguments=["--ros-args", "--log-level", "warn"],
-            ),
-            # 启动 Nav2 恢复行为服务器，用于加载 BackUpTwzFree 脱困插件。
-            Node(
-                package="nav2_behaviors",
-                executable="behavior_server",
-                name="behavior_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
                 remappings=[("cmd_vel", cmd_vel_nav)],
@@ -109,9 +151,7 @@ def generate_launch_description():
                     {"autostart": autostart},
                     {
                         "node_names": [
-                            "planner_server",
                             "controller_server",
-                            "behavior_server",
                             "velocity_smoother",
                         ]
                     },

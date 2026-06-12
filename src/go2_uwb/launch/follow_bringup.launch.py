@@ -110,7 +110,9 @@ def generate_launch_description():
                 'publish_debug_cloud': True,
                 'tf_timeout_sec': 0.05,
                 'enable_passthrough_filter': True,
-                'enable_radius_outlier_filter': True,
+                'enable_voxel_filter': True,
+                'voxel_leaf_size': 0.05,
+                'enable_radius_outlier_filter': False,
                 'radius_search': 0.12,
                 'min_neighbors_in_radius': 3,
                 'min_x': 0.2,
@@ -124,7 +126,7 @@ def generate_launch_description():
             }],
         ),
 
-        # 跟随控制节点：融合 UWB 目标和避障建议，直接发布 /cmd_vel 给已有 go2_twist_bridge。
+        # 跟随控制节点：融合 UWB 目标和避障建议，直接发布 /cmd_vel_safe 给已有 go2_twist_bridge。
         Node(
             package='go2_uwb',
             executable='follow_controller_node',
@@ -134,7 +136,7 @@ def generate_launch_description():
                 'target_topic': '/uwb/target_point',
                 'obstacle_distance_topic': '/obstacle/nearest_distance',
                 'avoid_vector_topic': '/obstacle/avoid_vector',
-                'cmd_vel_topic': '/cmd_vel',
+                'cmd_vel_topic': '/cmd_vel_safe',
                 'status_topic': '/go2_uwb/controller_status',
                 'control_rate': 20.0,
                 'status_rate': 2.0,

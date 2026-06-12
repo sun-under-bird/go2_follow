@@ -29,26 +29,34 @@ uwb_follow_path_node:
 
     follow_path_topic: /uwb_follow/path
     target_filtered_topic: /uwb_follow/target_filtered
+    follow_goal_topic: /uwb_follow/follow_goal
     target_valid_topic: /follow/target_valid
     status_topic: /follow/uwb_path_status
 
-    planner_action: /compute_path_to_pose
-    planner_id: GridBased
     follow_path_action: /follow_path
     controller_id: FollowPath
     goal_checker_id: general_goal_checker
 
-    follow_distance_m: 1.0
+    follow_distance_m: 1.5
 
     target_timeout_sec: 1.0
     min_target_distance_m: 0.0
     max_target_distance_m: 8.0
-    smoothing_alpha: 1.0
+    smoothing_alpha: 0.35
+    target_hold_sec: 0.5
+    max_target_jump_m: 1.0
+    max_target_speed_mps: 2.5
+    min_valid_samples: 1
+    max_invalid_samples: 4
 
     publish_rate_hz: 5.0
-    planner_timeout_sec: 1.0
     goal_update_distance_m: 0.10
     goal_update_angle_rad: 0.0872664626
+    direct_path_resolution_m: 0.20
+    rotate_to_target_within_follow_distance: true
+    hold_rotate_yaw_gain: 1.0
+    hold_rotate_max_angular_vel: 0.8
+    hold_rotate_yaw_deadband_rad: 0.05
     min_path_poses: 2
 
     publish_zero_velocity_on_stop: true
@@ -67,3 +75,20 @@ target_obstacle_filter_node:
     clear_z_max_m: 2.0
     pass_through_without_target: true
     use_latest_tf: true
+
+stereo_cloud_filter_node:
+  ros__parameters:
+    input_cloud_topic: /stereo/points2
+    obstacle_cloud_topic: /local_grid_obstacle
+    ground_cloud_topic: /local_grid_ground
+    target_frame: base_link
+    use_latest_tf: true
+    transform_timeout_sec: 0.2
+    voxel_leaf_size: 0.05
+    min_x: 0.15
+    max_x: 3.0
+    max_abs_y: 1.5
+    min_z: 0.0
+    max_z: 1.5
+    ground_z_max: 0.12
+    obstacle_z_min: 0.10
