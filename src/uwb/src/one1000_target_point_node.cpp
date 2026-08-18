@@ -42,7 +42,7 @@ geometry_msgs::msg::Point makePoint(const double x, const double y)
 
 }  // namespace
 
-namespace go2_uwb_mppi_follow
+namespace uwb_aoa_pkg
 {
 
 class One1000TargetPointNode : public rclcpp::Node
@@ -80,13 +80,13 @@ private:
     declare_parameter<std::string>("one1000_topic", "/libAoa_robot_publisher");
     declare_parameter<std::string>("target_point_topic", "/uwb/target_point");
     declare_parameter<std::string>("target_frame", "base_footprint");
-    declare_parameter<std::string>("one1000_frame", "base_footprint");
-    declare_parameter<bool>("use_tf", false);
-    declare_parameter<bool>("require_tf", true);
-    declare_parameter<bool>("use_latest_tf", true);
+    declare_parameter<std::string>("one1000_frame", "uwb_link");
+    declare_parameter<bool>("use_tf", true);
+    declare_parameter<bool>("use_latest_tf", false);
     declare_parameter<double>("transform_timeout_sec", 0.2);
 
     declare_parameter<bool>("prefer_xy", true);
+    declare_parameter<bool>("use_raw_fields", false);
     declare_parameter<bool>("angle_in_degrees", false);
     declare_parameter<bool>("invert_y", false);
     declare_parameter<double>("angle_offset_rad", 0.0);
@@ -105,11 +105,11 @@ private:
     target_frame_ = get_parameter("target_frame").as_string();
     one1000_frame_ = get_parameter("one1000_frame").as_string();
     use_tf_ = get_parameter("use_tf").as_bool();
-    require_tf_ = get_parameter("require_tf").as_bool();
     use_latest_tf_ = get_parameter("use_latest_tf").as_bool();
     transform_timeout_sec_ = get_parameter("transform_timeout_sec").as_double();
 
     prefer_xy_ = get_parameter("prefer_xy").as_bool();
+    use_raw_fields_ = get_parameter("use_raw_fields").as_bool();
     angle_in_degrees_ = get_parameter("angle_in_degrees").as_bool();
     invert_y_ = get_parameter("invert_y").as_bool();
     angle_offset_rad_ = get_parameter("angle_offset_rad").as_double();
@@ -144,13 +144,19 @@ private:
     point.header.frame_id = source_frame;
     point.point = *parsed;
 
+    if (source_frame != target_frame_ && !use_tf_) {
+      // 禁止通过替换 frame_id 伪造坐标变换；未启用 TF 时直接拒绝跨坐标系数据。
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "reject: TF disabled for One1000 target from %s to %s",
+        source_frame.c_str(), target_frame_.c_str());
+      return;
+    }
+
     if (use_tf_ && source_frame != target_frame_) {
       const auto transformed = transformToTargetFrame(point);
       if (!transformed) {
-        if (require_tf_) {
-          return;
-        }
-        point.header.frame_id = target_frame_;
+        return;
       } else {
         point = *transformed;
       }
@@ -166,13 +172,32 @@ private:
   // 从 One1000 消息中解析 x/y 或 r/a 目标坐标。
   std::optional<geometry_msgs::msg::Point> parseTarget(const LibAoaRobotMsg & msg) const
   {
+    // 厂商融合算法输出 r/a/x/y 恒为 0 时，改用 C5 原始距离与角度。
+    // raw_angle 来自 C5 包，单位是度，与 a 的弧度不同。
+    // Fall back to raw C5 range and bearing when the vendor fusion returns zeros.
+    if (use_raw_fields_) {
+      if (!finiteValue(msg.raw_distance) || !finiteValue(msg.raw_angle) ||
+        msg.raw_distance <= 1e-6)
+      {
+        return std::nullopt;
+      }
+      const double angle =
+        msg.raw_angle * 3.14159265358979323846 / 180.0 + angle_offset_rad_;
+      const double y = msg.raw_distance * std::sin(angle);
+      return validatePoint(
+        makePoint(
+          msg.raw_distance * std::cos(angle) + anchor_x_offset_,
+          (invert_y_ ? -y : y) + anchor_y_offset_));
+    }
+
     const bool xy_valid = finiteValue(msg.x) && finiteValue(msg.y);
     const bool range_angle_valid = finiteValue(msg.r) && finiteValue(msg.a) && msg.r > 1e-6;
 
     if (prefer_xy_ && xy_valid && std::hypot(msg.x, msg.y) > 1e-6) {
-      return validatePoint(makePoint(
-        msg.x + anchor_x_offset_,
-        (invert_y_ ? -msg.y : msg.y) + anchor_y_offset_));
+      return validatePoint(
+        makePoint(
+          msg.x + anchor_x_offset_,
+          (invert_y_ ? -msg.y : msg.y) + anchor_y_offset_));
     }
 
     if (range_angle_valid) {
@@ -182,15 +207,17 @@ private:
       }
       angle += angle_offset_rad_;
       const double y = msg.r * std::sin(angle);
-      return validatePoint(makePoint(
-        msg.r * std::cos(angle) + anchor_x_offset_,
-        (invert_y_ ? -y : y) + anchor_y_offset_));
+      return validatePoint(
+        makePoint(
+          msg.r * std::cos(angle) + anchor_x_offset_,
+          (invert_y_ ? -y : y) + anchor_y_offset_));
     }
 
     if (xy_valid) {
-      return validatePoint(makePoint(
-        msg.x + anchor_x_offset_,
-        (invert_y_ ? -msg.y : msg.y) + anchor_y_offset_));
+      return validatePoint(
+        makePoint(
+          msg.x + anchor_x_offset_,
+          (invert_y_ ? -msg.y : msg.y) + anchor_y_offset_));
     }
 
     return std::nullopt;
@@ -245,12 +272,12 @@ private:
   std::string target_point_topic_;
   std::string target_frame_;
   std::string one1000_frame_;
-  bool use_tf_{false};
-  bool require_tf_{true};
-  bool use_latest_tf_{true};
+  bool use_tf_{true};
+  bool use_latest_tf_{false};
   double transform_timeout_sec_{0.2};
 
   bool prefer_xy_{true};
+  bool use_raw_fields_{false};
   bool angle_in_degrees_{false};
   bool invert_y_{false};
   double angle_offset_rad_{0.0};
@@ -266,13 +293,13 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_;
 };
 
-}  // namespace go2_uwb_mppi_follow
+}  // namespace uwb_aoa_pkg
 
 // 启动 One1000 目标转换节点。
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<go2_uwb_mppi_follow::One1000TargetPointNode>());
+  rclcpp::spin(std::make_shared<uwb_aoa_pkg::One1000TargetPointNode>());
   rclcpp::shutdown();
   return 0;
 }

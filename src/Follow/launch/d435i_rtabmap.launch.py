@@ -6,6 +6,7 @@ from launch_ros.actions import Node
 
 
 def _stereo_remaps(left_image, right_image, left_info, right_info, odom_topic):
+    """生成 D435i 已矫正红外双目输入与里程计的统一重映射."""
     return [
         ("left/image_rect", left_image),
         ("right/image_rect", right_image),
@@ -16,11 +17,11 @@ def _stereo_remaps(left_image, right_image, left_info, right_info, odom_topic):
 
 
 def generate_launch_description():
+    """直接消费 D435i 已矫正红外图像和 CameraInfo 构建局部障碍栅格."""
     base_frame = LaunchConfiguration("base_frame")
     odom_topic = LaunchConfiguration("odom_topic")
     localization = LaunchConfiguration("localization")
     use_viz = LaunchConfiguration("use_viz")
-    use_stereo_odometry = LaunchConfiguration("use_stereo_odometry")
     database_path = LaunchConfiguration("database_path")
     slam_mode = PythonExpression(["'", localization, "' == 'false'"])
 
@@ -37,34 +38,6 @@ def generate_launch_description():
     camera_roll = LaunchConfiguration("camera_roll")
     camera_pitch = LaunchConfiguration("camera_pitch")
     camera_yaw = LaunchConfiguration("camera_yaw")
-
-    rtabmap_odom_params = {
-        "frame_id": base_frame,
-        "subscribe_rgbd": False,
-        "subscribe_stereo": True,
-        "subscribe_odom_info": True,
-        "use_sim_time": False,
-        "approx_sync": True,
-        "approx_sync_max_interval": 0.1,
-        "sync_queue_size": 10,
-        "topic_queue_size": 5,
-        "wait_for_transform": 0.5,
-        "Rtabmap/ImagesAlreadyRectified": "true",
-        "publish_tf": False,
-        "Vis/FeatureType": "8",
-        "Vis/EstimationType": "1",
-        "Vis/MinInliers": "12",
-        "Vis/MaxFeatures": "1000",
-        "Vis/CorType": "0",
-        "Odom/ResetCountdown": "5",
-        "Odom/Strategy": "0",
-        "OdomF2M/MaxSize": "1000",
-        "GFTT/MinDistance": "5",
-        "GFTT/QualityLevel": "0.00001",
-        "Stereo/MaxDisparity": "256",
-        "wait_imu_to_init": False,
-        "qos": 2,
-    }
 
     rtabmap_grid_filter_params = {
         "Grid/3D": "true",
@@ -128,21 +101,12 @@ def generate_launch_description():
         right_camera_info,
         odom_topic,
     )
-    odom_remaps = _stereo_remaps(
-        left_image,
-        right_image,
-        left_camera_info,
-        right_camera_info,
-        "/vo",
-    )
-
     return LaunchDescription(
         [
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
-            DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
+            DeclareLaunchArgument("odom_topic", default_value="/odom"),
             DeclareLaunchArgument("localization", default_value="false"),
             DeclareLaunchArgument("use_viz", default_value="false"),
-            DeclareLaunchArgument("use_stereo_odometry", default_value="false"),
             DeclareLaunchArgument("database_path", default_value="~/.ros/d435i_rtabmap.db"),
             DeclareLaunchArgument(
                 "left_image",
@@ -184,16 +148,6 @@ def generate_launch_description():
                     camera_frame,
                 ],
                 condition=IfCondition(publish_base_to_camera_tf),
-            ),
-            Node(
-                package="rtabmap_odom",
-                executable="stereo_odometry",
-                name="d435i_stereo_odometry",
-                output="screen",
-                parameters=[rtabmap_odom_params],
-                remappings=odom_remaps,
-                arguments=["--ros-args", "--log-level", "warn"],
-                condition=IfCondition(use_stereo_odometry),
             ),
             Node(
                 condition=IfCondition(slam_mode),

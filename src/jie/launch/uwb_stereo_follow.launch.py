@@ -1,20 +1,41 @@
+# Copyright 2026 ZhangWanjie
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
+
 def generate_launch_description():
-    # Generate the camera-to-scan converter and UWB follow node launch description.
+    """启动点云转扫描、短时局部地图和直接输出 /cmd_vel 的跟随节点."""
     return LaunchDescription([
         DeclareLaunchArgument("cloud_in", default_value="/local_grid_obstacle"),
         DeclareLaunchArgument("scan_topic", default_value="/scan"),
-        DeclareLaunchArgument("target_frame", default_value="base_link"),
+        DeclareLaunchArgument("target_frame", default_value="base_footprint"),
         DeclareLaunchArgument("local_map_frame", default_value="odom"),
         DeclareLaunchArgument("local_map_enabled", default_value="true"),
-        DeclareLaunchArgument("uwb_target_topic", default_value="/libAoa_robot_publisher"),
-        DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel_safe"),
-        DeclareLaunchArgument("uwb_input_frame", default_value="uwb_link"),
+        DeclareLaunchArgument("uwb_target_topic", default_value="/uwb/target_point"),
+        DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
+        DeclareLaunchArgument("uwb_input_frame", default_value="base_footprint"),
 
         # Convert the forward stereo obstacle cloud into a 2D LaserScan.
         Node(
@@ -55,8 +76,6 @@ def generate_launch_description():
                 "uwb_input_frame": LaunchConfiguration("uwb_input_frame"),
                 "local_map_frame": LaunchConfiguration("local_map_frame"),
                 "follow_dist": 1.0,
-                "target_timeout_sec": 0.5,
-                "scan_timeout_sec": 0.5,
                 "target_exclusion_radius": 0.35,
                 "apf_influence_dist": 0.6,
                 "apf_slowdown_dist": 0.6,
@@ -72,7 +91,10 @@ def generate_launch_description():
                 "robot_frame_back": 0.25,
                 "robot_frame_left": 0.16,
                 "robot_frame_right": 0.16,
-                "local_map_enabled": ParameterValue(LaunchConfiguration("local_map_enabled"), value_type=bool),
+                "local_map_enabled": ParameterValue(
+                    LaunchConfiguration("local_map_enabled"),
+                    value_type=bool,
+                ),
                 "local_map_size_x": 1.0,
                 "local_map_size_y": 1.0,
                 "local_map_resolution": 0.05,

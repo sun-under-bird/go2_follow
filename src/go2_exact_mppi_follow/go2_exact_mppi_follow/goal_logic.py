@@ -17,8 +17,6 @@ class UwbParseConfig:
     angle_offset_rad: float = 0.0
     anchor_x_offset: float = 0.0
     anchor_y_offset: float = 0.0
-    min_target_distance: float = 0.15
-    max_target_distance: float = 8.0
 
 
 @dataclass(frozen=True)
@@ -43,16 +41,13 @@ def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
-def validate_target(point: Tuple[float, float], config: UwbParseConfig) -> Optional[Tuple[float, float]]:
-    """Validate target coordinates and distance gates."""
+def validate_target(point: Tuple[float, float]) -> Optional[Tuple[float, float]]:
+    """仅检查原始目标坐标能否参与几何计算。"""
 
     x, y = point
     if not is_finite(x) or not is_finite(y):
         return None
 
-    distance = math.hypot(x, y)
-    if distance < config.min_target_distance or distance > config.max_target_distance:
-        return None
     return x, y
 
 
@@ -70,10 +65,7 @@ def parse_uwb_target(
 
     if config.prefer_xy and xy_valid:
         parsed_y = -y if config.invert_y else y
-        return validate_target(
-            (x + config.anchor_x_offset, parsed_y + config.anchor_y_offset),
-            config,
-        )
+        return validate_target((x + config.anchor_x_offset, parsed_y + config.anchor_y_offset))
 
     if range_angle_valid:
         angle_rad = angle * math.pi / 180.0 if config.angle_in_degrees else angle
@@ -83,16 +75,12 @@ def parse_uwb_target(
         if config.invert_y:
             target_y = -target_y
         return validate_target(
-            (target_x + config.anchor_x_offset, target_y + config.anchor_y_offset),
-            config,
+            (target_x + config.anchor_x_offset, target_y + config.anchor_y_offset)
         )
 
     if xy_valid:
         parsed_y = -y if config.invert_y else y
-        return validate_target(
-            (x + config.anchor_x_offset, parsed_y + config.anchor_y_offset),
-            config,
-        )
+        return validate_target((x + config.anchor_x_offset, parsed_y + config.anchor_y_offset))
 
     return None
 

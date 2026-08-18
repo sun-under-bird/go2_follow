@@ -55,21 +55,18 @@ class Go2UwbGoalBridge(Node):
         self.declare_parameter("one1000_topic", "/libAoa_robot_publisher")
         self.declare_parameter("goal_local_topic", "/exact_mppi/goal_local")
         self.declare_parameter("status_topic", "/exact_mppi/goal_status")
-        self.declare_parameter("base_frame", "base_link")
-        self.declare_parameter("one1000_frame", "base_link")
+        self.declare_parameter("base_frame", "base_footprint")
+        self.declare_parameter("one1000_frame", "base_footprint")
         self.declare_parameter("use_tf", True)
         self.declare_parameter("require_tf", True)
-        self.declare_parameter("use_latest_tf", True)
+        self.declare_parameter("use_latest_tf", False)
         self.declare_parameter("transform_timeout_sec", 0.2)
-        self.declare_parameter("require_valid_state", True)
         self.declare_parameter("prefer_xy", True)
         self.declare_parameter("angle_in_degrees", False)
         self.declare_parameter("invert_y", False)
         self.declare_parameter("angle_offset_rad", 0.0)
         self.declare_parameter("anchor_x_offset", 0.0)
         self.declare_parameter("anchor_y_offset", 0.0)
-        self.declare_parameter("min_target_distance", 0.15)
-        self.declare_parameter("max_target_distance", 8.0)
         self.declare_parameter("follow_distance", 0.9)
         self.declare_parameter("forward_goal_limit", 2.0)
         self.declare_parameter("reverse_goal_limit", 0.4)
@@ -87,8 +84,6 @@ class Go2UwbGoalBridge(Node):
         self.require_tf = bool(self.get_parameter("require_tf").value)
         self.use_latest_tf = bool(self.get_parameter("use_latest_tf").value)
         self.transform_timeout_sec = float(self.get_parameter("transform_timeout_sec").value)
-        self.require_valid_state = bool(self.get_parameter("require_valid_state").value)
-
         self.uwb_config = UwbParseConfig(
             prefer_xy=bool(self.get_parameter("prefer_xy").value),
             angle_in_degrees=bool(self.get_parameter("angle_in_degrees").value),
@@ -96,8 +91,6 @@ class Go2UwbGoalBridge(Node):
             angle_offset_rad=float(self.get_parameter("angle_offset_rad").value),
             anchor_x_offset=float(self.get_parameter("anchor_x_offset").value),
             anchor_y_offset=float(self.get_parameter("anchor_y_offset").value),
-            min_target_distance=float(self.get_parameter("min_target_distance").value),
-            max_target_distance=float(self.get_parameter("max_target_distance").value),
         )
         self.goal_config = FollowGoalConfig(
             follow_distance=float(self.get_parameter("follow_distance").value),
@@ -110,10 +103,6 @@ class Go2UwbGoalBridge(Node):
         """Parse a UWB target message and publish the corresponding local goal."""
 
         try:
-            if self.require_valid_state and msg.state < 0:
-                self._publish_status("reject: invalid UWB state")
-                return
-
             parsed = parse_uwb_target(msg.x, msg.y, msg.r, msg.a, self.uwb_config)
             if parsed is None:
                 self._publish_status("reject: invalid UWB target")

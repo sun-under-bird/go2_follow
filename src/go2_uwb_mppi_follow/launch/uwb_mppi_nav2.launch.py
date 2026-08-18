@@ -1,25 +1,22 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    """启动 MPPI 跟随与空闲区域恢复链，所有速度直接输出 /cmd_vel."""
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
+    start_uwb = LaunchConfiguration("start_uwb")
+    uwb_device = LaunchConfiguration("uwb_device")
+    uwb_frame_id = LaunchConfiguration("uwb_frame_id")
+    uwb_publish_rate_hz = LaunchConfiguration("uwb_publish_rate_hz")
     uwb_params_file = LaunchConfiguration("uwb_params_file")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
-    cmd_vel_nav = LaunchConfiguration("cmd_vel_nav")
-    cmd_vel_out = LaunchConfiguration("cmd_vel_out")
-    start_stereo_camera = LaunchConfiguration("start_stereo_camera")
-    start_stereo_cloud_filter = LaunchConfiguration("start_stereo_cloud_filter")
-    video_device = LaunchConfiguration("video_device")
-    left_info_url = LaunchConfiguration("left_info_url")
-    right_info_url = LaunchConfiguration("right_info_url")
-
     default_uwb_params_file = PathJoinSubstitution(
         [
             FindPackageShare("go2_uwb_mppi_follow"),
@@ -34,14 +31,6 @@ def generate_launch_description():
             "nav2_mppi_controller.yaml",
         ]
     )
-    default_stereo_camera_launch = PathJoinSubstitution(
-        [
-            FindPackageShare("go2_stereo_camera"),
-            "launch",
-            "stereo_camera.launch.py",
-        ]
-    )
-
     return LaunchDescription(
         [
             DeclareLaunchArgument(
@@ -55,6 +44,29 @@ def generate_launch_description():
                 description="Automatically configure and activate Nav2 lifecycle nodes.",
             ),
             DeclareLaunchArgument(
+                "start_uwb",
+                default_value="true",
+                description="Start the external UWB serial driver.",
+            ),
+            DeclareLaunchArgument(
+                "uwb_device",
+                default_value=(
+                    "/dev/serial/by-id/"
+                    "usb-FTDI_FT232R_USB_UART_AG00S82A-if00-port0"
+                ),
+                description="Stable serial path of the external UWB receiver.",
+            ),
+            DeclareLaunchArgument(
+                "uwb_frame_id",
+                default_value="base_footprint",
+                description="Frame assigned to aligned external UWB measurements.",
+            ),
+            DeclareLaunchArgument(
+                "uwb_publish_rate_hz",
+                default_value="10.0",
+                description="Maximum UWB message publish rate.",
+            ),
+            DeclareLaunchArgument(
                 "uwb_params_file",
                 default_value=default_uwb_params_file,
                 description="Parameter file for the UWB target and direct MPPI follow nodes.",
@@ -62,63 +74,24 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "nav2_params_file",
                 default_value=default_nav2_params_file,
-                description="Parameter file for Nav2 controller, local costmap, and velocity smoother.",
-            ),
-            DeclareLaunchArgument(
-                "cmd_vel_nav",
-                default_value="/cmd_vel_nav",
-                description="Raw velocity topic from Nav2 controller_server.",
-            ),
-            DeclareLaunchArgument(
-                "cmd_vel_out",
-                default_value="/cmd_vel_safe",
-                description="Smoothed velocity topic used by the Go2 velocity bridge.",
-            ),
-            DeclareLaunchArgument(
-                "start_stereo_camera",
-                default_value="false",
-                description="Start v4l2 stitched stereo camera splitting and point cloud pipeline.",
-            ),
-            DeclareLaunchArgument(
-                "start_stereo_cloud_filter",
-                default_value="true",
-                description="Filter /stereo/points2 into local obstacle and ground clouds.",
-            ),
-            DeclareLaunchArgument(
-                "video_device",
-                default_value="/dev/video0",
-                description="Linux v4l2 device for the stitched stereo camera.",
-            ),
-            DeclareLaunchArgument(
-                "left_info_url",
-                default_value="",
-                description="Left camera calibration YAML path.",
-            ),
-            DeclareLaunchArgument(
-                "right_info_url",
-                default_value="",
-                description="Right camera calibration YAML path.",
-            ),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(default_stereo_camera_launch),
-                launch_arguments={
-                    "video_device": video_device,
-                    "left_info_url": left_info_url,
-                    "right_info_url": right_info_url,
-                }.items(),
-                condition=IfCondition(start_stereo_camera),
+                description="Parameter file for Nav2 controller, costmap, and recovery behavior.",
             ),
             Node(
-                package="go2_uwb_mppi_follow",
-                executable="stereo_cloud_filter_node",
-                name="stereo_cloud_filter_node",
+                package="uwb_aoa_pkg",
+                executable="libAoa_robot_example",
+                name="libAoa_robot_publisher",
                 output="screen",
+                arguments=[uwb_device],
                 parameters=[
-                    uwb_params_file,
-                    {"use_sim_time": use_sim_time},
+                    {
+                        "frame_id": uwb_frame_id,
+                        "publish_rate_hz": ParameterValue(
+                            uwb_publish_rate_hz,
+                            value_type=float,
+                        ),
+                    }
                 ],
-                condition=IfCondition(start_stereo_cloud_filter),
-                arguments=["--ros-args", "--log-level", "warn"],
+                condition=IfCondition(start_uwb),
             ),
             Node(
                 package="nav2_controller",
@@ -126,19 +99,16 @@ def generate_launch_description():
                 name="controller_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[("cmd_vel", cmd_vel_nav)],
+                remappings=[("cmd_vel", "/cmd_vel")],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
-                package="nav2_velocity_smoother",
-                executable="velocity_smoother",
-                name="velocity_smoother",
+                package="nav2_behaviors",
+                executable="behavior_server",
+                name="behavior_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[
-                    ("cmd_vel", cmd_vel_nav),
-                    ("cmd_vel_smoothed", cmd_vel_out),
-                ],
+                remappings=[("cmd_vel", "/cmd_vel")],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
@@ -152,14 +122,14 @@ def generate_launch_description():
                     {
                         "node_names": [
                             "controller_server",
-                            "velocity_smoother",
+                            "behavior_server",
                         ]
                     },
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
-                package="go2_uwb_mppi_follow",
+                package="uwb_aoa_pkg",
                 executable="one1000_target_point_node",
                 name="one1000_target_point_node",
                 output="screen",
@@ -188,7 +158,26 @@ def generate_launch_description():
                 parameters=[
                     uwb_params_file,
                     {"use_sim_time": use_sim_time},
-                    {"stop_cmd_vel_topic": cmd_vel_nav},
+                    {"cmd_vel_topic": "/cmd_vel"},
+                ],
+                arguments=["--ros-args", "--log-level", "warn"],
+            ),
+            Node(
+                package="behavior_ext_plugins",
+                executable="follow_path_recovery_bt_node",
+                name="mppi_follow_recovery_bt",
+                output="screen",
+                parameters=[
+                    {
+                        "use_sim_time": use_sim_time,
+                        "path_topic": "/uwb_follow/path",
+                        "status_topic": "/follow/mppi_recovery_status",
+                        "controller_id": "FollowPath",
+                        "goal_checker_id": "general_goal_checker",
+                        "recovery_retries": 2,
+                        "recovery_distance_m": 0.30,
+                        "recovery_speed_mps": 0.12,
+                    }
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),

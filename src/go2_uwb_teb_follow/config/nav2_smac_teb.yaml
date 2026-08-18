@@ -30,7 +30,7 @@ controller_server:
   ros__parameters:
     use_sim_time: false
     controller_frequency: 20.0
-    odom_topic: /odom_leg
+    odom_topic: /odom
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
@@ -52,7 +52,7 @@ controller_server:
 
     FollowPath:
       plugin: "teb_local_planner/TEBLocalPlanner"
-      odom_topic: /odom_leg
+      odom_topic: /odom
       map_frame: odom
       teb_autosize: true
       dt_ref: 0.30
@@ -60,7 +60,7 @@ controller_server:
       max_global_plan_lookahead_dist: 3.0
       global_plan_overwrite_orientation: true
       allow_init_with_backwards_motion: false
-      max_vel_x: 0.45
+      max_vel_x: 0.4
       max_vel_x_backwards: 0.0
       max_vel_y: 0.0
       max_vel_theta: 1.0
@@ -98,10 +98,11 @@ local_costmap:
       update_frequency: 10.0
       publish_frequency: 10.0
       global_frame: odom
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
       use_sim_time: false
       transform_tolerance: 0.2
       rolling_window: true
+      track_unknown_space: true
       width: 6
       height: 6
       resolution: 0.05
@@ -115,7 +116,7 @@ local_costmap:
         voxel_decay: 1.5
         decay_model: 0
         voxel_size: 0.05
-        track_unknown_space: false
+        track_unknown_space: true
         unknown_threshold: 15
         mark_threshold: 0
         update_footprint_enabled: true
@@ -127,7 +128,7 @@ local_costmap:
         map_save_duration: 60.0
         observation_sources: obstacle ground
         obstacle:
-          topic: /local_grid_obstacle
+          topic: /local_grid_obstacle_filtered
           data_type: PointCloud2
           marking: true
           clearing: true
@@ -187,10 +188,11 @@ global_costmap:
       update_frequency: 10.0
       publish_frequency: 10.0
       global_frame: odom
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
       use_sim_time: false
       transform_tolerance: 0.2
       rolling_window: true
+      track_unknown_space: true
       width: 6
       height: 6
       resolution: 0.05
@@ -204,7 +206,7 @@ global_costmap:
         voxel_decay: 1.5
         decay_model: 0
         voxel_size: 0.05
-        track_unknown_space: false
+        track_unknown_space: true
         unknown_threshold: 15
         mark_threshold: 0
         update_footprint_enabled: true
@@ -216,7 +218,7 @@ global_costmap:
         map_save_duration: 60.0
         observation_sources: obstacle ground
         obstacle:
-          topic: /local_grid_obstacle
+          topic: /local_grid_obstacle_filtered
           data_type: PointCloud2
           marking: true
           clearing: true
@@ -270,17 +272,26 @@ global_costmap:
 
       always_send_full_costmap: false
 
-velocity_smoother:
+behavior_server:
   ros__parameters:
     use_sim_time: false
-    smoothing_frequency: 20.0
-    scale_velocities: false
-    feedback: OPEN_LOOP
-    max_velocity: [0.45, 0.0, 1.0]
-    min_velocity: [-0.20, 0.0, -1.0]
-    max_accel: [0.4, 0.0, 1.2]
-    max_decel: [-0.5, 0.0, -1.4]
-    odom_topic: /odom_leg
-    odom_duration: 0.1
-    deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 0.5
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: [backup]
+
+    # 标准 BackUp action 使用空闲区域方向脱困实现。
+    backup:
+      plugin: nav2_behaviors/BackUpTwzFree
+
+    global_frame: odom
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.2
+    simulate_ahead_time: 1.5
+    robot_radius: 0.25
+    max_radius: 2.0
+    service_name: local_costmap/get_costmap
+    free_threshold: 5
+    cost_threshold: 0.0
+    visualization: true
+    enable_strafe: true

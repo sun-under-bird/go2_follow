@@ -6,12 +6,11 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    """启动 Smac Hybrid、TEB 与空闲区域恢复，速度直接输出 /cmd_vel."""
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
     uwb_params_file = LaunchConfiguration("uwb_params_file")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
-    cmd_vel_nav = LaunchConfiguration("cmd_vel_nav")
-    cmd_vel_out = LaunchConfiguration("cmd_vel_out")
 
     default_uwb_params_file = PathJoinSubstitution(
         [
@@ -48,17 +47,27 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "nav2_params_file",
                 default_value=default_nav2_params_file,
-                description="Parameter file for Smac Hybrid, TEB, rolling costmaps, and velocity smoother.",
+                description="Parameter file for Smac Hybrid, TEB, costmaps, and recovery.",
             ),
-            DeclareLaunchArgument(
-                "cmd_vel_nav",
-                default_value="/cmd_vel_nav",
-                description="Raw velocity topic from Nav2 controller_server.",
-            ),
-            DeclareLaunchArgument(
-                "cmd_vel_out",
-                default_value="/cmd_vel_safe",
-                description="Smoothed velocity topic used by the Go2 velocity bridge.",
+            Node(
+                package="go2_uwb_mppi_follow",
+                executable="target_obstacle_filter_node",
+                name="teb_target_obstacle_filter_node",
+                output="screen",
+                parameters=[
+                    {
+                        "input_cloud_topic": "/local_grid_obstacle",
+                        "output_cloud_topic": "/local_grid_obstacle_filtered",
+                        "target_topic": "/uwb_teb/target",
+                        "filter_frame": "base_footprint",
+                        "clear_radius_m": 0.45,
+                        "clear_z_min_m": 0.05,
+                        "clear_z_max_m": 2.0,
+                        "pass_through_without_target": True,
+                        "use_latest_tf": False,
+                    }
+                ],
+                arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
                 package="nav2_planner",
@@ -74,19 +83,16 @@ def generate_launch_description():
                 name="controller_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[("cmd_vel", cmd_vel_nav)],
+                remappings=[("cmd_vel", "/cmd_vel")],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
-                package="nav2_velocity_smoother",
-                executable="velocity_smoother",
-                name="velocity_smoother",
+                package="nav2_behaviors",
+                executable="behavior_server",
+                name="behavior_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[
-                    ("cmd_vel", cmd_vel_nav),
-                    ("cmd_vel_smoothed", cmd_vel_out),
-                ],
+                remappings=[("cmd_vel", "/cmd_vel")],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
@@ -97,7 +103,7 @@ def generate_launch_description():
                 parameters=[
                     {"use_sim_time": use_sim_time},
                     {"autostart": autostart},
-                    {"node_names": ["planner_server", "controller_server", "velocity_smoother"]},
+                    {"node_names": ["planner_server", "controller_server", "behavior_server"]},
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
@@ -109,7 +115,25 @@ def generate_launch_description():
                 parameters=[
                     uwb_params_file,
                     {"use_sim_time": use_sim_time},
-                    {"stop_cmd_vel_topic": cmd_vel_nav},
+                ],
+                arguments=["--ros-args", "--log-level", "warn"],
+            ),
+            Node(
+                package="behavior_ext_plugins",
+                executable="follow_path_recovery_bt_node",
+                name="teb_follow_recovery_bt",
+                output="screen",
+                parameters=[
+                    {
+                        "use_sim_time": use_sim_time,
+                        "path_topic": "/uwb_teb/path",
+                        "status_topic": "/follow/teb_recovery_status",
+                        "controller_id": "FollowPath",
+                        "goal_checker_id": "general_goal_checker",
+                        "recovery_retries": 2,
+                        "recovery_distance_m": 0.30,
+                        "recovery_speed_mps": 0.12,
+                    }
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),

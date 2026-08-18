@@ -58,38 +58,6 @@ TEST(PointFiltering, RemovesGroundFarAndRobotFramePoints)
   EXPECT_DOUBLE_EQ(filtered[0].x, 1.0);
 }
 
-TEST(TargetTracking, ComputesCentroidAroundCurrentTarget)
-{
-  apf::TargetTrackingConfig config;
-  config.target_radius = 0.3;
-  config.min_points_in_target = 2;
-
-  std::vector<apf::Point3D> points{
-    {2.0, 0.1, 0.4},
-    {2.1, -0.1, 0.4},
-    {3.0, 0.0, 0.4},
-  };
-
-  auto centroid = apf::compute_target_centroid(points, apf::Point2D{2.0, 0.0}, config);
-
-  ASSERT_TRUE(centroid.has_value());
-  EXPECT_NEAR(centroid->x, 2.05, 1e-9);
-  EXPECT_NEAR(centroid->y, 0.0, 1e-9);
-}
-
-TEST(TargetTracking, RejectsSparseTargetCluster)
-{
-  apf::TargetTrackingConfig config;
-  config.target_radius = 0.3;
-  config.min_points_in_target = 2;
-
-  std::vector<apf::Point3D> points{{2.0, 0.1, 0.4}};
-
-  auto centroid = apf::compute_target_centroid(points, apf::Point2D{2.0, 0.0}, config);
-
-  EXPECT_FALSE(centroid.has_value());
-}
-
 TEST(ApfControl, StopsInsideEmergencyDistance)
 {
   apf::ApfConfig apf_config;

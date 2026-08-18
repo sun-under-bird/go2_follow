@@ -16,15 +16,13 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
   <depend>tf2_sensor_msgs</depend>
   <depend>uwb_aoa_pkg</depend>
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>image_proc</exec_depend>
-  <exec_depend>stereo_image_proc</exec_depend>
-
   <export>
     <build_type>ament_cmake</build_type>
   </export>

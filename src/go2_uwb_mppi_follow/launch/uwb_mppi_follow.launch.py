@@ -24,7 +24,7 @@ def generate_launch_description():
                 description="UWB direct MPPI follow parameter file.",
             ),
             Node(
-                package="go2_uwb_mppi_follow",
+                package="uwb_aoa_pkg",
                 executable="one1000_target_point_node",
                 name="one1000_target_point_node",
                 output="screen",

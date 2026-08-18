@@ -1,31 +1,24 @@
 uwb_target_seed_node:
   ros__parameters:
-    one1000_topic: /libAoa_robot_publisher
-    base_frame: base_link
-    one1000_frame: uwb_link
+    one1000_topic: /uwb/target_point
+    base_frame: base_footprint
+    one1000_frame: base_footprint
     seed_target_topic: /stereo_apf/seed_target
     seed_valid_topic: /stereo_apf/seed_valid
     use_tf: true
     require_tf: true
-    disable_quality_gating: true
-    confidence_threshold: 0.0
-    target_timeout_sec: 3.0
-    status_publish_period_sec: 0.5
     prefer_xy: true
     angle_in_degrees: false
     invert_y: false
     angle_offset_rad: 0.0
     anchor_x_offset: 0.0
     anchor_y_offset: 0.0
-    min_target_distance: 0.15
-    max_target_distance: 8.0
 
 stereo_apf_controller_node:
   ros__parameters:
-    base_frame: base_link
+    base_frame: base_footprint
     pointcloud_topic: /local_grid_obstacle
     seed_target_topic: /stereo_apf/seed_target
-    seed_valid_topic: /stereo_apf/seed_valid
     manual_target_topic: /stereo_apf/manual_target
     enabled_topic: /stereo_apf/enabled
     cmd_vel_topic: /cmd_vel
@@ -34,10 +27,6 @@ stereo_apf_controller_node:
     potential_field_topic: /stereo_apf/potential_field
     enabled_default: true
     publish_rate_hz: 30.0
-    pointcloud_timeout_sec: 0.5
-    seed_timeout_sec: 3.0
-    target_hold_sec: 0.8
-    seed_reset_distance: 1.0
     max_points_per_cloud: 60000
     obstacle_x_min: -4.0
     obstacle_x_max: 4.0
@@ -48,29 +37,26 @@ stereo_apf_controller_node:
     robot_frame_back: 0.35
     robot_frame_left: 0.15
     robot_frame_right: 0.15
-    target_radius: 0.30
-    min_points_in_target: 1
-    smoothing_alpha: 0.35
-    apf_influence_dist: 0.25
+    apf_influence_dist: 0.80
     apf_repulse_gain: 0.01
     apf_max_repulse: 1.0
-    apf_emergency_dist: 0.20
-    apf_slowdown_dist: 0.25
+    apf_emergency_dist: 0.35
+    apf_slowdown_dist: 0.80
     corridor_width: 0.35
-    follow_distance: 0.40
+    follow_distance: 1.00
     distance_deadband: 0.05
     lateral_deadband: 0.03
     yaw_deadband: 0.10
     linear_scale: 0.50
     lateral_scale: 1.0
     angular_scale: 1.0
-    max_vx: 1.0
-    max_vy: 1.0
-    max_vyaw: 1.0
-    max_reverse_vx: 1.0
+    max_vx: 0.45
+    max_vy: 0.25
+    max_vyaw: 0.8
+    max_reverse_vx: 0.0
     reverse_scale: 0.8
     min_vx_abs: 0.06
-    allow_reverse: true
+    allow_reverse: false
     publish_potential_field: false
     potential_field_sample_step: 0.40
     potential_field_arrow_length: 0.18

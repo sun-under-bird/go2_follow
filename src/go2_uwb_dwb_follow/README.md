@@ -1,117 +1,78 @@
-# Go2 UWB 点目标 DWB 跟随避障
+# Go2 UWB DWB 跟随避障
 
-本包用于在 ROS 2 Humble 下测试 Unitree Go2 的 UWB 点目标跟随。它不做全局规划，也不做 A* 或历史轨迹路径规划，只根据当前 UWB 点计算一个保持距离后的跟随目标，再交给 Nav2 DWB 做局部速度采样和避障。
+该包用于验证“当前 UWB 点 → 保持距离站位点 → 两点参考路径 → DWB 局部避障”。它不运行全局规划器；路径只包含机器人当前位置和站位点，用于适配 Nav2 `FollowPath` 接口。
 
-注意：Nav2 Humble 的 DWB 控制器接口仍然是 `FollowPath`，所以节点会生成一个只有两个点的“接口适配 path”：
-
-```text
-当前机器人位置 -> UWB 跟随目标点
-```
-
-这个 path 不是规划路径，只是为了调用 DWB。DWB 的参数也按“目标点趋近 + 障碍避让”配置，弱化了路径贴合相关 critic。
-
-## 运行链路
+## 运行链
 
 ```text
-UWB 当前点
+/libAoa_robot_publisher
   -> uwb_point_follow_node
-  -> /uwb_follow_target
-  -> 两点式 FollowPath goal
-  -> Nav2 FollowPath(DWB)
-  -> /cmd_vel_safe
+  -> /uwb_dwb/path
+  -> follow_path_recovery_bt_node
+       FollowPath 失败 -> BackUp -> 重试 FollowPath
+  -> controller_server / DWB
+  -> /cmd_vel
 
-双目或深度点云
-  -> /local_grid_obstacle
-  -> Nav2 local costmap
-  -> DWB BaseObstacle critic
+/local_grid_obstacle + /local_grid_ground
+  -> local_costmap
+  -> DWB critics + BackUpTwzFree 空闲方向搜索
 ```
 
-本包只启动 Nav2 `controller_server`，不启动全局 planner、BT navigator 或 recoveries。
+行为树 XML 位于 `behavior_ext_plugins/behavior_trees/follow_path_with_free_space_recovery.xml`。`BackUp` 仍是 Nav2 标准行为树节点，但 `behavior_server.backup.plugin` 已替换为 `nav2_behaviors/BackUpTwzFree`：DWB 找不到有效速度或进度检查失败后，行为树会先朝局部代价地图中的自由区域移动 `0.30 m`，再重试原路径，默认最多恢复两次。
 
-## 主要文件
+## DWB 如何选速度
 
-- `src/uwb_point_follow_node.cpp`：订阅 UWB 消息，计算跟随目标，并刷新 DWB `FollowPath` goal。
-- `config/uwb_dwb_follow.yaml`：UWB 点目标、跟随距离、滤波和 action 刷新参数。
-- `config/nav2_dwb_controller.yaml`：DWB 控制器和局部代价地图参数。
-- `launch/uwb_dwb_follow.launch.py`：只启动 UWB 点目标跟随节点。
-- `launch/uwb_dwb_nav2.launch.py`：启动 DWB controller、生命周期管理器和 UWB 点目标跟随节点。
+DWB 不是简单计算一张“空闲区域得分图”后直接发速度。它会：
 
-## 依赖
+1. 在当前速度和加速度约束内采样 `(vx, vy, wz)`。
+2. 对每组速度向前模拟 `1.5 s` 的短轨迹。
+3. 用 `BaseObstacle` 排除碰撞轨迹。
+4. 用 `GoalAlign`、`GoalDist`、`RotateToGoal`、`Oscillation` 等 critic 对剩余轨迹评分。
+5. 选择总分最低的轨迹，并把该轨迹的首个速度直接发布到 `/cmd_vel`。
 
-需要安装 Nav2 DWB 相关包：
+当前 `max_vel_y=0`，所以 DWB 控制阶段按差速模型运行；恢复插件可利用 Go2 的横移能力发布 `linear.y`。
 
-```bash
-sudo apt install ros-humble-dwb-core ros-humble-dwb-plugins ros-humble-dwb-critics
-```
-
-本包还依赖 `uwb_aoa_pkg` 提供 UWB 消息类型。
-
-## 编译
+## 编译与启动
 
 ```bash
 source /opt/ros/humble/setup.bash
 cd ~/go2_follow
-colcon build --symlink-install --packages-select uwb_aoa_pkg go2_uwb_dwb_follow
+colcon build --symlink-install --packages-up-to go2_uwb_dwb_follow
 source install/setup.bash
-```
 
-## 启动前检查
-
-先确认 Go2 里程计、TF、UWB 和点云正常：
-
-```bash
-ros2 topic hz /odom_leg
-ros2 topic hz /libAoa_robot_publisher
-ros2 topic hz /local_grid_obstacle
-ros2 topic hz /local_grid_ground
-ros2 run tf2_ros tf2_echo odom base_link
-ros2 run tf2_ros tf2_echo base_link uwb_link
-```
-
-## 启动
-
-启动完整 DWB 点目标跟随链路：
-
-```bash
 ros2 launch go2_uwb_dwb_follow uwb_dwb_nav2.launch.py
 ```
 
-第一次实测建议先不要直接接 Go2 执行端，把输出改到观察话题：
+该 launch 启动 `controller_server`、`behavior_server`、生命周期管理器、UWB 路径节点和行为树执行器。它不启动 UWB 串口驱动、D435i 点云链或里程计。
+
+## 启动前检查
 
 ```bash
-ros2 launch go2_uwb_dwb_follow uwb_dwb_nav2.launch.py cmd_vel_out:=/cmd_vel_nav
+ros2 topic hz /odom
+ros2 run tf2_ros tf2_echo odom base_footprint
+ros2 topic hz /libAoa_robot_publisher
+ros2 topic hz /local_grid_obstacle
+ros2 topic hz /local_grid_ground
 ```
 
-确认速度方向和幅值正常后，再输出到 `/cmd_vel_safe` 或接入你的安全门控。
-
-## 调试话题
+## 运行检查
 
 ```bash
+ros2 lifecycle get /controller_server
+ros2 lifecycle get /behavior_server
+ros2 action list | grep -E 'follow_path|backup'
 ros2 topic echo /follow/uwb_point_status
-ros2 topic echo /follow/target_valid
-ros2 topic echo /uwb_follow_target
-ros2 topic echo /follow_path
-ros2 topic echo /cmd_vel_safe
+ros2 topic echo /follow/dwb_recovery_status
+ros2 topic echo /uwb_dwb/path --once
+ros2 topic info /cmd_vel --verbose
+ros2 topic echo /cmd_vel
 ```
 
-RViz2 中建议观察：
+RViz 建议显示 `/uwb_follow_target`、`/uwb_dwb/path`、`/local_costmap/costmap`、`/local_grid_obstacle` 和 `/back_up_twz_free_markers`。
 
-- `/uwb_follow_target`
-- `/follow_path`
-- `/local_costmap/costmap`
-- `/local_grid_obstacle`
+## 当前边界
 
-其中 `/follow_path` 只是两点式接口适配 path，不代表系统做了路径规划。
-
-## DWB 初始参数
-
-默认按低速差速模型设置：
-
-- 最大前进速度：`0.45 m/s`
-- 最大后退速度：`0.0 m/s`
-- 最大角速度：`1.0 rad/s`
-- 轨迹预测时间：`1.5 s`
-- 局部代价地图：`4 m x 4 m`
-- 膨胀半径：`0.30 m`
-
-如果 UWB 点抖动，可以优先调 `smoothing_alpha`、`max_target_jump_m` 和 `max_target_speed_mps`。如果遇到完全挡住直达方向的大障碍，DWB 可能会停住或局部试探；这是点目标直跟方案的限制，因为它没有 A* 或全局路径来主动绕远路。
+- DWB 只在短预测窗内绕障，无法像 A* 或 Smac 那样规划长距离绕路。
+- 完全封死目标方向时会先停车，待 `FollowPath` 返回失败后才进入恢复，不会穿越碰撞轨迹。
+- 恢复两次仍失败时行为树停止并等待站位目标明显变化；不会无限反复脱困。
+- 当前按需求没有速度平滑器和独立安全门控；一次只能启动一个 `/cmd_vel` 控制方案。

@@ -44,11 +44,11 @@ TargetObstacleFilterNode::TargetObstacleFilterNode()
 // 声明节点使用的所有可调 ROS 参数。
 void TargetObstacleFilterNode::declareParameters()
 {
+  // 直接消费 D435i 已矫正双目图经 RTAB-Map 生成的障碍云。
   declare_parameter<std::string>("input_cloud_topic", "/local_grid_obstacle");
   declare_parameter<std::string>("output_cloud_topic", "/local_grid_obstacle_filtered");
-  declare_parameter<std::string>("target_topic", "/uwb_follow/target_filtered");
+  declare_parameter<std::string>("target_topic", "/uwb_follow/target_raw");
   declare_parameter<std::string>("filter_frame", "base_footprint");
-  declare_parameter<double>("target_timeout_sec", 0.8);
   declare_parameter<double>("transform_timeout_sec", 0.2);
   declare_parameter<double>("clear_radius_m", 0.45);
   declare_parameter<double>("clear_z_min_m", 0.05);
@@ -64,7 +64,6 @@ void TargetObstacleFilterNode::loadParameters()
   config_.output_cloud_topic = get_parameter("output_cloud_topic").as_string();
   config_.target_topic = get_parameter("target_topic").as_string();
   config_.filter_frame = get_parameter("filter_frame").as_string();
-  config_.target_timeout_sec = get_parameter("target_timeout_sec").as_double();
   config_.transform_timeout_sec = get_parameter("transform_timeout_sec").as_double();
   config_.clear_radius_m = get_parameter("clear_radius_m").as_double();
   config_.clear_z_min_m = get_parameter("clear_z_min_m").as_double();
@@ -93,7 +92,7 @@ void TargetObstacleFilterNode::cloudCallback(const sensor_msgs::msg::PointCloud2
   const rclcpp::Time stamp = msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0 ?
     now() : rclcpp::Time(msg->header.stamp, get_clock()->get_clock_type());
 
-  if (!hasFreshTarget(stamp)) {
+  if (!latest_target_) {
     if (config_.pass_through_without_target) {
       publishPassThrough(*msg);
     }
@@ -166,16 +165,6 @@ void TargetObstacleFilterNode::cloudCallback(const sensor_msgs::msg::PointCloud2
   cloud_pub_->publish(filtered);
 }
 
-// 判断当前是否有未超时的目标点。
-bool TargetObstacleFilterNode::hasFreshTarget(const rclcpp::Time & stamp) const
-{
-  if (!latest_target_) {
-    return false;
-  }
-
-  return (stamp - latest_target_->stamp).seconds() <= config_.target_timeout_sec;
-}
-
 // 将缓存的目标点转换到过滤坐标系。
 std::optional<geometry_msgs::msg::Point> TargetObstacleFilterNode::targetInFilterFrame(
   const rclcpp::Time & stamp)
@@ -221,8 +210,8 @@ bool TargetObstacleFilterNode::pointInsideTargetCylinder(
   const double dz = point.z - target.z;
   const double radius = std::hypot(dx, dy);
   return radius <= config_.clear_radius_m &&
-    dz >= config_.clear_z_min_m &&
-    dz <= config_.clear_z_max_m;
+         dz >= config_.clear_z_min_m &&
+         dz <= config_.clear_z_max_m;
 }
 
 // 直接转发原始点云。

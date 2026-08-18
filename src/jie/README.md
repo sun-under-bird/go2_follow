@@ -1,6 +1,6 @@
 # jie_deamon
 
-`jie_deamon` 是一个 ROS 2 UWB 跟随避障节点。当前版本使用 UWB 提供跟随目标位置，使用前向相机点云转换出的 `/scan` 提供前方障碍信息，并维护一个短时局部地图来补足侧向障碍记忆，然后发布 `/cmd_vel_safe`。
+`jie_deamon` 是一个 ROS 2 UWB 跟随避障节点。当前版本使用 UWB 提供跟随目标位置，使用前向相机点云转换出的 `/scan` 提供前方障碍信息，并维护一个短时局部地图来补足侧向障碍记忆，然后发布 `/cmd_vel`。
 
 ## ROS 2 接口
 
@@ -8,14 +8,13 @@
 | --- | --- | --- | --- |
 | 订阅 | `/libAoa_robot_publisher` | `uwb_aoa_pkg/msg/LibAoaRobotMsg` | UWB 目标位置 |
 | 订阅 | `/scan` | `sensor_msgs/msg/LaserScan` | 相机点云转换后的前向扫描 |
-| 发布 | `/cmd_vel_safe` | `geometry_msgs/msg/Twist` | 底盘安全速度指令 |
+| 发布 | `/cmd_vel` | `geometry_msgs/msg/Twist` | 最终底盘速度指令 |
 
-UWB 目标坐标默认来自 `uwb_link`，节点会通过 TF 转换到 `target_frame` 后再控制：
+UWB 目标坐标默认来自 `base_footprint`，节点会在需要时通过 TF 转换到 `target_frame` 后再控制：
 
 - `x`：前方为正。
 - `y`：左侧为正。
-- `state`：必须等于 `1` 才认为定位有效。
-- `pos_confidence`：当前不参与过滤。
+- `state`、`pos_confidence`：均不参与目标门控，控制器直接使用原始坐标。
 
 ## 局部地图
 
@@ -46,8 +45,6 @@ UWB 目标坐标默认来自 `uwb_link`，节点会通过 TF 转换到 `target_f
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
 | `follow_dist` | `1.0` | 跟随目标距离 |
-| `target_timeout_sec` | `0.5` | UWB 目标超时时间 |
-| `scan_timeout_sec` | `0.5` | `/scan` 超时时间 |
 | `target_exclusion_radius` | `0.35` | 排除 UWB 目标自身点云的半径 |
 | `apf_influence_dist` | `0.6` | APF 斥力影响距离 |
 | `apf_slowdown_dist` | `0.6` | 前方减速距离 |
@@ -71,8 +68,8 @@ UWB 目标坐标默认来自 `uwb_link`，节点会通过 TF 转换到 `target_f
 | `local_map_ray_clear_enabled` | `true` | 是否开启相机视野射线清除 |
 | `local_map_ray_clear_radius` | `0.06` | 射线附近多宽范围内的历史点会被清除 |
 | `local_map_ray_clear_hit_margin` | `0.08` | 有命中障碍时，命中点前保留的末端保护距离 |
-| `uwb_input_frame` | `uwb_link` | UWB 消息缺省坐标系 |
-| `target_frame` | `base_link` | 跟随控制和 `/scan` 使用的目标坐标系 |
+| `uwb_input_frame` | `base_footprint` | UWB 消息缺省坐标系 |
+| `target_frame` | `base_footprint` | 跟随控制和 `/scan` 使用的目标坐标系 |
 
 ## 启动
 
@@ -88,7 +85,7 @@ ros2 launch jie_deamon uwb_stereo_follow.launch.py
 ros2 launch jie_deamon uwb_stereo_follow.launch.py cloud_in:=/camera/depth/points
 ```
 
-如果没有 `odom -> base_link` 或等价 TF，局部地图不能做运动补偿。此时可以临时关闭局部地图：
+如果没有 `odom -> base_footprint` 或等价 TF，局部地图不能做运动补偿。此时可以临时关闭局部地图：
 
 ```bash
 ros2 launch jie_deamon uwb_stereo_follow.launch.py local_map_enabled:=false
@@ -99,4 +96,4 @@ ros2 launch jie_deamon uwb_stereo_follow.launch.py local_map_enabled:=false
 - 前向相机只能覆盖前方视场，局部地图只提供短期历史记忆，不是全向传感器。
 - 局部地图依赖 TF/里程计质量；位姿漂移会让历史障碍点位置不准。
 - 地面点或点云噪声会影响避障，建议输入已经去地面后的障碍点云。
-- 本机没有 ROS 2 环境，代码修改后不做编译检查。
+- 收到第一帧 UWB 和 scan 后会持续复用最后一帧数据，不再因输入超时自动停车。

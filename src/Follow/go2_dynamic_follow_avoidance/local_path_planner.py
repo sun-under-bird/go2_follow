@@ -5,6 +5,7 @@ import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import OccupancyGrid, Path
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
@@ -33,7 +34,7 @@ class LocalPathPlanner(Node):
     def __init__(self):
         super().__init__("local_path_planner")
 
-        self.declare_parameter("base_frame", "base_link")
+        self.declare_parameter("base_frame", "base_footprint")
         self.declare_parameter("path_frame", "odom")
         self.declare_parameter("pointcloud_topic", "/local_grid_obstacle")
         self.declare_parameter("ground_topic", "/local_grid_ground")
@@ -57,7 +58,6 @@ class LocalPathPlanner(Node):
         self.declare_parameter("nearest_goal_search_radius", 0.8)
         self.declare_parameter("goal_reached_tolerance", 0.15)
         self.declare_parameter("path_spacing", 0.10)
-        self.declare_parameter("pointcloud_timeout_sec", 0.5)
         self.declare_parameter("obstacle_hold_sec", 0.6)
         self.declare_parameter("min_points_per_cell", 2)
         self.declare_parameter("ground_clear_enabled", True)
@@ -100,8 +100,18 @@ class LocalPathPlanner(Node):
         self.held_occupied = {}
         self.last_status = ""
 
-        self.create_subscription(PointCloud2, str(self.get_parameter("pointcloud_topic").value), self._cloud_cb, 5)
-        self.create_subscription(PointCloud2, str(self.get_parameter("ground_topic").value), self._ground_cb, 5)
+        self.create_subscription(
+            PointCloud2,
+            str(self.get_parameter("pointcloud_topic").value),
+            self._cloud_cb,
+            qos_profile_sensor_data,
+        )
+        self.create_subscription(
+            PointCloud2,
+            str(self.get_parameter("ground_topic").value),
+            self._ground_cb,
+            qos_profile_sensor_data,
+        )
         self.create_subscription(PoseStamped, str(self.get_parameter("goal_topic").value), self._goal_cb, 10)
         self.create_subscription(Bool, str(self.get_parameter("target_valid_topic").value), self._valid_cb, 10)
 
@@ -152,12 +162,6 @@ class LocalPathPlanner(Node):
 
     def _valid_cb(self, msg: Bool):
         self.target_valid = bool(msg.data)
-
-    def _cloud_is_fresh(self) -> bool:
-        if self.latest_cloud_time is None:
-            return False
-        age = (self.get_clock().now() - self.latest_cloud_time).nanoseconds * 1e-9
-        return age <= float(self.get_parameter("pointcloud_timeout_sec").value)
 
     def _ground_is_fresh(self) -> bool:
         if self.latest_ground_time is None:
@@ -361,10 +365,10 @@ class LocalPathPlanner(Node):
         return blocked
 
     def _plan_and_publish(self):
-        if not self._cloud_is_fresh():
+        if self.latest_cloud_time is None:
             self._clear_costmap()
             self._publish_empty_path(False)
-            self._publish_status("stop: RTAB-Map obstacle cloud stale")
+            self._publish_status("stop: waiting for obstacle cloud")
             return
 
         blocked = self._update_costmap()

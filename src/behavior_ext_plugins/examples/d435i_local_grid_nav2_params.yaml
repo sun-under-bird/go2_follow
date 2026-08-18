@@ -1,4 +1,4 @@
-# 这个文件只包含和双目相机 + BackUpTwzFree 有关的 Nav2 参数片段。
+# 这个文件只包含 D435i 局部障碍点云与 BackUpTwzFree 有关的 Nav2 参数片段。
 # 使用时把对应片段合并进自己的 nav2_params.yaml，不要直接覆盖完整 Nav2 配置。
 
 local_costmap:
@@ -7,14 +7,14 @@ local_costmap:
       update_frequency: 10.0
       publish_frequency: 10.0
       global_frame: odom
-      robot_base_frame: base_link
+      robot_base_frame: base_footprint
       rolling_window: true
       width: 4.0
       height: 4.0
       resolution: 0.05
       robot_radius: 0.25
 
-      # 前方双目相机看不到侧后方，建议保留 unknown，避免未观测区域被脱困插件当成自由空间。
+      # 前视 D435i 看不到侧后方，建议保留 unknown，避免未观测区域被脱困插件当成自由空间。
       track_unknown_space: true
 
       plugins: ["obstacle_layer", "inflation_layer"]
@@ -23,11 +23,11 @@ local_costmap:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: true
         footprint_clearing_enabled: true
-        observation_sources: stereo_points
+        observation_sources: d435i_obstacle
 
-        stereo_points:
-          # 改成你的双目相机点云话题；如果你使用 depthimage_to_laserscan，则这里换成 LaserScan 配置。
-          topic: /stereo/points
+        d435i_obstacle:
+          # 直接消费 RTAB-Map 根据已矫正 D435i 红外图像生成的局部障碍点云。
+          topic: /local_grid_obstacle
           data_type: "PointCloud2"
           marking: true
           clearing: true
@@ -64,7 +64,7 @@ behavior_server:
       plugin: "nav2_behaviors/Wait"
 
     global_frame: odom
-    robot_base_frame: base_link
+    robot_base_frame: base_footprint
     transform_tolerance: 0.1
     use_sim_time: false
     simulate_ahead_time: 1.5

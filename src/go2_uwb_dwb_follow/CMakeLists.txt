@@ -36,6 +36,10 @@ set(dependencies
 add_executable(uwb_point_follow_node src/uwb_point_follow_node.cpp)
 ament_target_dependencies(uwb_point_follow_node ${dependencies})
 
+# Humble 下 rosidl 包改为基于 target 导出，include 目录不再经 ament_target_dependencies 传递。
+# On Humble rosidl packages export via targets, so their include dirs need explicit linking.
+target_link_libraries(uwb_point_follow_node ${nav2_msgs_TARGETS})
+
 install(
   TARGETS
     uwb_point_follow_node

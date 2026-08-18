@@ -92,24 +92,21 @@ class Go2ExactMppiNode(Node):
     def _declare_default_parameters(self) -> None:
         """Declare defaults for parameters not supplied through YAML."""
 
+        # 速度只保留唯一最终出口，避免调试副本被误接到底盘。
         defaults = {
             "mppi_config_file": "go2_orin_omni.yaml",
             "require_jax_gpu": True,
-            "base_frame": "base_link",
+            "base_frame": "base_footprint",
             "map_frame": "odom",
-            "pointcloud_topic": "/stereo/points2",
+            "pointcloud_topic": "/local_grid_obstacle",
             "odom_topic": "/odom",
             "goal_local_topic": "/exact_mppi/goal_local",
             "cmd_vel_topic": "/cmd_vel",
-            "cmd_vel_raw_topic": "/exact_mppi/cmd_vel_raw",
             "filtered_points_topic": "/exact_mppi/filtered_points",
             "status_topic": "/exact_mppi/status",
             "cost_breakdown_topic": "/exact_mppi/cost_breakdown",
             "plan_topic": "/exact_mppi/plan",
             "control_frequency": 10.0,
-            "goal_timeout_sec": 1.0,
-            "cloud_timeout_sec": 0.5,
-            "odom_timeout_sec": 0.5,
             "transform_timeout_sec": 0.2,
             "use_latest_tf": True,
             "max_raw_points": 60000,
@@ -132,6 +129,7 @@ class Go2ExactMppiNode(Node):
     def _load_parameters(self) -> None:
         """Load node-level ROS parameters into member variables."""
 
+        # 统一从 cmd_vel_topic 读取最终速度出口。
         self.mppi_config_file = str(self.get_parameter("mppi_config_file").value)
         self.require_jax_gpu = bool(self.get_parameter("require_jax_gpu").value)
         self.base_frame = str(self.get_parameter("base_frame").value)
@@ -140,15 +138,11 @@ class Go2ExactMppiNode(Node):
         self.odom_topic = str(self.get_parameter("odom_topic").value)
         self.goal_local_topic = str(self.get_parameter("goal_local_topic").value)
         self.cmd_vel_topic = str(self.get_parameter("cmd_vel_topic").value)
-        self.cmd_vel_raw_topic = str(self.get_parameter("cmd_vel_raw_topic").value)
         self.filtered_points_topic = str(self.get_parameter("filtered_points_topic").value)
         self.status_topic = str(self.get_parameter("status_topic").value)
         self.cost_breakdown_topic = str(self.get_parameter("cost_breakdown_topic").value)
         self.plan_topic = str(self.get_parameter("plan_topic").value)
         self.control_frequency = float(self.get_parameter("control_frequency").value)
-        self.goal_timeout_sec = float(self.get_parameter("goal_timeout_sec").value)
-        self.cloud_timeout_sec = float(self.get_parameter("cloud_timeout_sec").value)
-        self.odom_timeout_sec = float(self.get_parameter("odom_timeout_sec").value)
         self.transform_timeout_sec = float(self.get_parameter("transform_timeout_sec").value)
         self.use_latest_tf = bool(self.get_parameter("use_latest_tf").value)
         self.max_raw_points = int(self.get_parameter("max_raw_points").value)
@@ -227,6 +221,7 @@ class Go2ExactMppiNode(Node):
     def _create_ros_interfaces(self) -> None:
         """Create all ROS subscriptions, publishers, and the control timer."""
 
+        # 控制器只创建一个速度发布者，所有停车命令也走同一话题。
         self.cloud_sub = self.create_subscription(
             PointCloud2,
             self.pointcloud_topic,
@@ -249,7 +244,6 @@ class Go2ExactMppiNode(Node):
             callback_group=self.callback_group,
         )
         self.cmd_pub = self.create_publisher(Twist, self.cmd_vel_topic, 10)
-        self.raw_cmd_pub = self.create_publisher(Twist, self.cmd_vel_raw_topic, 10)
         self.filtered_points_pub = self.create_publisher(PointCloud2, self.filtered_points_topic, 10)
         self.status_pub = self.create_publisher(String, self.status_topic, 10)
         self.cost_pub = self.create_publisher(Float32MultiArray, self.cost_breakdown_topic, 10)
@@ -365,6 +359,7 @@ class Go2ExactMppiNode(Node):
     def _run_control(self) -> None:
         """Run one MPPI control tick and publish velocity commands."""
 
+        # 每个控制周期最多发布一次最终速度，异常路径统一发布零速。
         self.tick_count += 1
         tick_start = time.perf_counter()
 
@@ -405,32 +400,27 @@ class Go2ExactMppiNode(Node):
             return
 
         cmd = self._action_to_twist(action)
-        self.raw_cmd_pub.publish(cmd)
         self.cmd_pub.publish(cmd)
         self._publish_cost_breakdown()
         self._publish_plan()
         self._publish_timing(tick_start)
 
     def _inputs_ready(self) -> bool:
-        """Validate freshness of goal, cloud, and odometry inputs."""
+        """确认已经收到原始目标、点云和里程计，不做输入超时门控。"""
 
-        now = self.get_clock().now()
         with self.state_lock:
             goal_missing = self.latest_goal is None
-            goal_age = (now - self.latest_goal_time).nanoseconds * 1e-9
             cloud_missing = self.latest_points is None
-            cloud_age = (now - self.latest_cloud_time).nanoseconds * 1e-9
             odom_missing = not self.have_odom
-            odom_age = (now - self.latest_odom_time).nanoseconds * 1e-9
 
-        if goal_missing or goal_age > self.goal_timeout_sec:
-            self._publish_status("stop: goal stale")
+        if goal_missing:
+            self._publish_status("stop: waiting for goal")
             return False
-        if cloud_missing or cloud_age > self.cloud_timeout_sec:
-            self._publish_status("stop: cloud stale")
+        if cloud_missing:
+            self._publish_status("stop: waiting for cloud")
             return False
-        if odom_missing or odom_age > self.odom_timeout_sec:
-            self._publish_status("stop: odom stale")
+        if odom_missing:
+            self._publish_status("stop: waiting for odom")
             return False
         return True
 
@@ -565,10 +555,9 @@ class Go2ExactMppiNode(Node):
         self._publish_status(f"ok: mppi {elapsed_ms:.1f}ms points={points}")
 
     def _publish_zero(self) -> None:
-        """Publish zero velocity to both raw and final command topics."""
+        """向唯一的最终速度话题发布零速度。"""
 
         zero = Twist()
-        self.raw_cmd_pub.publish(zero)
         self.cmd_pub.publish(zero)
 
     def _publish_status(self, text: str) -> None:

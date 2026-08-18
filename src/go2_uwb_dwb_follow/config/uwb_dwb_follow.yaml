@@ -1,32 +1,22 @@
 uwb_point_follow_node:
   ros__parameters:
-    uwb_topic: /libAoa_robot_publisher
+    uwb_topic: /uwb/target_point
     odom_frame: odom
-    base_frame: base_link
-    uwb_frame: uwb_link
+    base_frame: base_footprint
+    uwb_frame: base_footprint
     use_tf_for_uwb: true
     use_latest_tf: true
     prefer_range_angle: true
     transform_timeout_sec: 0.2
 
     target_topic: /uwb_follow_target
-    adapter_path_topic: /follow_path
+    adapter_path_topic: /uwb_dwb/path
     target_valid_topic: /follow/target_valid
     status_topic: /follow/uwb_point_status
 
-    follow_path_action: follow_path
-    controller_id: FollowPath
-    goal_checker_id: general_goal_checker
 
     follow_distance_m: 1.2
     goal_tolerance_m: 0.15
-    target_timeout_sec: 2.0
-    min_target_distance_m: 0.05
-    max_target_distance_m: 8.0
-    max_target_jump_m: 1.5
-    max_target_speed_mps: 3.0
-    smoothing_alpha: 0.35
     allow_reverse_goal: false
 
     publish_rate_hz: 10.0
-    action_resend_period_sec: 0.4

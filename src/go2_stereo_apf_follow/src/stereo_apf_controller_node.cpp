@@ -79,15 +79,15 @@ geometry_msgs::msg::Twist to_twist(const go2_stereo_apf_follow::TwistCommand & c
 class StereoApfControllerNode : public rclcpp::Node
 {
 public:
+  // 初始化 APF 控制节点，并使用适合前向双目感知的保守速度和停车参数。
   StereoApfControllerNode()
   : Node("stereo_apf_controller_node"),
     tf_buffer_(this->get_clock()),
     tf_listener_(tf_buffer_)
   {
-    base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
+    base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     pointcloud_topic_ = declare_parameter<std::string>("pointcloud_topic", "/local_grid_obstacle");
     seed_target_topic_ = declare_parameter<std::string>("seed_target_topic", "/stereo_apf/seed_target");
-    seed_valid_topic_ = declare_parameter<std::string>("seed_valid_topic", "/stereo_apf/seed_valid");
     manual_target_topic_ = declare_parameter<std::string>("manual_target_topic", "/stereo_apf/manual_target");
     enabled_topic_ = declare_parameter<std::string>("enabled_topic", "/stereo_apf/enabled");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
@@ -97,10 +97,6 @@ public:
       declare_parameter<std::string>("potential_field_topic", "/stereo_apf/potential_field");
     enabled_ = declare_parameter<bool>("enabled_default", true);
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 30.0);
-    pointcloud_timeout_sec_ = declare_parameter<double>("pointcloud_timeout_sec", 0.5);
-    seed_timeout_sec_ = declare_parameter<double>("seed_timeout_sec", 3.0);
-    target_hold_sec_ = declare_parameter<double>("target_hold_sec", 0.8);
-    seed_reset_distance_ = declare_parameter<double>("seed_reset_distance", 1.0);
     max_points_per_cloud_ = declare_parameter<int>("max_points_per_cloud", 60000);
 
     filter_config_.x_min = declare_parameter<double>("obstacle_x_min", -4.0);
@@ -113,31 +109,27 @@ public:
     filter_config_.robot_frame_left = declare_parameter<double>("robot_frame_left", 0.15);
     filter_config_.robot_frame_right = declare_parameter<double>("robot_frame_right", 0.15);
 
-    tracking_config_.target_radius = declare_parameter<double>("target_radius", 0.30);
-    tracking_config_.min_points_in_target = declare_parameter<int>("min_points_in_target", 1);
-    tracking_config_.smoothing_alpha = declare_parameter<double>("smoothing_alpha", 0.35);
-
-    apf_config_.influence_dist = declare_parameter<double>("apf_influence_dist", 0.25);
+    apf_config_.influence_dist = declare_parameter<double>("apf_influence_dist", 0.80);
     apf_config_.repulse_gain = declare_parameter<double>("apf_repulse_gain", 0.01);
     apf_config_.max_repulse = declare_parameter<double>("apf_max_repulse", 1.0);
-    apf_config_.emergency_dist = declare_parameter<double>("apf_emergency_dist", 0.2);
-    apf_config_.slowdown_dist = declare_parameter<double>("apf_slowdown_dist", 0.25);
+    apf_config_.emergency_dist = declare_parameter<double>("apf_emergency_dist", 0.35);
+    apf_config_.slowdown_dist = declare_parameter<double>("apf_slowdown_dist", 0.80);
     apf_config_.corridor_width = declare_parameter<double>("corridor_width", 0.35);
 
-    control_config_.follow_distance = declare_parameter<double>("follow_distance", 0.4);
+    control_config_.follow_distance = declare_parameter<double>("follow_distance", 1.0);
     control_config_.distance_deadband = declare_parameter<double>("distance_deadband", 0.05);
     control_config_.lateral_deadband = declare_parameter<double>("lateral_deadband", 0.03);
     control_config_.yaw_deadband = declare_parameter<double>("yaw_deadband", 0.10);
     control_config_.linear_scale = declare_parameter<double>("linear_scale", 0.50);
     control_config_.lateral_scale = declare_parameter<double>("lateral_scale", 1.0);
     control_config_.angular_scale = declare_parameter<double>("angular_scale", 1.0);
-    control_config_.max_vx = declare_parameter<double>("max_vx", 1.0);
-    control_config_.max_vy = declare_parameter<double>("max_vy", 1.0);
-    control_config_.max_wz = declare_parameter<double>("max_vyaw", 1.0);
-    control_config_.max_reverse_vx = declare_parameter<double>("max_reverse_vx", 1.0);
+    control_config_.max_vx = declare_parameter<double>("max_vx", 0.45);
+    control_config_.max_vy = declare_parameter<double>("max_vy", 0.25);
+    control_config_.max_wz = declare_parameter<double>("max_vyaw", 0.8);
+    control_config_.max_reverse_vx = declare_parameter<double>("max_reverse_vx", 0.0);
     control_config_.reverse_scale = declare_parameter<double>("reverse_scale", 0.8);
     control_config_.min_vx_abs = declare_parameter<double>("min_vx_abs", 0.06);
-    control_config_.allow_reverse = declare_parameter<bool>("allow_reverse", true);
+    control_config_.allow_reverse = declare_parameter<bool>("allow_reverse", false);
 
     publish_potential_field_ = declare_parameter<bool>("publish_potential_field", false);
     potential_field_sample_step_ = declare_parameter<double>("potential_field_sample_step", 0.40);
@@ -148,16 +140,12 @@ public:
 
     cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       pointcloud_topic_,
-      5,
+      rclcpp::SensorDataQoS(),
       std::bind(&StereoApfControllerNode::cloud_callback, this, std::placeholders::_1));
     seed_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       seed_target_topic_,
       10,
       std::bind(&StereoApfControllerNode::seed_callback, this, std::placeholders::_1));
-    seed_valid_sub_ = create_subscription<std_msgs::msg::Bool>(
-      seed_valid_topic_,
-      10,
-      std::bind(&StereoApfControllerNode::seed_valid_callback, this, std::placeholders::_1));
     manual_target_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       manual_target_topic_,
       10,
@@ -225,27 +213,20 @@ private:
       }
     }
 
-    const auto current_time = now();
     latest_points_ = std::move(points);
-    latest_cloud_time_ = current_time;
     have_cloud_ = true;
   }
 
   void seed_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
+    // UWB seed 已是原始目标，转换坐标后直接用于控制。
     auto target = pose_to_base(*msg);
     if (!target.has_value()) {
       return;
     }
-    seed_target_ = target.value();
-    seed_time_ = now();
-    have_seed_ = true;
-  }
-
-  void seed_valid_callback(const std_msgs::msg::Bool::SharedPtr msg)
-  {
-    seed_valid_ = msg->data;
-    seed_valid_time_ = now();
+    target_ = target.value();
+    have_target_ = true;
+    target_source_ = "raw_uwb";
   }
 
   void manual_target_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -255,7 +236,6 @@ private:
       return;
     }
     target_ = target.value();
-    target_time_ = now();
     have_target_ = true;
     target_source_ = "manual";
     publish_status("tracking: manual target");
@@ -290,80 +270,23 @@ private:
     }
   }
 
-  bool age_ok(const rclcpp::Time & stamp, double timeout_sec) const
-  {
-    if (stamp.nanoseconds() == 0) {
-      return false;
-    }
-    return (now() - stamp).seconds() <= timeout_sec;
-  }
-
-  bool seed_is_fresh() const
-  {
-    return have_seed_ && seed_valid_ && age_ok(seed_time_, seed_timeout_sec_) &&
-           age_ok(seed_valid_time_, seed_timeout_sec_);
-  }
-
-  bool refresh_target_from_seed(bool force)
-  {
-    if (!seed_is_fresh()) {
-      return false;
-    }
-    if (!force && have_target_) {
-      const double delta = std::hypot(seed_target_.x - target_.x, seed_target_.y - target_.y);
-      if (delta <= seed_reset_distance_) {
-        return false;
-      }
-    }
-    target_ = seed_target_;
-    target_time_ = now();
-    have_target_ = true;
-    target_source_ = "seed";
-    return true;
-  }
-
   void tick()
   {
-    const auto current_time = now();
     if (!enabled_) {
       publish_potential_field_delete();
       publish_zero("stop: disabled");
       return;
     }
-    if (!have_cloud_ || !age_ok(latest_cloud_time_, pointcloud_timeout_sec_)) {
+    if (!have_cloud_) {
       publish_potential_field_delete();
-      publish_zero("stop: obstacle cloud stale");
+      publish_zero("stop: waiting for obstacle cloud");
       return;
     }
 
     if (!have_target_) {
-      if (!refresh_target_from_seed(true)) {
-        publish_potential_field_delete();
-        publish_zero("stop: target unavailable");
-        return;
-      }
-    } else {
-      refresh_target_from_seed(false);
-    }
-
-    auto centroid = go2_stereo_apf_follow::compute_target_centroid(
-      latest_points_,
-      target_,
-      tracking_config_);
-    if (centroid.has_value()) {
-      target_ = go2_stereo_apf_follow::smooth_target(
-        target_,
-        centroid.value(),
-        tracking_config_.smoothing_alpha);
-      target_time_ = now();
-      target_source_ = "cloud";
-    } else if ((now() - target_time_).seconds() > target_hold_sec_) {
-      if (!refresh_target_from_seed(true)) {
-        have_target_ = false;
-        publish_potential_field_delete();
-        publish_zero("stop: target lost");
-        return;
-      }
+      publish_potential_field_delete();
+      publish_zero("stop: target unavailable");
+      return;
     }
 
     const auto summary = go2_stereo_apf_follow::summarize_obstacles(
@@ -543,7 +466,6 @@ private:
   std::string base_frame_;
   std::string pointcloud_topic_;
   std::string seed_target_topic_;
-  std::string seed_valid_topic_;
   std::string manual_target_topic_;
   std::string enabled_topic_;
   std::string cmd_vel_topic_;
@@ -552,14 +474,9 @@ private:
   std::string potential_field_topic_;
   bool enabled_{true};
   double publish_rate_hz_{30.0};
-  double pointcloud_timeout_sec_{0.5};
-  double seed_timeout_sec_{3.0};
-  double target_hold_sec_{0.8};
-  double seed_reset_distance_{1.0};
   int max_points_per_cloud_{60000};
 
   go2_stereo_apf_follow::PointFilterConfig filter_config_;
-  go2_stereo_apf_follow::TargetTrackingConfig tracking_config_;
   go2_stereo_apf_follow::ApfConfig apf_config_;
   go2_stereo_apf_follow::FollowControlConfig control_config_;
   bool publish_potential_field_{false};
@@ -573,7 +490,6 @@ private:
   tf2_ros::TransformListener tf_listener_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr seed_sub_;
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr seed_valid_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr manual_target_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enabled_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
@@ -583,20 +499,14 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::vector<go2_stereo_apf_follow::Point3D> latest_points_;
-  rclcpp::Time latest_cloud_time_{0, 0, RCL_ROS_TIME};
   bool have_cloud_{false};
-  go2_stereo_apf_follow::Point2D seed_target_;
-  rclcpp::Time seed_time_{0, 0, RCL_ROS_TIME};
-  rclcpp::Time seed_valid_time_{0, 0, RCL_ROS_TIME};
-  bool have_seed_{false};
-  bool seed_valid_{false};
   go2_stereo_apf_follow::Point2D target_;
-  rclcpp::Time target_time_{0, 0, RCL_ROS_TIME};
   bool have_target_{false};
   std::string target_source_{"none"};
   std::string last_status_;
 };
 
+// 初始化并运行双目 APF 跟随控制节点。
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

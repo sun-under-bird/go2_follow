@@ -1,91 +1,45 @@
-# BackUpTwzFree 脱困行为插件
+# FollowPath 恢复行为树与空闲方向脱困
 
-这个包是给 ROS2 Humble + apt 安装版 Navigation2 使用的 overlay 插件，不需要修改 `navigation2` 源码。插件通过 `pluginlib` 挂到 `behavior_server` 的 `backup` 行为上，行为树里仍然使用标准的 `<BackUp .../>` 节点。
+该包包含两个配套组件：
 
-## 功能
+1. `nav2_behaviors/BackUpTwzFree`：`nav2_core::Behavior` 插件，从 local costmap 中寻找自由栅格方向并执行移动。
+2. `follow_path_recovery_bt_node`：订阅路径并执行 `RecoveryNode(FollowPath, BackUp)` 的行为树。控制失败后调用标准 `/backup` action，恢复成功后重试最新路径。
 
-`BackUpTwzFree` 在触发恢复行为时会：
+行为树文件：`behavior_trees/follow_path_with_free_space_recovery.xml`。
 
-1. 调用配置的 costmap 服务，例如 `local_costmap/get_costmap`。
-2. 从机器人外接圆之外开始逐步扩大搜索半径。
-3. 找到代价值低于 `cost_threshold` 的自由栅格。
-4. 计算自由栅格质心，并朝这个方向移动 `BackUp` action 指定的距离。
-5. 继续复用 Nav2 `DriveOnHeading` 的碰撞前瞻检查。
+## 行为树结构
 
-对只有前方双目相机的机器人，建议优先使用 `local_costmap/get_costmap`，并让 local costmap 把未观测区域保持为 unknown，避免侧后方未观测区域被当成可通行空间。
-
-## 编译方式
-
-把本目录复制到自己的 ROS2 工作空间：
-
-```bash
-cp -r nav2_plugins/behavior_ext_plugins ~/nav2_ws/src/
-cd ~/nav2_ws
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install --packages-select behavior_ext_plugins
-source install/setup.bash
+```xml
+<RecoveryNode number_of_retries="{recovery_retries}">
+  <FollowPath path="{path}" controller_id="{controller_id}"/>
+  <BackUp backup_dist="{recovery_distance_m}"
+          backup_speed="{recovery_speed_mps}"/>
+</RecoveryNode>
 ```
 
-如果你的 Navigation2 是 apt 安装的 Humble 版本，只要已经安装完整 Nav2 依赖即可：
-
-```bash
-sudo apt install ros-humble-navigation2 ros-humble-nav2-bringup
-```
-
-## Nav2 参数接入
-
-在自己的 `nav2_params.yaml` 里把 `behavior_server.backup.plugin` 改成：
+`BackUp` 是 Nav2 标准 BT 节点；只有 behavior server 中的实现被替换为空闲方向插件：
 
 ```yaml
 behavior_server:
   ros__parameters:
-    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
-
-    spin:
-      plugin: "nav2_behaviors/Spin"
+    behavior_plugins: [backup]
     backup:
-      plugin: "nav2_behaviors/BackUpTwzFree"
-    drive_on_heading:
-      plugin: "nav2_behaviors/DriveOnHeading"
-    wait:
-      plugin: "nav2_behaviors/Wait"
-
-    global_frame: map
-    robot_base_frame: base_link
-    transform_tolerance: 0.1
-    cycle_frequency: 10.0
-
-    robot_radius: 0.25
-    max_radius: 2.0
-    service_name: "local_costmap/get_costmap"
-    free_threshold: 5
-    cost_threshold: 0.0
-    visualization: true
+      plugin: nav2_behaviors/BackUpTwzFree
+    global_frame: odom
+    robot_base_frame: base_footprint
+    service_name: local_costmap/get_costmap
     enable_strafe: true
 ```
 
-参数说明：
+插件会扫描机器人半径外、`max_radius` 内且代价不高于阈值的栅格，计算满足最小自由格数量的近邻区域质心，并按质心方向发布速度。全向模式可发布 `linear.y`；碰撞前瞻失败、超时或达到移动距离时立即停止。
 
-- `service_name`：读取哪张 costmap。只有前方双目时推荐 `local_costmap/get_costmap`。
-- `robot_radius`：机器人外接圆半径，搜索自由空间时会跳过机器人自身 footprint。
-- `max_radius`：最大搜索半径。
-- `free_threshold`：认为找到自由空间所需的最少自由栅格数量。
-- `cost_threshold`：costmap 中允许作为自由空间的最大代价值。Nav2 常见自由栅格为 `0`，未知区通常为 `255`。
-- `visualization`：是否发布 `back_up_twz_free_markers` 供 RViz 查看。
-- `enable_strafe`：全向底盘设为 `true`，插件会发布 `linear.x` 和 `linear.y`；差速底盘设为 `false`，插件只发布 `linear.x`。
+## 编译
 
-## 行为树
-
-行为树可以继续使用 Nav2 标准 BackUp 节点，不需要新增 BT 节点：
-
-```xml
-<BackUp backup_dist="0.3" backup_speed="0.2"/>
+```bash
+source /opt/ros/humble/setup.bash
+cd ~/go2_follow
+colcon build --symlink-install --packages-select behavior_ext_plugins
+source install/setup.bash
 ```
 
-插件替换的是 `behavior_server` 中 `backup` 行为的实现，所以 BT XML 不需要写 `BackUpTwzFree`。
-
-## 双目相机注意事项
-
-双目相机通常输出深度图或 `PointCloud2`。local costmap 建议使用 Nav2 标准 `ObstacleLayer` 或 `VoxelLayer`，不要直接套用本仓库的 `costmap_intensity`，因为那个插件依赖点云 `intensity` 语义。
-
-前方双目视野有限，local costmap 最好配置为 unknown 区域不可被本插件当成自由空间。示例配置见 `examples/humble_stereo_nav2_params.yaml`。
+该执行器已由 DWB、直连 MPPI、Dynamic A*+MPPI 和 TEB launch 自动启动，一般无需单独运行。

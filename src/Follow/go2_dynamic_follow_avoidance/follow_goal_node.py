@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from std_msgs.msg import Bool, String
 from tf2_ros import Buffer, TransformListener
@@ -15,12 +16,13 @@ from .target_filter import TargetFilter, TargetFilterConfig
 
 class FollowGoalNode(Node):
     def __init__(self):
+        """初始化 UWB 质量门控、TF、目标滤波和跟随目标发布。"""
         super().__init__("follow_goal_node")
 
-        self.declare_parameter("one1000_topic", "/libAoa_robot_publisher")
-        self.declare_parameter("one1000_msg_type", "uwb_aoa_pkg/msg/LibAoaRobotMsg")
-        self.declare_parameter("base_frame", "base_link")
-        self.declare_parameter("one1000_frame", "base_link")
+        self.declare_parameter("one1000_topic", "/uwb/target_point")
+        self.declare_parameter("one1000_msg_type", "geometry_msgs/msg/PointStamped")
+        self.declare_parameter("base_frame", "base_footprint")
+        self.declare_parameter("one1000_frame", "base_footprint")
         self.declare_parameter("use_tf", True)
         self.declare_parameter("require_tf", True)
         self.declare_parameter("target_topic", "/one1000/target")
@@ -32,19 +34,19 @@ class FollowGoalNode(Node):
         self.declare_parameter("stop_distance", 2.0)
         self.declare_parameter("goal_tolerance", 0.15)
         self.declare_parameter("confidence_threshold", 0.0)
-        self.declare_parameter("disable_quality_gating", True)
-        self.declare_parameter("target_timeout_sec", 3.0)
-        self.declare_parameter("target_hold_sec", 3.0)
-        self.declare_parameter("min_valid_samples", 1)
-        self.declare_parameter("max_invalid_samples", 10)
+        self.declare_parameter("disable_quality_gating", False)
+        self.declare_parameter("target_timeout_sec", 0.8)
+        self.declare_parameter("target_hold_sec", 0.3)
+        self.declare_parameter("min_valid_samples", 3)
+        self.declare_parameter("max_invalid_samples", 2)
         self.declare_parameter("smoothing_alpha", 0.35)
         self.declare_parameter("max_target_jump_m", 1.0)
         self.declare_parameter("max_target_speed_mps", 2.5)
         self.declare_parameter("min_target_distance", 0.15)
         self.declare_parameter("max_target_distance", 8.0)
         self.declare_parameter("angle_units", "rad")
-        self.declare_parameter("x_fields", ["x", "pos_x", "position.x"])
-        self.declare_parameter("y_fields", ["y", "pos_y", "position.y"])
+        self.declare_parameter("x_fields", ["point.x", "x", "pos_x", "position.x"])
+        self.declare_parameter("y_fields", ["point.y", "y", "pos_y", "position.y"])
         self.declare_parameter("r_fields", ["r", "distance", "range"])
         self.declare_parameter("angle_fields", ["a", "angle", "rad", "azimuth"])
         self.declare_parameter("state_fields", ["state"])
@@ -87,7 +89,7 @@ class FollowGoalNode(Node):
             msg_type,
             str(self.get_parameter("one1000_topic").value),
             self._target_cb,
-            10,
+            qos_profile_sensor_data,
         )
 
         self.goal_pub = self.create_publisher(PoseStamped, str(self.get_parameter("goal_topic").value), 10)

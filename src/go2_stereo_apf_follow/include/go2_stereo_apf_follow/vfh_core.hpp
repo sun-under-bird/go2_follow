@@ -48,10 +48,6 @@ struct VfhConfig
   double max_wz{0.8};
   double angular_scale{1.0};
   double bypass_heading_blend{0.55};
-  double command_filter_alpha{0.45};
-  double max_delta_vx_per_sec{0.55};
-  double max_delta_vy_per_sec{0.55};
-  double max_delta_wz_per_sec{1.0};
   double min_move_speed{0.08};
   double linear_scale{0.45};
 };
@@ -69,10 +65,8 @@ struct VfhState
   VfhMode mode{VfhMode::FOLLOW};
   BypassSide locked_side{BypassSide::NONE};
   double last_heading{0.0};
-  TwistCommand last_command;
   double corridor_clear_since{-1.0};
   double side_lock_time{-1.0};
-  double last_update_time{-1.0};
 };
 
 struct VfhChoice
@@ -519,41 +513,6 @@ inline TwistCommand make_raw_vfh_command(
   return command;
 }
 
-// 限制单个速度轴的变化量。
-inline double limit_delta(double previous, double current, double max_delta)
-{
-  return previous + clamp(current - previous, -max_delta, max_delta);
-}
-
-// 对速度做低通和加速度限制。
-inline TwistCommand smooth_vfh_command(
-  const TwistCommand & raw,
-  double now_sec,
-  const VfhConfig & config,
-  VfhState & state)
-{
-  if (state.last_update_time < 0.0) {
-    state.last_update_time = now_sec;
-    state.last_command = raw;
-    return raw;
-  }
-
-  const double dt = clamp(now_sec - state.last_update_time, 0.02, 0.20);
-  const double alpha = clamp(config.command_filter_alpha, 0.0, 1.0);
-  TwistCommand filtered;
-  filtered.vx = state.last_command.vx + alpha * (raw.vx - state.last_command.vx);
-  filtered.vy = state.last_command.vy + alpha * (raw.vy - state.last_command.vy);
-  filtered.wz = state.last_command.wz + alpha * (raw.wz - state.last_command.wz);
-
-  filtered.vx = limit_delta(state.last_command.vx, filtered.vx, config.max_delta_vx_per_sec * dt);
-  filtered.vy = limit_delta(state.last_command.vy, filtered.vy, config.max_delta_vy_per_sec * dt);
-  filtered.wz = limit_delta(state.last_command.wz, filtered.wz, config.max_delta_wz_per_sec * dt);
-
-  state.last_update_time = now_sec;
-  state.last_command = filtered;
-  return filtered;
-}
-
 // 计算完整 VFH 控制结果，并更新内部绕障状态。
 inline VfhResult compute_vfh_command(
   const std::vector<Point3D> & points,
@@ -579,9 +538,6 @@ inline VfhResult compute_vfh_command(
   result.corridor_blocked = corridor_has_obstacle(points, target, config) || result.target_sector_blocked;
 
   if (result.hard_stop) {
-    // 急停必须绕过低通滤波，保证近距离障碍出现时立即输出零速度。
-    state.last_command = TwistCommand{};
-    state.last_update_time = now_sec;
     result.mode = state.mode;
     result.locked_side = state.locked_side;
     result.selected_heading = state.last_heading;
@@ -615,8 +571,6 @@ inline VfhResult compute_vfh_command(
   }
 
   if (!choice.has_value()) {
-    state.last_command = TwistCommand{};
-    state.last_update_time = now_sec;
     result.mode = state.mode;
     result.locked_side = state.locked_side;
     result.selected_heading = state.last_heading;
@@ -634,7 +588,7 @@ inline VfhResult compute_vfh_command(
     result.nearest_dist,
     state.mode,
     config);
-  result.command = smooth_vfh_command(raw, now_sec, config, state);
+  result.command = raw;
   result.mode = state.mode;
   result.locked_side = state.locked_side;
   return result;

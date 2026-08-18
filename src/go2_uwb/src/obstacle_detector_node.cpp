@@ -35,8 +35,9 @@ public:
     tf_buffer_(std::make_unique<tf2_ros::Buffer>(get_clock())),
     tf_listener_(std::make_shared<tf2_ros::TransformListener>(*tf_buffer_))
   {
-    cloud_topic_ = declare_parameter<std::string>("cloud_topic", "/stereo/points2");
-    target_frame_ = declare_parameter<std::string>("target_frame", "base_link");
+    // D435i 已矫正双目图由 RTAB-Map 生成局部障碍云，本节点不再启动图像处理链。
+    cloud_topic_ = declare_parameter<std::string>("cloud_topic", "/local_grid_obstacle");
+    target_frame_ = declare_parameter<std::string>("target_frame", "base_footprint");
     distance_topic_ = declare_parameter<std::string>(
       "distance_topic", "/obstacle/nearest_distance");
     avoid_vector_topic_ = declare_parameter<std::string>(
@@ -119,7 +120,7 @@ private:
   void sanitizeParameters()
   {
     if (target_frame_.empty()) {
-      target_frame_ = "base_link";
+      target_frame_ = "base_footprint";
     }
     tf_timeout_sec_ = std::max(0.0, tf_timeout_sec_);
     voxel_leaf_size_ = std::max(0.01, voxel_leaf_size_);
@@ -408,7 +409,7 @@ private:
     return output_cloud;
   }
 
-  // 在滤波后的 base_link 点云中统计前方 ROI 障碍点，计算最近距离和绕行方向。
+  // 在滤波后的 base_footprint 点云中统计前方 ROI 障碍点，计算最近距离和绕行方向。
   void detectObstaclePoints(
     const PclCloud::Ptr & cloud,
     const std_msgs::msg::Header & header)
@@ -434,7 +435,7 @@ private:
       // 这个点会真正参与最近距离和左右绕行方向统计，同时发布到调试点云。
       used_cloud->points.push_back(point);
 
-      // 点云已经转换到 base_link：x 是前方距离，y 是左右位置。
+      // 点云已经转换到 base_footprint：x 是前方距离，y 是左右位置。
       const double distance = std::hypot(x, y);
       nearest_distance = std::min(nearest_distance, distance);
       ++obstacle_count;

@@ -5,6 +5,7 @@ import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry, Path
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs_py import point_cloud2
@@ -17,13 +18,14 @@ from .safety_helpers import limit_delta
 
 class SafetyMux(Node):
     def __init__(self):
+        """初始化候选速度输入、传感器看门狗和唯一的最终速度发布口。"""
         super().__init__("safety_mux")
 
-        self.declare_parameter("base_frame", "base_link")
+        self.declare_parameter("base_frame", "base_footprint")
         self.declare_parameter("cmd_vel_in", "/cmd_vel_nav")
-        self.declare_parameter("cmd_vel_out", "/cmd_vel_safe")
+        self.declare_parameter("cmd_vel_out", "/cmd_vel")
         self.declare_parameter("pointcloud_topic", "/local_grid_obstacle")
-        self.declare_parameter("odom_topic", "/odom_leg")
+        self.declare_parameter("odom_topic", "/odom")
         self.declare_parameter("path_topic", "/follow_path")
         self.declare_parameter("target_valid_topic", "/follow/target_valid")
         self.declare_parameter("path_valid_topic", "/follow/path_valid")
@@ -74,7 +76,12 @@ class SafetyMux(Node):
         self.last_tick_time = self.get_clock().now()
 
         self.create_subscription(Twist, str(self.get_parameter("cmd_vel_in").value), self._cmd_cb, 10)
-        self.create_subscription(PointCloud2, str(self.get_parameter("pointcloud_topic").value), self._cloud_cb, 5)
+        self.create_subscription(
+            PointCloud2,
+            str(self.get_parameter("pointcloud_topic").value),
+            self._cloud_cb,
+            qos_profile_sensor_data,
+        )
         self.create_subscription(Odometry, str(self.get_parameter("odom_topic").value), self._odom_cb, 10)
         self.create_subscription(Path, str(self.get_parameter("path_topic").value), self._path_cb, 10)
         self.create_subscription(Bool, str(self.get_parameter("target_valid_topic").value), self._target_valid_cb, 10)
@@ -260,7 +267,7 @@ class SafetyMux(Node):
             self.latest_odom_time,
             float(self.get_parameter("odom_timeout_sec").value),
         ):
-            status = "stop: /odom_leg stale"
+            status = "stop: odom stale"
         elif bool(self.get_parameter("require_pointcloud_watchdog").value) and not self._age_ok(
             self.latest_cloud_time,
             float(self.get_parameter("pointcloud_timeout_sec").value),

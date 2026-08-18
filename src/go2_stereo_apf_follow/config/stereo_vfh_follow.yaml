@@ -1,31 +1,24 @@
 uwb_target_seed_node:
   ros__parameters:
-    one1000_topic: /libAoa_robot_publisher
-    base_frame: base_link
-    one1000_frame: uwb_link
+    one1000_topic: /uwb/target_point
+    base_frame: base_footprint
+    one1000_frame: base_footprint
     seed_target_topic: /stereo_vfh/seed_target
     seed_valid_topic: /stereo_vfh/seed_valid
     use_tf: true
     require_tf: true
-    disable_quality_gating: true
-    confidence_threshold: 0.0
-    target_timeout_sec: 3.0
-    status_publish_period_sec: 0.5
     prefer_xy: true
     angle_in_degrees: false
     invert_y: false
     angle_offset_rad: 0.0
     anchor_x_offset: 0.0
     anchor_y_offset: 0.0
-    min_target_distance: 0.15
-    max_target_distance: 8.0
 
 stereo_vfh_controller_node:
   ros__parameters:
-    base_frame: base_link
+    base_frame: base_footprint
     pointcloud_topic: /local_grid_obstacle
     seed_target_topic: /stereo_vfh/seed_target
-    seed_valid_topic: /stereo_vfh/seed_valid
     manual_target_topic: /stereo_vfh/manual_target
     enabled_topic: /stereo_vfh/enabled
     cmd_vel_topic: /cmd_vel
@@ -35,10 +28,6 @@ stereo_vfh_controller_node:
     marker_topic: /stereo_vfh/markers
     enabled_default: true
     publish_rate_hz: 30.0
-    pointcloud_timeout_sec: 0.5
-    seed_timeout_sec: 3.0
-    target_hold_sec: 0.8
-    seed_reset_distance: 1.0
     max_points_per_cloud: 60000
     obstacle_x_min: -4.0
     obstacle_x_max: 4.0
@@ -49,10 +38,7 @@ stereo_vfh_controller_node:
     robot_frame_back: 0.35
     robot_frame_left: 0.15
     robot_frame_right: 0.15
-    target_radius: 0.30
-    min_points_in_target: 1
-    smoothing_alpha: 0.35
-    follow_distance: 0.40
+    follow_distance: 1.00
     sector_angle_deg: 5.0
     vfh_range_min: 0.10
     vfh_range_max: 4.0
@@ -74,10 +60,6 @@ stereo_vfh_controller_node:
     max_vyaw: 0.8
     angular_scale: 1.0
     bypass_heading_blend: 0.55
-    command_filter_alpha: 0.45
-    max_delta_vx_per_sec: 0.55
-    max_delta_vy_per_sec: 0.55
-    max_delta_wz_per_sec: 1.0
     min_move_speed: 0.08
     linear_scale: 0.45
     publish_markers: true

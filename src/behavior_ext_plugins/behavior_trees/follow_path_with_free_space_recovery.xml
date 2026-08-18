@@ -1,0 +1,19 @@
+<!-- FollowPath 失败后，调用由 BackUpTwzFree 实现的标准 BackUp action，再重试原路径。 -->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode name="FollowPathRecovery" number_of_retries="{recovery_retries}">
+      <FollowPath
+        name="TrackPath"
+        path="{path}"
+        controller_id="{controller_id}"
+        goal_checker_id="{goal_checker_id}"
+        server_name="{follow_path_action}"/>
+      <BackUp
+        name="BackUpFreeSpace"
+        backup_dist="{recovery_distance_m}"
+        backup_speed="{recovery_speed_mps}"
+        time_allowance="{recovery_time_allowance_sec}"
+        server_name="{backup_action}"/>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

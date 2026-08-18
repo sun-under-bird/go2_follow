@@ -6,11 +6,11 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    """启动 DWB 跟随链，并让 controller_server 直接输出最终 /cmd_vel."""
     use_sim_time = LaunchConfiguration("use_sim_time")
     autostart = LaunchConfiguration("autostart")
     follow_params_file = LaunchConfiguration("follow_params_file")
     nav2_params_file = LaunchConfiguration("nav2_params_file")
-    cmd_vel_out = LaunchConfiguration("cmd_vel_out")
 
     default_follow_params_file = PathJoinSubstitution(
         [
@@ -49,18 +49,22 @@ def generate_launch_description():
                 default_value=default_nav2_params_file,
                 description="Parameter file for Nav2 DWB controller server and local costmap.",
             ),
-            DeclareLaunchArgument(
-                "cmd_vel_out",
-                default_value="/cmd_vel_safe",
-                description="Topic used by the Go2 velocity bridge.",
-            ),
             Node(
                 package="nav2_controller",
                 executable="controller_server",
                 name="controller_server",
                 output="screen",
                 parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
-                remappings=[("cmd_vel", cmd_vel_out)],
+                remappings=[("cmd_vel", "/cmd_vel")],
+                arguments=["--ros-args", "--log-level", "warn"],
+            ),
+            Node(
+                package="nav2_behaviors",
+                executable="behavior_server",
+                name="behavior_server",
+                output="screen",
+                parameters=[nav2_params_file, {"use_sim_time": use_sim_time}],
+                remappings=[("cmd_vel", "/cmd_vel")],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
             Node(
@@ -71,7 +75,7 @@ def generate_launch_description():
                 parameters=[
                     {"use_sim_time": use_sim_time},
                     {"autostart": autostart},
-                    {"node_names": ["controller_server"]},
+                    {"node_names": ["controller_server", "behavior_server"]},
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
@@ -81,6 +85,25 @@ def generate_launch_description():
                 name="uwb_point_follow_node",
                 output="screen",
                 parameters=[follow_params_file, {"use_sim_time": use_sim_time}],
+                arguments=["--ros-args", "--log-level", "warn"],
+            ),
+            Node(
+                package="behavior_ext_plugins",
+                executable="follow_path_recovery_bt_node",
+                name="dwb_follow_recovery_bt",
+                output="screen",
+                parameters=[
+                    {
+                        "use_sim_time": use_sim_time,
+                        "path_topic": "/uwb_dwb/path",
+                        "status_topic": "/follow/dwb_recovery_status",
+                        "controller_id": "FollowPath",
+                        "goal_checker_id": "general_goal_checker",
+                        "recovery_retries": 2,
+                        "recovery_distance_m": 0.30,
+                        "recovery_speed_mps": 0.12,
+                    }
+                ],
                 arguments=["--ros-args", "--log-level", "warn"],
             ),
         ]

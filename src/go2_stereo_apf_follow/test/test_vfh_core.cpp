@@ -11,10 +11,6 @@ namespace vfh = go2_stereo_apf_follow;
 vfh::VfhConfig make_test_config()
 {
   vfh::VfhConfig config;
-  config.command_filter_alpha = 1.0;
-  config.max_delta_vx_per_sec = 100.0;
-  config.max_delta_vy_per_sec = 100.0;
-  config.max_delta_wz_per_sec = 100.0;
   config.side_switch_hold_sec = 1.2;
   config.corridor_clear_hold_sec = 0.8;
   return config;

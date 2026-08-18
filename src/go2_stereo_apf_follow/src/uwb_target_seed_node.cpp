@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/quaternion.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -14,7 +15,6 @@
 #include "tf2/time.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-#include "uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp"
 
 #include "go2_stereo_apf_follow/apf_core.hpp"
 
@@ -50,22 +50,19 @@ go2_stereo_apf_follow::Point2D transform_point(
 class UwbTargetSeedNode : public rclcpp::Node
 {
 public:
+  // 初始化原始 UWB 坐标转换和目标发布。
   UwbTargetSeedNode()
   : Node("uwb_target_seed_node"),
     tf_buffer_(this->get_clock()),
     tf_listener_(tf_buffer_)
   {
-    one1000_topic_ = declare_parameter<std::string>("one1000_topic", "/libAoa_robot_publisher");
-    base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
-    default_one1000_frame_ = declare_parameter<std::string>("one1000_frame", "uwb_link");
+    one1000_topic_ = declare_parameter<std::string>("one1000_topic", "/uwb/target_point");
+    base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
+    default_one1000_frame_ = declare_parameter<std::string>("one1000_frame", "base_footprint");
     seed_target_topic_ = declare_parameter<std::string>("seed_target_topic", "/stereo_apf/seed_target");
     seed_valid_topic_ = declare_parameter<std::string>("seed_valid_topic", "/stereo_apf/seed_valid");
     use_tf_ = declare_parameter<bool>("use_tf", true);
     require_tf_ = declare_parameter<bool>("require_tf", true);
-    disable_quality_gating_ = declare_parameter<bool>("disable_quality_gating", true);
-    confidence_threshold_ = declare_parameter<double>("confidence_threshold", 0.0);
-    target_timeout_sec_ = declare_parameter<double>("target_timeout_sec", 3.0);
-    status_publish_period_sec_ = declare_parameter<double>("status_publish_period_sec", 0.5);
 
     uwb_config_.prefer_xy = declare_parameter<bool>("prefer_xy", true);
     uwb_config_.angle_in_degrees = declare_parameter<bool>("angle_in_degrees", false);
@@ -73,46 +70,26 @@ public:
     uwb_config_.angle_offset_rad = declare_parameter<double>("angle_offset_rad", 0.0);
     uwb_config_.anchor_x_offset = declare_parameter<double>("anchor_x_offset", 0.0);
     uwb_config_.anchor_y_offset = declare_parameter<double>("anchor_y_offset", 0.0);
-    uwb_config_.min_distance_m = declare_parameter<double>("min_target_distance", 0.15);
-    uwb_config_.max_distance_m = declare_parameter<double>("max_target_distance", 8.0);
 
     seed_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(seed_target_topic_, 10);
-    valid_pub_ = create_publisher<std_msgs::msg::Bool>(seed_valid_topic_, 10);
+    seed_valid_pub_ = create_publisher<std_msgs::msg::Bool>(seed_valid_topic_, 10);
 
-    sub_ = create_subscription<uwb_aoa_pkg::msg::LibAoaRobotMsg>(
+    sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
       one1000_topic_,
-      10,
+      rclcpp::SensorDataQoS(),
       std::bind(&UwbTargetSeedNode::target_callback, this, std::placeholders::_1));
-
-    timer_ = create_wall_timer(
-      std::chrono::milliseconds(100),
-      std::bind(&UwbTargetSeedNode::watchdog_tick, this));
 
     RCLCPP_INFO(get_logger(), "uwb_target_seed_node started");
   }
 
 private:
-  void target_callback(const uwb_aoa_pkg::msg::LibAoaRobotMsg::SharedPtr msg)
+  void target_callback(const geometry_msgs::msg::PointStamped::SharedPtr msg)
   {
-    const bool quality_ok = disable_quality_gating_ ||
-      (msg->state >= 0 && static_cast<double>(msg->pos_confidence) >= confidence_threshold_);
-    if (!quality_ok) {
-      publish_valid(false);
-      return;
-    }
-
-    auto parsed = go2_stereo_apf_follow::parse_uwb_target(
-      msg->x,
-      msg->y,
-      msg->r,
-      msg->a,
-      uwb_config_);
-    if (!parsed.has_value()) {
-      publish_valid(false);
-      return;
-    }
-
-    auto target = parsed.value();
+    // 目标已由通用适配节点完成解析、符号校正与质量门控。
+    // The shared adapter already parsed, sign-corrected and gated this target.
+    go2_stereo_apf_follow::Point2D target;
+    target.x = msg->point.x;
+    target.y = msg->point.y;
     const std::string source_frame =
       msg->header.frame_id.empty() ? default_one1000_frame_ : msg->header.frame_id;
     if (use_tf_ && source_frame != base_frame_) {
@@ -129,7 +106,6 @@ private:
           base_frame_.c_str(),
           exc.what());
         if (require_tf_) {
-          publish_valid(false);
           return;
         }
       }
@@ -142,35 +118,10 @@ private:
     pose.pose.position.y = target.y;
     pose.pose.orientation = yaw_to_quaternion(std::atan2(target.y, target.x));
     seed_pub_->publish(pose);
-    last_target_time_ = now();
-    have_recent_target_ = true;
-    publish_valid(true);
-  }
 
-  void watchdog_tick()
-  {
-    if (!have_recent_target_) {
-      return;
-    }
-    const double age = (now() - last_target_time_).seconds();
-    if (age > target_timeout_sec_) {
-      have_recent_target_ = false;
-      publish_valid(false);
-    }
-  }
-
-  void publish_valid(bool valid)
-  {
-    const auto current = now();
-    const bool should_repeat = (current - last_valid_publish_time_).seconds() >= status_publish_period_sec_;
-    if (valid == last_valid_ && !should_repeat) {
-      return;
-    }
-    std_msgs::msg::Bool msg;
-    msg.data = valid;
-    valid_pub_->publish(msg);
-    last_valid_ = valid;
-    last_valid_publish_time_ = current;
+    std_msgs::msg::Bool valid;
+    valid.data = true;
+    seed_valid_pub_->publish(valid);
   }
 
   std::string one1000_topic_;
@@ -180,24 +131,16 @@ private:
   std::string seed_valid_topic_;
   bool use_tf_{true};
   bool require_tf_{true};
-  bool disable_quality_gating_{true};
-  double confidence_threshold_{0.0};
-  double target_timeout_sec_{3.0};
-  double status_publish_period_sec_{0.5};
   go2_stereo_apf_follow::UwbTargetConfig uwb_config_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
-  rclcpp::Subscription<uwb_aoa_pkg::msg::LibAoaRobotMsg>::SharedPtr sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr seed_pub_;
-  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr valid_pub_;
-  rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Time last_target_time_{0, 0, RCL_ROS_TIME};
-  rclcpp::Time last_valid_publish_time_{0, 0, RCL_ROS_TIME};
-  bool have_recent_target_{false};
-  bool last_valid_{false};
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr seed_valid_pub_;
 };
 
+// 初始化并运行 UWB 目标种子适配节点。
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

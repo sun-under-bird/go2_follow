@@ -9,6 +9,7 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
+    """启动目标过滤、局部规划、控制适配和唯一的安全速度出口."""
     pkg_share = get_package_share_directory("go2_dynamic_follow_avoidance")
     default_config = os.path.join(pkg_share, "config", "go2_dynamic_follow_avoidance.yaml")
 
@@ -17,8 +18,6 @@ def generate_launch_description():
     one1000_topic = LaunchConfiguration("one1000_topic")
     one1000_msg_type = LaunchConfiguration("one1000_msg_type")
     pointcloud_topic = LaunchConfiguration("pointcloud_topic")
-    cmd_vel_in = LaunchConfiguration("cmd_vel_in")
-    cmd_vel_out = LaunchConfiguration("cmd_vel_out")
     disable_quality_gating = LaunchConfiguration("disable_quality_gating")
     bypass_safety = LaunchConfiguration("bypass_safety")
     require_odom_watchdog = LaunchConfiguration("require_odom_watchdog")
@@ -28,13 +27,11 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("config_file", default_value=default_config),
             DeclareLaunchArgument("use_simple_follow", default_value="false"),
-            DeclareLaunchArgument("one1000_topic", default_value="/libAoa_robot_publisher"),
-            DeclareLaunchArgument("one1000_msg_type", default_value="uwb_aoa_pkg/msg/LibAoaRobotMsg"),
+            DeclareLaunchArgument("one1000_topic", default_value="/uwb/target_point"),
+            DeclareLaunchArgument("one1000_msg_type", default_value="geometry_msgs/msg/PointStamped"),
             DeclareLaunchArgument("pointcloud_topic", default_value="/local_grid_obstacle"),
-            DeclareLaunchArgument("cmd_vel_in", default_value="/cmd_vel_nav"),
-            DeclareLaunchArgument("cmd_vel_out", default_value="/cmd_vel_safe"),
-            DeclareLaunchArgument("disable_quality_gating", default_value="true"),
-            DeclareLaunchArgument("bypass_safety", default_value="true"),
+            DeclareLaunchArgument("disable_quality_gating", default_value="false"),
+            DeclareLaunchArgument("bypass_safety", default_value="false"),
             DeclareLaunchArgument("require_odom_watchdog", default_value="true"),
             DeclareLaunchArgument("require_pointcloud_watchdog", default_value="true"),
             Node(
@@ -89,8 +86,8 @@ def generate_launch_description():
                     config_file,
                     {
                         "pointcloud_topic": pointcloud_topic,
-                        "cmd_vel_in": cmd_vel_in,
-                        "cmd_vel_out": cmd_vel_out,
+                        "cmd_vel_in": "/cmd_vel_nav",
+                        "cmd_vel_out": "/cmd_vel",
                         "bypass_safety": bypass_safety,
                         "require_odom_watchdog": require_odom_watchdog,
                         "require_pointcloud_watchdog": require_pointcloud_watchdog,

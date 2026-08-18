@@ -136,10 +136,9 @@ public:
     tf_buffer_(this->get_clock()),
     tf_listener_(tf_buffer_)
   {
-    base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
+    base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     pointcloud_topic_ = declare_parameter<std::string>("pointcloud_topic", "/local_grid_obstacle");
     seed_target_topic_ = declare_parameter<std::string>("seed_target_topic", "/stereo_vfh/seed_target");
-    seed_valid_topic_ = declare_parameter<std::string>("seed_valid_topic", "/stereo_vfh/seed_valid");
     manual_target_topic_ = declare_parameter<std::string>("manual_target_topic", "/stereo_vfh/manual_target");
     enabled_topic_ = declare_parameter<std::string>("enabled_topic", "/stereo_vfh/enabled");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
@@ -149,10 +148,6 @@ public:
     marker_topic_ = declare_parameter<std::string>("marker_topic", "/stereo_vfh/markers");
     enabled_ = declare_parameter<bool>("enabled_default", true);
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 30.0);
-    pointcloud_timeout_sec_ = declare_parameter<double>("pointcloud_timeout_sec", 0.5);
-    seed_timeout_sec_ = declare_parameter<double>("seed_timeout_sec", 3.0);
-    target_hold_sec_ = declare_parameter<double>("target_hold_sec", 0.8);
-    seed_reset_distance_ = declare_parameter<double>("seed_reset_distance", 1.0);
     max_points_per_cloud_ = declare_parameter<int>("max_points_per_cloud", 60000);
 
     filter_config_.x_min = declare_parameter<double>("obstacle_x_min", -4.0);
@@ -165,11 +160,7 @@ public:
     filter_config_.robot_frame_left = declare_parameter<double>("robot_frame_left", 0.15);
     filter_config_.robot_frame_right = declare_parameter<double>("robot_frame_right", 0.15);
 
-    tracking_config_.target_radius = declare_parameter<double>("target_radius", 0.30);
-    tracking_config_.min_points_in_target = declare_parameter<int>("min_points_in_target", 1);
-    tracking_config_.smoothing_alpha = declare_parameter<double>("smoothing_alpha", 0.35);
-
-    follow_distance_ = declare_parameter<double>("follow_distance", 0.40);
+    follow_distance_ = declare_parameter<double>("follow_distance", 1.0);
     vfh_config_.sector_angle_deg = declare_parameter<double>("sector_angle_deg", 5.0);
     vfh_config_.range_min = declare_parameter<double>("vfh_range_min", 0.10);
     vfh_config_.range_max = declare_parameter<double>("vfh_range_max", 4.0);
@@ -191,10 +182,6 @@ public:
     vfh_config_.max_wz = declare_parameter<double>("max_vyaw", 0.8);
     vfh_config_.angular_scale = declare_parameter<double>("angular_scale", 1.0);
     vfh_config_.bypass_heading_blend = declare_parameter<double>("bypass_heading_blend", 0.55);
-    vfh_config_.command_filter_alpha = declare_parameter<double>("command_filter_alpha", 0.45);
-    vfh_config_.max_delta_vx_per_sec = declare_parameter<double>("max_delta_vx_per_sec", 0.55);
-    vfh_config_.max_delta_vy_per_sec = declare_parameter<double>("max_delta_vy_per_sec", 0.55);
-    vfh_config_.max_delta_wz_per_sec = declare_parameter<double>("max_delta_wz_per_sec", 1.0);
     vfh_config_.min_move_speed = declare_parameter<double>("min_move_speed", 0.08);
     vfh_config_.linear_scale = declare_parameter<double>("linear_scale", 0.45);
 
@@ -203,16 +190,12 @@ public:
 
     cloud_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
       pointcloud_topic_,
-      5,
+      rclcpp::SensorDataQoS(),
       std::bind(&StereoVfhControllerNode::cloud_callback, this, std::placeholders::_1));
     seed_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       seed_target_topic_,
       10,
       std::bind(&StereoVfhControllerNode::seed_callback, this, std::placeholders::_1));
-    seed_valid_sub_ = create_subscription<std_msgs::msg::Bool>(
-      seed_valid_topic_,
-      10,
-      std::bind(&StereoVfhControllerNode::seed_valid_callback, this, std::placeholders::_1));
     manual_target_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
       manual_target_topic_,
       10,
@@ -282,27 +265,20 @@ private:
     }
 
     latest_points_ = std::move(points);
-    latest_cloud_time_ = now();
     have_cloud_ = true;
   }
 
   // 接收 UWB seed 目标。
   void seed_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
   {
+    // UWB seed 已是原始目标，转换坐标后直接用于 VFH 控制。
     auto target = pose_to_base(*msg);
     if (!target.has_value()) {
       return;
     }
-    seed_target_ = target.value();
-    seed_time_ = now();
-    have_seed_ = true;
-  }
-
-  // 接收 UWB seed 有效状态。
-  void seed_valid_callback(const std_msgs::msg::Bool::SharedPtr msg)
-  {
-    seed_valid_ = msg->data;
-    seed_valid_time_ = now();
+    target_ = target.value();
+    have_target_ = true;
+    target_source_ = "raw_uwb";
   }
 
   // 接收手动目标，便于离线调试绕障。
@@ -313,7 +289,6 @@ private:
       return;
     }
     target_ = target.value();
-    target_time_ = now();
     have_target_ = true;
     target_source_ = "manual";
     publish_status("follow: manual target");
@@ -350,42 +325,7 @@ private:
     }
   }
 
-  // 判断某个时间戳是否仍在有效期内。
-  bool age_ok(const rclcpp::Time & stamp, double timeout_sec) const
-  {
-    if (stamp.nanoseconds() == 0) {
-      return false;
-    }
-    return (now() - stamp).seconds() <= timeout_sec;
-  }
-
-  // 判断 UWB seed 是否新鲜且有效。
-  bool seed_is_fresh() const
-  {
-    return have_seed_ && seed_valid_ && age_ok(seed_time_, seed_timeout_sec_) &&
-           age_ok(seed_valid_time_, seed_timeout_sec_);
-  }
-
-  // 按需用 UWB seed 刷新当前目标。
-  bool refresh_target_from_seed(bool force)
-  {
-    if (!seed_is_fresh()) {
-      return false;
-    }
-    if (!force && have_target_) {
-      const double delta = std::hypot(seed_target_.x - target_.x, seed_target_.y - target_.y);
-      if (delta <= seed_reset_distance_) {
-        return false;
-      }
-    }
-    target_ = seed_target_;
-    target_time_ = now();
-    have_target_ = true;
-    target_source_ = "seed";
-    return true;
-  }
-
-  // 主控制循环，负责安全检查、目标更新和 VFH 控制输出。
+  // 主控制循环，直接使用最新原始目标和障碍点计算 VFH 速度。
   void tick()
   {
     if (!enabled_) {
@@ -393,23 +333,15 @@ private:
       publish_zero("stop: disabled");
       return;
     }
-    if (!have_cloud_ || !age_ok(latest_cloud_time_, pointcloud_timeout_sec_)) {
+    if (!have_cloud_) {
       publish_marker_delete();
-      publish_zero("stop: obstacle cloud stale");
+      publish_zero("stop: waiting for obstacle cloud");
       return;
     }
 
     if (!have_target_) {
-      if (!refresh_target_from_seed(true)) {
-        publish_marker_delete();
-        publish_zero("stop: target unavailable");
-        return;
-      }
-    } else {
-      refresh_target_from_seed(false);
-    }
-
-    if (!update_target_from_cloud_or_seed()) {
+      publish_marker_delete();
+      publish_zero("stop: target unavailable");
       return;
     }
 
@@ -425,34 +357,6 @@ private:
     publish_follow_goal(result.follow_goal, result.selected_heading);
     publish_markers(result);
     publish_status(status_from_result(result));
-  }
-
-  // 根据目标附近点云质心或 UWB seed 维持当前目标。
-  bool update_target_from_cloud_or_seed()
-  {
-    auto centroid = go2_stereo_apf_follow::compute_target_centroid(
-      latest_points_,
-      target_,
-      tracking_config_);
-    if (centroid.has_value()) {
-      target_ = go2_stereo_apf_follow::smooth_target(
-        target_,
-        centroid.value(),
-        tracking_config_.smoothing_alpha);
-      target_time_ = now();
-      target_source_ = "cloud";
-      return true;
-    }
-
-    if ((now() - target_time_).seconds() > target_hold_sec_) {
-      if (!refresh_target_from_seed(true)) {
-        have_target_ = false;
-        publish_marker_delete();
-        publish_zero("stop: target lost");
-        return false;
-      }
-    }
-    return true;
   }
 
   // 发布当前 UWB 跟随目标。
@@ -584,8 +488,6 @@ private:
   // 发布零速度并记录状态。
   void publish_zero(const std::string & status)
   {
-    vfh_state_.last_command = go2_stereo_apf_follow::TwistCommand{};
-    vfh_state_.last_update_time = now().seconds();
     cmd_pub_->publish(geometry_msgs::msg::Twist());
     publish_status(status);
   }
@@ -606,7 +508,6 @@ private:
   std::string base_frame_;
   std::string pointcloud_topic_;
   std::string seed_target_topic_;
-  std::string seed_valid_topic_;
   std::string manual_target_topic_;
   std::string enabled_topic_;
   std::string cmd_vel_topic_;
@@ -616,17 +517,12 @@ private:
   std::string marker_topic_;
   bool enabled_{true};
   double publish_rate_hz_{30.0};
-  double pointcloud_timeout_sec_{0.5};
-  double seed_timeout_sec_{3.0};
-  double target_hold_sec_{0.8};
-  double seed_reset_distance_{1.0};
   int max_points_per_cloud_{60000};
-  double follow_distance_{0.40};
+  double follow_distance_{1.0};
   bool publish_markers_{true};
   double marker_radius_{1.2};
 
   go2_stereo_apf_follow::PointFilterConfig filter_config_;
-  go2_stereo_apf_follow::TargetTrackingConfig tracking_config_;
   go2_stereo_apf_follow::VfhConfig vfh_config_;
   go2_stereo_apf_follow::VfhState vfh_state_;
 
@@ -634,7 +530,6 @@ private:
   tf2_ros::TransformListener tf_listener_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr seed_sub_;
-  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr seed_valid_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr manual_target_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr enabled_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
@@ -645,15 +540,8 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 
   std::vector<go2_stereo_apf_follow::Point3D> latest_points_;
-  rclcpp::Time latest_cloud_time_{0, 0, RCL_ROS_TIME};
   bool have_cloud_{false};
-  go2_stereo_apf_follow::Point2D seed_target_;
-  rclcpp::Time seed_time_{0, 0, RCL_ROS_TIME};
-  rclcpp::Time seed_valid_time_{0, 0, RCL_ROS_TIME};
-  bool have_seed_{false};
-  bool seed_valid_{false};
   go2_stereo_apf_follow::Point2D target_;
-  rclcpp::Time target_time_{0, 0, RCL_ROS_TIME};
   bool have_target_{false};
   std::string target_source_{"none"};
   std::string last_status_;

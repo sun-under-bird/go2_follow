@@ -22,7 +22,6 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-#include "uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp"
 
 namespace go2_uwb_dwb_follow
 {
@@ -31,18 +30,21 @@ namespace
 
 using FollowPath = nav2_msgs::action::FollowPath;
 using GoalHandleFollowPath = rclcpp_action::ClientGoalHandle<FollowPath>;
-using LibAoaRobotMsg = uwb_aoa_pkg::msg::LibAoaRobotMsg;
+using UwbTargetMsg = geometry_msgs::msg::PointStamped;
 
+// 判断数值是否可用于后续几何计算。
 bool finiteValue(const double value)
 {
   return std::isfinite(value);
 }
 
+// 检查目标点的所有坐标是否为有限值。
 bool finitePoint(const geometry_msgs::msg::Point & point)
 {
   return finiteValue(point.x) && finiteValue(point.y) && finiteValue(point.z);
 }
 
+// 构造平面坐标点并统一将高度置零。
 geometry_msgs::msg::Point makePoint(const double x, const double y)
 {
   geometry_msgs::msg::Point point;
@@ -52,11 +54,13 @@ geometry_msgs::msg::Point makePoint(const double x, const double y)
   return point;
 }
 
+// 计算两个平面点之间的欧氏距离。
 double distance2d(const geometry_msgs::msg::Point & lhs, const geometry_msgs::msg::Point & rhs)
 {
   return std::hypot(lhs.x - rhs.x, lhs.y - rhs.y);
 }
 
+// 将平面航向角转换为 ROS 四元数。
 geometry_msgs::msg::Quaternion yawToQuaternion(const double yaw)
 {
   tf2::Quaternion quaternion;
@@ -69,6 +73,7 @@ geometry_msgs::msg::Quaternion yawToQuaternion(const double yaw)
 class UwbPointFollowNode : public rclcpp::Node
 {
 public:
+  // 初始化 UWB 目标适配器及 FollowPath 动作客户端。
   UwbPointFollowNode()
   : Node("uwb_point_follow_node"),
     latest_target_stamp_(0, 0, get_clock()->get_clock_type()),
@@ -81,7 +86,7 @@ public:
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     follow_path_client_ = rclcpp_action::create_client<FollowPath>(this, follow_path_action_);
 
-    uwb_sub_ = create_subscription<LibAoaRobotMsg>(
+    uwb_sub_ = create_subscription<UwbTargetMsg>(
       uwb_topic_,
       rclcpp::SensorDataQoS(),
       std::bind(&UwbPointFollowNode::uwbCallback, this, std::placeholders::_1));
@@ -100,12 +105,13 @@ public:
   }
 
 private:
+  // 声明节点运行所需的全部参数及安全默认值。
   void declareParameters()
   {
-    declare_parameter<std::string>("uwb_topic", "/libAoa_robot_publisher");
+    declare_parameter<std::string>("uwb_topic", "/uwb/target_point");
     declare_parameter<std::string>("odom_frame", "odom");
-    declare_parameter<std::string>("base_frame", "base_link");
-    declare_parameter<std::string>("uwb_frame", "uwb_link");
+    declare_parameter<std::string>("base_frame", "base_footprint");
+    declare_parameter<std::string>("uwb_frame", "base_footprint");
     declare_parameter<bool>("use_tf_for_uwb", true);
     declare_parameter<bool>("use_latest_tf", true);
     declare_parameter<bool>("prefer_range_angle", true);
@@ -134,6 +140,7 @@ private:
     declare_parameter<double>("action_resend_period_sec", 0.4);
   }
 
+  // 读取参数并缓存，避免控制循环中反复查询参数服务。
   void loadParameters()
   {
     uwb_topic_ = get_parameter("uwb_topic").as_string();
@@ -168,16 +175,13 @@ private:
     action_resend_period_sec_ = get_parameter("action_resend_period_sec").as_double();
   }
 
-  void uwbCallback(const LibAoaRobotMsg::SharedPtr msg)
+  // 解析、变换并筛选最新 UWB 目标。
+  void uwbCallback(const UwbTargetMsg::SharedPtr msg)
   {
     const rclcpp::Time stamp = msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0 ?
       now() : rclcpp::Time(msg->header.stamp, get_clock()->get_clock_type());
 
-    const auto target = parseUwbTarget(*msg);
-    if (!target) {
-      publishStatus("stop: UWB target parse failed");
-      return;
-    }
+    const std::optional<geometry_msgs::msg::Point> target = msg->point;
 
     const std::string source_frame = use_tf_for_uwb_ ?
       (msg->header.frame_id.empty() ? uwb_frame_ : msg->header.frame_id) : base_frame_;
@@ -198,30 +202,8 @@ private:
     publishStatus("tracking: UWB point accepted");
   }
 
-  std::optional<geometry_msgs::msg::Point> parseUwbTarget(const LibAoaRobotMsg & msg) const
-  {
-    if (msg.state < 0) {
-      return std::nullopt;
-    }
 
-    const bool xy_valid = finiteValue(msg.x) && finiteValue(msg.y);
-    const bool range_angle_valid = finiteValue(msg.r) && finiteValue(msg.a) && msg.r > 1e-6;
-
-    if (prefer_range_angle_ && range_angle_valid) {
-      return makePoint(msg.r * std::cos(msg.a), msg.r * std::sin(msg.a));
-    }
-    if (xy_valid && std::hypot(msg.x, msg.y) > 1e-6) {
-      return makePoint(msg.x, msg.y);
-    }
-    if (range_angle_valid) {
-      return makePoint(msg.r * std::cos(msg.a), msg.r * std::sin(msg.a));
-    }
-    if (xy_valid) {
-      return makePoint(msg.x, msg.y);
-    }
-    return std::nullopt;
-  }
-
+  // 将 UWB 坐标系中的目标严格变换到 odom 坐标系。
   std::optional<geometry_msgs::msg::Point> targetToOdom(
     const geometry_msgs::msg::Point & target,
     const rclcpp::Time & stamp,
@@ -236,7 +218,8 @@ private:
 
     geometry_msgs::msg::PointStamped source;
     source.header.frame_id = source_frame;
-    source.header.stamp = use_latest_tf_ ? rclcpp::Time(0, 0, get_clock()->get_clock_type()) : stamp;
+    source.header.stamp =
+      use_latest_tf_ ? rclcpp::Time(0, 0, get_clock()->get_clock_type()) : stamp;
     source.point = target;
 
     try {
@@ -256,6 +239,7 @@ private:
     }
   }
 
+  // 查询机器人基座在 odom 坐标系中的当前位置。
   std::optional<geometry_msgs::msg::Point> robotPointInOdom(const rclcpp::Time & stamp)
   {
     if (base_frame_ == odom_frame_) {
@@ -264,7 +248,8 @@ private:
 
     geometry_msgs::msg::PointStamped source;
     source.header.frame_id = base_frame_;
-    source.header.stamp = use_latest_tf_ ? rclcpp::Time(0, 0, get_clock()->get_clock_type()) : stamp;
+    source.header.stamp =
+      use_latest_tf_ ? rclcpp::Time(0, 0, get_clock()->get_clock_type()) : stamp;
     source.point = makePoint(0.0, 0.0);
 
     try {
@@ -284,6 +269,7 @@ private:
     }
   }
 
+  // 按距离、跳变和速度阈值拒绝异常目标。
   bool acceptTarget(const geometry_msgs::msg::Point & target, const rclcpp::Time & stamp)
   {
     const auto robot = robotPointInOdom(stamp);
@@ -321,6 +307,7 @@ private:
     return true;
   }
 
+  // 对有效目标进行指数平滑，降低定位抖动。
   geometry_msgs::msg::Point smoothTarget(const geometry_msgs::msg::Point & target) const
   {
     if (!have_target_ || smoothing_alpha_ >= 1.0) {
@@ -334,6 +321,7 @@ private:
     return smoothed;
   }
 
+  // 周期检查目标有效性并向 DWB 下发或撤销跟随路径。
   void timerCallback()
   {
     const rclcpp::Time now_stamp = now();
@@ -386,6 +374,7 @@ private:
     }
   }
 
+  // 根据期望跟随距离生成位于人员前方的驻留目标点。
   std::optional<geometry_msgs::msg::Point> buildFollowGoal(
     const geometry_msgs::msg::Point & robot,
     const geometry_msgs::msg::Point & target,
@@ -405,6 +394,7 @@ private:
     return goal;
   }
 
+  // 构造供 FollowPath 控制器消费的最短两点路径。
   nav_msgs::msg::Path buildAdapterPath(
     const geometry_msgs::msg::Point & robot,
     const geometry_msgs::msg::Point & goal,
@@ -418,6 +408,7 @@ private:
     return path;
   }
 
+  // 构造带有路径朝向的位姿点。
   geometry_msgs::msg::PoseStamped makePose(
     const geometry_msgs::msg::Point & point,
     const geometry_msgs::msg::Point & next,
@@ -431,6 +422,7 @@ private:
     return pose;
   }
 
+  // 异步发送最新 FollowPath 目标并维护动作句柄。
   void sendFollowPathGoal(const nav_msgs::msg::Path & path)
   {
     if (!follow_path_client_->action_server_is_ready()) {
@@ -466,6 +458,7 @@ private:
     last_goal_send_time_ = now();
   }
 
+  // 撤销当前仍在执行的 FollowPath 目标。
   void cancelActiveGoal()
   {
     if (!active_goal_handle_) {
@@ -480,6 +473,7 @@ private:
     active_goal_handle_.reset();
   }
 
+  // 判断动作目标是否已达到允许的重发周期。
   bool shouldResendActionGoal(const rclcpp::Time & stamp) const
   {
     if (last_goal_send_time_.nanoseconds() == 0) {
@@ -488,6 +482,7 @@ private:
     return (stamp - last_goal_send_time_).seconds() >= action_resend_period_sec_;
   }
 
+  // 发布已经变换并平滑后的 UWB 目标点。
   void publishTargetPoint(
     const geometry_msgs::msg::Point & target,
     const rclcpp::Time & stamp)
@@ -499,6 +494,7 @@ private:
     target_pub_->publish(msg);
   }
 
+  // 发布目标当前是否仍然有效。
   void publishTargetValid(const bool valid)
   {
     std_msgs::msg::Bool msg;
@@ -506,6 +502,7 @@ private:
     target_valid_pub_->publish(msg);
   }
 
+  // 发布空路径，显式通知适配层停止沿旧路径运动。
   void publishEmptyAdapterPath(const rclcpp::Time & stamp)
   {
     nav_msgs::msg::Path path;
@@ -514,6 +511,7 @@ private:
     adapter_path_pub_->publish(path);
   }
 
+  // 仅在状态变化时发布诊断信息，避免日志刷屏。
   void publishStatus(const std::string & status)
   {
     if (status == last_status_) {
@@ -568,7 +566,7 @@ private:
   rclcpp::Time last_goal_send_time_;
   std::string last_status_;
 
-  rclcpp::Subscription<LibAoaRobotMsg>::SharedPtr uwb_sub_;
+  rclcpp::Subscription<UwbTargetMsg>::SharedPtr uwb_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr target_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr adapter_path_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr target_valid_pub_;
@@ -582,6 +580,7 @@ private:
 
 }  // namespace go2_uwb_dwb_follow
 
+// 初始化并运行 DWB UWB 跟随适配节点。
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

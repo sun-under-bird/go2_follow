@@ -42,21 +42,13 @@ include_directories(include)
 add_executable(uwb_follow_path_node src/uwb_follow_path_node.cpp)
 ament_target_dependencies(uwb_follow_path_node ${dependencies})
 
-add_executable(one1000_target_point_node src/one1000_target_point_node.cpp)
-ament_target_dependencies(one1000_target_point_node ${dependencies})
-
 add_executable(target_obstacle_filter_node src/target_obstacle_filter_node.cpp)
 ament_target_dependencies(target_obstacle_filter_node ${dependencies})
 
-add_executable(stereo_cloud_filter_node src/stereo_cloud_filter_node.cpp)
-ament_target_dependencies(stereo_cloud_filter_node ${dependencies})
-
 install(
   TARGETS
-    one1000_target_point_node
     uwb_follow_path_node
     target_obstacle_filter_node
-    stereo_cloud_filter_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

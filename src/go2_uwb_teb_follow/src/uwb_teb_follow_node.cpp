@@ -49,7 +49,7 @@ UwbTebFollowNode::UwbTebFollowNode()
     rclcpp_action::create_client<ComputePathToPose>(this, config_.planner_action);
   follow_path_client_ = rclcpp_action::create_client<FollowPath>(this, config_.follow_path_action);
 
-  uwb_sub_ = create_subscription<LibAoaRobotMsg>(
+  uwb_sub_ = create_subscription<UwbTargetMsg>(
     config_.uwb_topic,
     rclcpp::SensorDataQoS(),
     std::bind(&UwbTebFollowNode::uwbCallback, this, std::placeholders::_1));
@@ -74,10 +74,10 @@ UwbTebFollowNode::UwbTebFollowNode()
 // 声明 UWB 输入、Nav2 action、跟随距离和停车输出等参数。
 void UwbTebFollowNode::declareParameters()
 {
-  declare_parameter<std::string>("uwb_topic", "/libAoa_robot_publisher");
+  declare_parameter<std::string>("uwb_topic", "/uwb/target_point");
   declare_parameter<std::string>("odom_frame", "odom");
-  declare_parameter<std::string>("base_frame", "base_link");
-  declare_parameter<std::string>("uwb_frame", "base_link");
+  declare_parameter<std::string>("base_frame", "base_footprint");
+  declare_parameter<std::string>("uwb_frame", "base_footprint");
   declare_parameter<std::string>("target_topic", "/uwb_teb/target");
   declare_parameter<std::string>("path_topic", "/uwb_teb/path");
   declare_parameter<std::string>("target_valid_topic", "/follow/target_valid");
@@ -96,7 +96,7 @@ void UwbTebFollowNode::declareParameters()
   declare_parameter<double>("goal_update_angle_rad", 0.0872664626);
   declare_parameter<double>("publish_rate_hz", 5.0);
   declare_parameter<int>("min_path_poses", 2);
-  declare_parameter<bool>("use_latest_tf", true);
+  declare_parameter<bool>("use_latest_tf", false);
   declare_parameter<bool>("publish_zero_velocity_on_stop", true);
 }
 
@@ -131,28 +131,17 @@ void UwbTebFollowNode::loadParameters()
 }
 
 // 接收 UWB 原始消息，只根据 state 判断有效性，并更新当前可规划目标。
-void UwbTebFollowNode::uwbCallback(const LibAoaRobotMsg::SharedPtr msg)
+void UwbTebFollowNode::uwbCallback(const UwbTargetMsg::SharedPtr msg)
 {
   const rclcpp::Time stamp = msg->header.stamp.sec == 0 && msg->header.stamp.nanosec == 0 ?
     now() : rclcpp::Time(msg->header.stamp, get_clock()->get_clock_type());
-
-  if (msg->state < 0) {
-    clearTargetAndStop("stop: invalid UWB state", stamp);
-    return;
-  }
-
-  const auto parsed_target = parseUwbTarget(*msg);
-  if (!parsed_target) {
-    clearTargetAndStop("stop: UWB target parse failed", stamp);
-    return;
-  }
 
   const std::string source_frame = msg->header.frame_id.empty() ?
     config_.uwb_frame : msg->header.frame_id;
   geometry_msgs::msg::PointStamped target_source;
   target_source.header.frame_id = source_frame;
   target_source.header.stamp = stamp;
-  target_source.point = *parsed_target;
+  target_source.point = msg->point;
 
   const auto target_base = transformPoint(target_source, config_.base_frame);
   if (!target_base) {
@@ -174,34 +163,13 @@ void UwbTebFollowNode::uwbCallback(const LibAoaRobotMsg::SharedPtr msg)
   publishTarget(*target_base);
   publishTargetValid(true);
 
-  // 近距离目标不再送给 Smac/TEB，直接停车并发布空路径。
-  if (std::hypot(latest_target_base_.x, latest_target_base_.y) < config_.follow_distance_m) {
+  // 进入跟随距离后直接停车，避免规划器继续逼近人员实体。
+  if (std::hypot(latest_target_base_.x, latest_target_base_.y) <= config_.follow_distance_m) {
     stopFollowing("hold: target within follow distance", stamp);
     return;
   }
 
   publishStatus("tracking: UWB target accepted");
-}
-
-// 从 LibAoaRobotMsg 中解析目标点：优先使用非零 x/y，失败后回退到 r/a。
-std::optional<geometry_msgs::msg::Point> UwbTebFollowNode::parseUwbTarget(
-  const LibAoaRobotMsg & msg) const
-{
-  const bool xy_valid = finiteValue(msg.x) && finiteValue(msg.y);
-  const bool xy_non_zero = std::hypot(msg.x, msg.y) > 1e-6;
-  if (xy_valid && xy_non_zero) {
-    return makePoint(msg.x, msg.y);
-  }
-
-  if (finiteValue(msg.r) && finiteValue(msg.a)) {
-    return makePoint(msg.r * std::cos(msg.a), msg.r * std::sin(msg.a));
-  }
-
-  if (xy_valid) {
-    return makePoint(msg.x, msg.y);
-  }
-
-  return std::nullopt;
 }
 
 // 将点转换到指定坐标系；坐标系相同则只规范 frame_id 和 z 值。
@@ -260,12 +228,14 @@ void UwbTebFollowNode::timerCallback()
   }
 
   const double range = std::hypot(latest_target_base_.x, latest_target_base_.y);
-  if (range < config_.follow_distance_m) {
+  if (range <= config_.follow_distance_m) {
     stopFollowing("hold: target within follow distance", now_stamp);
     return;
   }
 
   const double target_yaw_base = std::atan2(latest_target_base_.y, latest_target_base_.x);
+  const auto follow_goal_base = computeFollowGoal(
+    latest_target_base_, config_.follow_distance_m);
   if (planner_request_in_flight_) {
     if (plannerRequestTimedOut(now_stamp)) {
       stopFollowing("stop: planner timeout", now_stamp);
@@ -275,12 +245,12 @@ void UwbTebFollowNode::timerCallback()
     return;
   }
 
-  if (shouldRequestPath(latest_target_base_, target_yaw_base)) {
-    requestGlobalPath(latest_target_base_, target_yaw_base, now_stamp);
+  if (shouldRequestPath(follow_goal_base, target_yaw_base)) {
+    requestGlobalPath(follow_goal_base, target_yaw_base, now_stamp);
   }
 }
 
-// 请求 planner_server 使用 Smac Hybrid 计算到 UWB 点的全局路径。
+// 请求 planner_server 使用 Smac Hybrid 计算到人员前方站位点的全局路径。
 void UwbTebFollowNode::requestGlobalPath(
   const geometry_msgs::msg::Point & goal_base,
   const double goal_yaw_base,
@@ -321,7 +291,7 @@ void UwbTebFollowNode::requestGlobalPath(
     };
   options.result_callback =
     [this, request_id, goal_base, goal_yaw_base](
-      const GoalHandleComputePathToPose::WrappedResult & result) {
+    const GoalHandleComputePathToPose::WrappedResult & result) {
       if (request_id != planner_request_id_) {
         return;
       }
@@ -337,13 +307,15 @@ void UwbTebFollowNode::requestGlobalPath(
       }
 
       const double range = std::hypot(latest_target_base_.x, latest_target_base_.y);
-      if (range < config_.follow_distance_m) {
+      if (range <= config_.follow_distance_m) {
         stopFollowing("hold: target within follow distance", now_stamp);
         return;
       }
 
       // 规划结果返回时目标已经明显移动，则丢弃旧路径，等待下一次重规划。
-      if (distance2d(latest_target_base_, goal_base) > config_.goal_update_distance_m) {
+      const auto latest_follow_goal = computeFollowGoal(
+        latest_target_base_, config_.follow_distance_m);
+      if (distance2d(latest_follow_goal, goal_base) > config_.goal_update_distance_m) {
         publishStatus("skip: stale global path result");
         return;
       }
@@ -458,7 +430,7 @@ bool UwbTebFollowNode::shouldRequestPath(
   const double goal_delta = distance2d(*last_sent_goal_base_, goal_base);
   const double angle_delta = std::abs(normalizeAngle(goal_yaw_base - last_sent_goal_yaw_base_));
   return goal_delta >= config_.goal_update_distance_m ||
-    angle_delta >= config_.goal_update_angle_rad;
+         angle_delta >= config_.goal_update_angle_rad;
 }
 
 // 判断当前 ComputePathToPose 请求是否超过允许等待时间。
@@ -589,6 +561,19 @@ geometry_msgs::msg::Point UwbTebFollowNode::makePoint(const double x, const doub
   point.y = y;
   point.z = 0.0;
   return point;
+}
+
+// 沿机器人到人员的连线回退跟随距离，生成不会落在人体障碍内的站位点。
+geometry_msgs::msg::Point UwbTebFollowNode::computeFollowGoal(
+  const geometry_msgs::msg::Point & target,
+  const double follow_distance)
+{
+  const double range = std::hypot(target.x, target.y);
+  if (range <= std::max(0.0, follow_distance) || range <= 1e-6) {
+    return makePoint(0.0, 0.0);
+  }
+  const double scale = (range - std::max(0.0, follow_distance)) / range;
+  return makePoint(target.x * scale, target.y * scale);
 }
 
 // 构造指定坐标系下的二维目标姿态。

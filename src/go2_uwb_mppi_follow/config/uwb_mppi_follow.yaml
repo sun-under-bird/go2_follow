@@ -3,20 +3,20 @@ one1000_target_point_node:
     one1000_topic: /libAoa_robot_publisher
     target_point_topic: /uwb/target_point
     target_frame: base_footprint
-    one1000_frame: base_footprint
-    use_tf: false
-    require_tf: true
+    one1000_frame: uwb_link
+    use_tf: true
     use_latest_tf: true
     transform_timeout_sec: 0.2
 
     prefer_xy: true
+    use_raw_fields: false
     angle_in_degrees: false
     invert_y: false
     angle_offset_rad: 0.0
     anchor_x_offset: 0.0
     anchor_y_offset: 0.0
     require_valid_state: true
-    min_target_distance_m: 0.0
+    min_target_distance_m: 0.2
     max_target_distance_m: 8.0
 
 uwb_follow_path_node:
@@ -28,7 +28,7 @@ uwb_follow_path_node:
     transform_timeout_sec: 0.2
 
     follow_path_topic: /uwb_follow/path
-    target_filtered_topic: /uwb_follow/target_filtered
+    target_topic: /uwb_follow/target_filtered
     follow_goal_topic: /uwb_follow/follow_goal
     target_valid_topic: /follow/target_valid
     status_topic: /follow/uwb_path_status
@@ -40,7 +40,7 @@ uwb_follow_path_node:
     follow_distance_m: 1.5
 
     target_timeout_sec: 1.0
-    min_target_distance_m: 0.0
+    min_target_distance_m: 0.5
     max_target_distance_m: 8.0
     smoothing_alpha: 0.35
     target_hold_sec: 0.5
@@ -60,7 +60,7 @@ uwb_follow_path_node:
     min_path_poses: 2
 
     publish_zero_velocity_on_stop: true
-    stop_cmd_vel_topic: /cmd_vel_safe
+    cmd_vel_topic: /cmd_vel_nav
 
 target_obstacle_filter_node:
   ros__parameters:
@@ -75,20 +75,3 @@ target_obstacle_filter_node:
     clear_z_max_m: 2.0
     pass_through_without_target: true
     use_latest_tf: true
-
-stereo_cloud_filter_node:
-  ros__parameters:
-    input_cloud_topic: /stereo/points2
-    obstacle_cloud_topic: /local_grid_obstacle
-    ground_cloud_topic: /local_grid_ground
-    target_frame: base_footprint
-    use_latest_tf: true
-    transform_timeout_sec: 0.2
-    voxel_leaf_size: 0.05
-    min_x: 0.15
-    max_x: 3.0
-    max_abs_y: 1.5
-    min_z: 0.0
-    max_z: 1.5
-    ground_z_max: 0.12
-    obstacle_z_min: 0.10

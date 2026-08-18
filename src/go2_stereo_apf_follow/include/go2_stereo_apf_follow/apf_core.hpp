@@ -38,8 +38,6 @@ struct UwbTargetConfig
   double angle_offset_rad{0.0};
   double anchor_x_offset{0.0};
   double anchor_y_offset{0.0};
-  double min_distance_m{0.15};
-  double max_distance_m{8.0};
 };
 
 struct PointFilterConfig
@@ -53,13 +51,6 @@ struct PointFilterConfig
   double robot_frame_back{0.35};
   double robot_frame_left{0.15};
   double robot_frame_right{0.15};
-};
-
-struct TargetTrackingConfig
-{
-  double target_radius{0.30};
-  int min_points_in_target{1};
-  double smoothing_alpha{0.35};
 };
 
 struct ApfConfig
@@ -193,44 +184,10 @@ inline std::optional<Point2D> parse_uwb_target(
     target.y = -target.y;
   }
 
-  const double distance = distance2d(target);
-  if (!is_finite(target) || distance < config.min_distance_m || distance > config.max_distance_m) {
+  if (!is_finite(target)) {
     return std::nullopt;
   }
   return target;
-}
-
-inline std::optional<Point2D> compute_target_centroid(
-  const std::vector<Point3D> & points,
-  const Point2D & current_target,
-  const TargetTrackingConfig & config)
-{
-  double sum_x = 0.0;
-  double sum_y = 0.0;
-  int count = 0;
-  for (const auto & point : points) {
-    if (std::hypot(point.x - current_target.x, point.y - current_target.y) <= config.target_radius) {
-      sum_x += point.x;
-      sum_y += point.y;
-      ++count;
-    }
-  }
-
-  if (count < std::max(1, config.min_points_in_target)) {
-    return std::nullopt;
-  }
-  return Point2D{sum_x / static_cast<double>(count), sum_y / static_cast<double>(count)};
-}
-
-inline Point2D smooth_target(
-  const Point2D & current,
-  const Point2D & measurement,
-  double alpha)
-{
-  const double clipped_alpha = clamp(alpha, 0.0, 1.0);
-  return Point2D{
-    current.x + clipped_alpha * (measurement.x - current.x),
-    current.y + clipped_alpha * (measurement.y - current.y)};
 }
 
 inline ObstacleSummary summarize_obstacles(

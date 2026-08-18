@@ -20,7 +20,6 @@ struct TargetFilterConfig
   std::string output_cloud_topic;
   std::string target_topic;
   std::string filter_frame;
-  double target_timeout_sec;
   double transform_timeout_sec;
   double clear_radius_m;
   double clear_z_min_m;
@@ -54,9 +53,6 @@ private:
 
   // 接收障碍点云，删除目标人附近的小圆柱点云后发布。
   void cloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
-
-  // 判断当前是否有未超时的目标点。
-  bool hasFreshTarget(const rclcpp::Time & stamp) const;
 
   // 将缓存的目标点转换到过滤坐标系。
   std::optional<geometry_msgs::msg::Point> targetInFilterFrame(const rclcpp::Time & stamp);

@@ -18,7 +18,6 @@
 #include "std_msgs/msg/string.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
-#include "uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp"
 
 namespace go2_uwb_teb_follow
 {
@@ -59,7 +58,7 @@ public:
     rclcpp_action::ClientGoalHandle<ComputePathToPose>;
   using FollowPath = nav2_msgs::action::FollowPath;
   using GoalHandleFollowPath = rclcpp_action::ClientGoalHandle<FollowPath>;
-  using LibAoaRobotMsg = uwb_aoa_pkg::msg::LibAoaRobotMsg;
+  using UwbTargetMsg = geometry_msgs::msg::PointStamped;
 
   UwbTebFollowNode();
 
@@ -67,10 +66,9 @@ private:
   void declareParameters();
   void loadParameters();
 
-  void uwbCallback(const LibAoaRobotMsg::SharedPtr msg);
+  void uwbCallback(const UwbTargetMsg::SharedPtr msg);
   void timerCallback();
 
-  std::optional<geometry_msgs::msg::Point> parseUwbTarget(const LibAoaRobotMsg & msg) const;
   std::optional<geometry_msgs::msg::PointStamped> transformPoint(
     const geometry_msgs::msg::PointStamped & point,
     const std::string & target_frame);
@@ -102,6 +100,9 @@ private:
   void publishStatus(const std::string & status);
 
   static geometry_msgs::msg::Point makePoint(double x, double y);
+  static geometry_msgs::msg::Point computeFollowGoal(
+    const geometry_msgs::msg::Point & target,
+    double follow_distance);
   static geometry_msgs::msg::PoseStamped makeBasePose(
     double x,
     double y,
@@ -126,7 +127,7 @@ private:
   double last_sent_goal_yaw_base_{0.0};
   std::string last_status_;
 
-  rclcpp::Subscription<LibAoaRobotMsg>::SharedPtr uwb_sub_;
+  rclcpp::Subscription<UwbTargetMsg>::SharedPtr uwb_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr target_pub_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr target_valid_pub_;
