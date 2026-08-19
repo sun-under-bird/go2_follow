@@ -46,7 +46,7 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "start_uwb",
                 default_value="true",
-                description="Start the external UWB serial driver.",
+                description="Start the UWB serial driver and target-point converter.",
             ),
             DeclareLaunchArgument(
                 "uwb_device",
@@ -138,6 +138,7 @@ def generate_launch_description():
                     {"use_sim_time": use_sim_time},
                 ],
                 arguments=["--ros-args", "--log-level", "warn"],
+                condition=IfCondition(start_uwb),
             ),
             Node(
                 package="go2_uwb_mppi_follow",
