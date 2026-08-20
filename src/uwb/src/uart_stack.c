@@ -5,7 +5,34 @@
 
 #define UART_STACK_VERSION V02
 
-#define UWB_LOG printf
+#include <stdarg.h>
+#include <time.h>
+
+#define UWB_LOG_INTERVAL_NS 1000000000L
+
+static int uwb_log_printf(const char *format, ...)
+{
+    static struct timespec last_log_time = {0, 0};
+    struct timespec now;
+    long elapsed_ns;
+    va_list args;
+    int result;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    elapsed_ns = (now.tv_sec - last_log_time.tv_sec) * 1000000000L
+        + now.tv_nsec - last_log_time.tv_nsec;
+    if (last_log_time.tv_sec != 0 && elapsed_ns < UWB_LOG_INTERVAL_NS) {
+        return 0;
+    }
+
+    last_log_time = now;
+    va_start(args, format);
+    result = vprintf(format, args);
+    va_end(args);
+    return result;
+}
+
+#define UWB_LOG uwb_log_printf
 // #define UWB_LOG(...)
 
 //uart receive
