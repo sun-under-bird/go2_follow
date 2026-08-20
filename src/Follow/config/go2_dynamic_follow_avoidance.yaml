@@ -10,8 +10,8 @@ follow_goal_node:
     goal_topic: /follow_goal
     valid_topic: /follow/target_valid
     status_topic: /follow/target_status
-    follow_distance: 2.0
-    stop_distance: 2.0
+    follow_distance: 1.5
+    stop_distance: 1.5
     goal_tolerance: 0.15
     confidence_threshold: 0.0
     disable_quality_gating: false
@@ -99,14 +99,14 @@ simple_follow_controller:
     target_timeout_sec: 0.8
     target_valid_timeout_sec: 1.0
     publish_rate_hz: 30.0
-    follow_distance: 2.0
+    follow_distance: 1.5
     distance_deadband: 0.15
     lateral_deadband: 0.08
     yaw_deadband: 0.08
     kp_vx: 0.35
     kp_vy: 0.0
     kp_yaw: 1.0
-    max_vx: 0.26
+    max_vx: 0.4
     max_vy: 0.0
     max_vyaw: 0.5
     allow_reverse: false
@@ -119,6 +119,7 @@ safety_mux:
     pointcloud_topic: /local_grid_obstacle
     odom_topic: /odom
     path_topic: /follow_path
+    target_topic: /one1000/target
     target_valid_topic: /follow/target_valid
     path_valid_topic: /follow/path_valid
     bypass_safety: false
@@ -131,10 +132,17 @@ safety_mux:
     target_valid_timeout_sec: 1.0
     path_valid_timeout_sec: 0.5
     path_timeout_sec: 0.5
+    target_pose_timeout_sec: 0.8
     publish_rate_hz: 30.0
-    max_vx: 0.26
+    rotate_to_target_within_follow_distance: true
+    hold_rotate_enter_distance: 1.5
+    hold_rotate_exit_distance: 1.5
+    hold_rotate_yaw_gain: 1.0
+    hold_rotate_max_angular_vel: 0.8
+    hold_rotate_yaw_deadband_rad: 0.05
+    max_vx: 0.4
     max_vy: 0.0
-    max_vyaw: 0.5
+    max_vyaw: 0.8
     max_reverse_vx: 0.0
     max_accel_vx: 0.6
     max_accel_vy: 0.8
