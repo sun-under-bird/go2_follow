@@ -39,10 +39,15 @@ public:
     avoid_distance_ = declare_parameter<double>("avoid_distance", 0.9);
     avoid_release_distance_ = declare_parameter<double>("avoid_release_distance", 1.05);
     front_stop_distance_ = declare_parameter<double>("front_stop_distance", 0.45);
+    min_avoid_angular_scale_ = declare_parameter<double>("min_avoid_angular_scale", 0.0);
     max_linear_ = declare_parameter<double>("max_linear", 0.5);
     max_angular_ = declare_parameter<double>("max_angular", 0.8);
     linear_k_ = declare_parameter<double>("linear_k", 0.4);
     angular_k_ = declare_parameter<double>("angular_k", 1.0);
+    turn_slowdown_angle_ = declare_parameter<double>("turn_slowdown_angle", 0.45);
+    rotate_in_place_angle_ = declare_parameter<double>("rotate_in_place_angle", 1.0);
+    rotate_resume_angle_ = declare_parameter<double>("rotate_resume_angle", 0.55);
+    min_turn_linear_scale_ = declare_parameter<double>("min_turn_linear_scale", 0.2);
 
     sanitizeParameters();
 
@@ -88,10 +93,16 @@ private:
     front_stop_distance_ = std::max(0.05, front_stop_distance_);
     avoid_distance_ = std::max(front_stop_distance_ + 0.05, avoid_distance_);
     avoid_release_distance_ = std::max(avoid_distance_ + 0.05, avoid_release_distance_);
+    min_avoid_angular_scale_ = clamp(min_avoid_angular_scale_, 0.0, 1.0);
     max_linear_ = std::max(0.0, max_linear_);
     max_angular_ = std::max(0.0, max_angular_);
     linear_k_ = std::max(0.0, linear_k_);
     angular_k_ = std::max(0.0, angular_k_);
+    turn_slowdown_angle_ = std::max(angle_deadband_ + 0.05, turn_slowdown_angle_);
+    rotate_in_place_angle_ = std::max(turn_slowdown_angle_ + 0.05, rotate_in_place_angle_);
+    rotate_resume_angle_ = clamp(
+      rotate_resume_angle_, angle_deadband_, rotate_in_place_angle_ - 0.05);
+    min_turn_linear_scale_ = clamp(min_turn_linear_scale_, 0.0, 1.0);
   }
 
   // 直接保存最近一次原始 UWB 主人坐标，不做平滑或跳变限制。
@@ -132,6 +143,7 @@ private:
       return;
     }
 
+    updateRotateInPlaceState();
     auto cmd = buildFollowCommand();
     const bool needs_follow_motion = shouldUseObstacleAvoidance();
 
@@ -174,7 +186,39 @@ private:
       cmd.angular.z = clamp(angular_k_ * angle, -max_angular_, max_angular_);
     }
 
+    if (rotate_in_place_active_) {
+      cmd.linear.x = 0.0;
+    } else if (std::abs(angle) > turn_slowdown_angle_) {
+      const double turn_ratio = clamp(
+        (rotate_in_place_angle_ - std::abs(angle)) /
+        (rotate_in_place_angle_ - turn_slowdown_angle_),
+        0.0,
+        1.0);
+      const double linear_scale = min_turn_linear_scale_ +
+        (1.0 - min_turn_linear_scale_) * turn_ratio;
+      cmd.linear.x *= linear_scale;
+    }
+
     return cmd;
+  }
+
+  // 目标转到大角度时先原地转向，回到安全角度后再恢复前进。
+  void updateRotateInPlaceState()
+  {
+    const double angle = std::abs(targetAngle());
+    if (rotate_in_place_active_) {
+      if (angle <= rotate_resume_angle_) {
+        rotate_in_place_active_ = false;
+      }
+    } else if (angle >= rotate_in_place_angle_) {
+      rotate_in_place_active_ = true;
+    }
+  }
+
+  // 获取最近一次原始 UWB 目标方位角。
+  double targetAngle() const
+  {
+    return std::atan2(raw_target_.point.y, raw_target_.point.x);
   }
 
   // 只有主人距离超过跟随距离和死区后，才认为需要前进，并启用点云避障。
@@ -211,7 +255,7 @@ private:
       (last_obstacle_distance_ - front_stop_distance_) / denominator,
       0.0,
       1.0);
-    const double avoid_scale = 1.0 - slow_ratio;
+    const double avoid_scale = std::max(min_avoid_angular_scale_, 1.0 - slow_ratio);
 
     cmd.linear.x *= slow_ratio;
     cmd.angular.z = clamp(
@@ -248,6 +292,7 @@ private:
       << ", obstacle_age=" << ageSeconds(last_obstacle_time_, has_obstacle_data_)
       << ", obstacle_distance=" << last_obstacle_distance_
       << ", avoid_active=" << (avoidance_active_ ? 1 : 0)
+      << ", rotate_in_place=" << (rotate_in_place_active_ ? 1 : 0)
       << ", invalid_target_count=" << invalid_target_count_
       << ", cmd_linear=" << last_command_.linear.x
       << ", cmd_angular=" << last_command_.angular.z;
@@ -286,13 +331,19 @@ private:
   double avoid_distance_;
   double avoid_release_distance_;
   double front_stop_distance_;
+  double min_avoid_angular_scale_;
   double max_linear_;
   double max_angular_;
   double linear_k_;
   double angular_k_;
+  double turn_slowdown_angle_;
+  double rotate_in_place_angle_;
+  double rotate_resume_angle_;
+  double min_turn_linear_scale_;
   bool has_target_{false};
   bool has_obstacle_data_{false};
   bool avoidance_active_{false};
+  bool rotate_in_place_active_{false};
   std::string controller_state_{"waiting"};
   int invalid_target_count_{0};
   geometry_msgs::msg::PointStamped raw_target_;

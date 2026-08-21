@@ -11,8 +11,8 @@ def generate_launch_description():
     pointcloud_topic = LaunchConfiguration("pointcloud_topic")
 
     common_speed_limits = {
-        "max_linear": 0.5,
-        "max_angular": 0.8,
+        "max_linear": 0.6,
+        "max_angular": 1.2,
     }
 
     return LaunchDescription(
@@ -49,7 +49,7 @@ def generate_launch_description():
                         "min_z": 0.08,
                         "max_z": 1.0,
                         "max_avoid_angular": 0.8,
-                        "min_obstacle_points": 8,
+                        "min_obstacle_points": 5,
                         "side_count_deadband": 3,
                     }
                 ],
@@ -72,18 +72,22 @@ def generate_launch_description():
                         "target_deadband": 0.12,
                         "angle_deadband": 0.08,
                         "max_target_jump": 0.7,
-                        "avoid_distance": 0.9,
-                        "avoid_release_distance": 1.05,
-                        "front_stop_distance": 0.45,
+                        "avoid_distance": 1.3,
+                        "avoid_release_distance": 1.5,
+                        "front_stop_distance": 0.55,
+                        "min_avoid_angular_scale": 0.3,
                         "linear_k": 0.4,
-                        "angular_k": 1.0,
+                        "angular_k": 1.2,
+                        "rotate_in_place_angle": 1.0472,
+                        "rotate_resume_angle": 0.55,
+                        "min_turn_linear_scale": 0.2,
                         "uwb_timeout": 1.0,
                         "obstacle_timeout": 0.7,
                         "target_filter_alpha": 0.35,
                         "avoid_angular_filter_alpha": 0.4,
                         "max_linear_accel": 0.4,
                         "max_angular_accel": 1.2,
-                        "turn_slowdown_angle": 0.8,
+                        "turn_slowdown_angle": 0.7854,
                         "min_turn_slowdown": 0.35,
                         **common_speed_limits,
                     }
