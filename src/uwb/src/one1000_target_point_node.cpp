@@ -1,5 +1,6 @@
 #include <cmath>
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -50,12 +51,15 @@ class One1000TargetPointNode : public rclcpp::Node
 public:
   // 构造 One1000 目标转换节点，并初始化订阅、发布和 TF。
   One1000TargetPointNode()
-  : Node("one1000_target_point_node"),
-    tf_buffer_(get_clock()),
-    tf_listener_(tf_buffer_)
+  : Node("one1000_target_point_node")
   {
     declareParameters();
     loadParameters();
+
+    if (use_uwb_tf_) {
+      tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
+      tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
+    }
 
     sub_ = create_subscription<LibAoaRobotMsg>(
       one1000_topic_,
@@ -81,7 +85,10 @@ private:
     declare_parameter<std::string>("target_point_topic", "/uwb/target_point");
     declare_parameter<std::string>("target_frame", "base_footprint");
     declare_parameter<std::string>("one1000_frame", "uwb_link");
-    declare_parameter<bool>("use_tf", true);
+    // use_tf 保留为旧配置兼容项；新配置应使用 use_uwb_tf。
+    declare_parameter<bool>("use_tf", false);
+    const bool legacy_use_tf = get_parameter("use_tf").as_bool();
+    declare_parameter<bool>("use_uwb_tf", legacy_use_tf);
     declare_parameter<bool>("use_latest_tf", false);
     declare_parameter<double>("transform_timeout_sec", 0.2);
 
@@ -104,7 +111,7 @@ private:
     target_point_topic_ = get_parameter("target_point_topic").as_string();
     target_frame_ = get_parameter("target_frame").as_string();
     one1000_frame_ = get_parameter("one1000_frame").as_string();
-    use_tf_ = get_parameter("use_tf").as_bool();
+    use_uwb_tf_ = get_parameter("use_uwb_tf").as_bool();
     use_latest_tf_ = get_parameter("use_latest_tf").as_bool();
     transform_timeout_sec_ = get_parameter("transform_timeout_sec").as_double();
 
@@ -144,24 +151,13 @@ private:
     point.header.frame_id = source_frame;
     point.point = *parsed;
 
-    if (source_frame != target_frame_ && !use_tf_) {
-      // 禁止通过替换 frame_id 伪造坐标变换；未启用 TF 时直接拒绝跨坐标系数据。
-      RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 2000,
-        "reject: TF disabled for One1000 target from %s to %s",
-        source_frame.c_str(), target_frame_.c_str());
-      return;
-    }
-
-    if (use_tf_ && source_frame != target_frame_) {
+    if (use_uwb_tf_ && source_frame != target_frame_) {
       const auto transformed = transformToTargetFrame(point);
       if (!transformed) {
         return;
       } else {
         point = *transformed;
       }
-    } else {
-      point.header.frame_id = target_frame_;
     }
 
     point.header.stamp = stamp;
@@ -249,7 +245,7 @@ private:
     }
 
     try {
-      auto transformed = tf_buffer_.transform(
+      auto transformed = tf_buffer_->transform(
         source,
         target_frame_,
         tf2::durationFromSec(transform_timeout_sec_));
@@ -272,7 +268,7 @@ private:
   std::string target_point_topic_;
   std::string target_frame_;
   std::string one1000_frame_;
-  bool use_tf_{true};
+  bool use_uwb_tf_{false};
   bool use_latest_tf_{false};
   double transform_timeout_sec_{0.2};
 
@@ -287,8 +283,8 @@ private:
   double min_target_distance_m_{0.0};
   double max_target_distance_m_{8.0};
 
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::unique_ptr<tf2_ros::TransformListener> tf_listener_;
   rclcpp::Subscription<LibAoaRobotMsg>::SharedPtr sub_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_;
 };

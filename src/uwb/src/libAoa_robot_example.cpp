@@ -18,7 +18,9 @@ extern "C"{
 #include <termios.h> // Contains POSIX terminal control definitions
 #include <unistd.h>  // write(), read(), close()
 
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/static_transform_broadcaster.h"
 #include "uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp"
 
 using namespace std::chrono_literals;
@@ -30,17 +32,21 @@ class libAoa_robot_publisher : public rclcpp::Node
     : Node("libAoa_robot_publisher"),running_(false),serial_port_(-1)
     {
       frame_id_ = this->declare_parameter<std::string>("frame_id", "uwb_link");
-      publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 10.0);
-      aoa_frequency_hz_ = this->declare_parameter<int>("aoa_frequency_hz", 10);
+      base_frame_id_ = this->declare_parameter<std::string>("base_frame", "base_footprint");
+      use_uwb_tf_ = this->declare_parameter<bool>("use_uwb_tf", false);
+      publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 20.0);
+      aoa_frequency_hz_ = this->declare_parameter<int>("aoa_frequency_hz", 20);
       if (publish_rate_hz_ <= 0.0) {
-        publish_rate_hz_ = 10.0;
+        publish_rate_hz_ = 20.0;
       }
       if (aoa_frequency_hz_ <= 0) {
-        aoa_frequency_hz_ = 10;
+        aoa_frequency_hz_ = 20;
       }
       publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
 
       publisher_ = this->create_publisher<uwb_aoa_pkg::msg::LibAoaRobotMsg>("/libAoa_robot_publisher", 10);
+
+      publishStaticUwbTransform();
 
 	  {
 
@@ -109,6 +115,30 @@ class libAoa_robot_publisher : public rclcpp::Node
 	}
 
   private:
+
+    // 在启用 UWB TF 时发布传感器安装坐标系到机器人基座的静态关系。
+    void publishStaticUwbTransform()
+    {
+      if (!use_uwb_tf_ || frame_id_.empty() || base_frame_id_.empty() ||
+        frame_id_ == base_frame_id_)
+      {
+        return;
+      }
+
+      static_tf_broadcaster_ =
+        std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+
+      geometry_msgs::msg::TransformStamped transform;
+      transform.header.stamp = now();
+      transform.header.frame_id = base_frame_id_;
+      transform.child_frame_id = frame_id_;
+      transform.transform.rotation.w = 1.0;
+      static_tf_broadcaster_->sendTransform(transform);
+
+      RCLCPP_INFO(
+        get_logger(), "published static UWB TF: %s -> %s",
+        base_frame_id_.c_str(), frame_id_.c_str());
+    }
 
 	void readSerialLoop(){
 
@@ -211,8 +241,11 @@ class libAoa_robot_publisher : public rclcpp::Node
 	int serial_port_;
 
 	std::string frame_id_;
+	std::string base_frame_id_;
+	bool use_uwb_tf_{false};
 	double publish_rate_hz_;
 	int aoa_frequency_hz_;
+	std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
 	std::chrono::duration<double> publish_period_{1.0};
 	std::chrono::steady_clock::time_point last_publish_time_{
 		std::chrono::steady_clock::time_point::min()};

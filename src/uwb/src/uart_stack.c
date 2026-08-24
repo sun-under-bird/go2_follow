@@ -140,7 +140,9 @@ int8_t uart_receive_byte(uint8_t input_data)
 			rec_tlvlen_buf[1] = input_data;
 
 			receive_tlv_len = (uint16_t)(rec_tlvlen_buf[1] << 8) + (uint16_t)(rec_tlvlen_buf[0] << 0);
-			if (receive_tlv_len + 2 > sizeof(radar_rx_Buf))
+			// 零长度会让 waitForData 永远等不到数据，必须和超长一样立即重新同步。
+			// A zero length would strand waitForData forever, so resync like the oversized case.
+			if (receive_tlv_len == 0 || receive_tlv_len + 2 > sizeof(radar_rx_Buf))
 			{
 				receive_tlv_len = 0;
 				rec_tlvlen_count = 0;
@@ -168,6 +170,16 @@ int8_t uart_receive_byte(uint8_t input_data)
 			{
 				rxState = waitForCrc;
 			}
+		}
+		else
+		{
+			// 长度非法时不能停在本状态空转，否则解析器会永久卡死、必须重启进程。
+			// Never idle here on an invalid length; the parser would wedge until restart.
+			receive_tlv_len = 0;
+			rec_count = 0;
+			rec_crc_count = 0;
+			rx_packet_ok = 0;
+			rxState = waitForFirstStart;
 		}
 		break;
 	}
@@ -208,7 +220,9 @@ int8_t uart_receive_byte(uint8_t input_data)
 
 	case waitForOver:
 	{
-		// rxState = waitForFirstStart;
+		// 本状态没有其他出口，进入后必须重新同步，否则同样会卡死。
+		// This state has no other exit, so resync on entry or it wedges too.
+		rxState = waitForFirstStart;
 		break;
 	}
 	}

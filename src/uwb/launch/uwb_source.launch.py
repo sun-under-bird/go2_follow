@@ -10,6 +10,7 @@ def generate_launch_description():
     serial_port = LaunchConfiguration("serial_port")
     frame_id = LaunchConfiguration("frame_id")
     target_frame = LaunchConfiguration("target_frame")
+    use_uwb_tf = LaunchConfiguration("use_uwb_tf")
     publish_rate_hz = LaunchConfiguration("publish_rate_hz")
     aoa_frequency_hz = LaunchConfiguration("aoa_frequency_hz")
     use_raw_fields = LaunchConfiguration("use_raw_fields")
@@ -22,8 +23,9 @@ def generate_launch_description():
             DeclareLaunchArgument("serial_port", default_value="/dev/ttyUSB0"),
             DeclareLaunchArgument("frame_id", default_value="uwb_link"),
             DeclareLaunchArgument("target_frame", default_value="base_footprint"),
-            DeclareLaunchArgument("publish_rate_hz", default_value="10.0"),
-            DeclareLaunchArgument("aoa_frequency_hz", default_value="10"),
+            DeclareLaunchArgument("use_uwb_tf", default_value="false"),
+            DeclareLaunchArgument("publish_rate_hz", default_value="20.0"),
+            DeclareLaunchArgument("aoa_frequency_hz", default_value="20"),
             DeclareLaunchArgument("use_raw_fields", default_value="false"),
             DeclareLaunchArgument("invert_y", default_value="false"),
             DeclareLaunchArgument("target_point_topic", default_value="/uwb/target_point"),
@@ -38,7 +40,12 @@ def generate_launch_description():
                 parameters=[
                     {
                         "frame_id": frame_id,
-                        "publish_rate_hz": publish_rate_hz,
+                        "base_frame": target_frame,
+                        "use_uwb_tf": ParameterValue(use_uwb_tf, value_type=bool),
+                        "publish_rate_hz": ParameterValue(
+                            publish_rate_hz,
+                            value_type=float,
+                        ),
                         "aoa_frequency_hz": ParameterValue(
                             aoa_frequency_hz,
                             value_type=int,
@@ -58,8 +65,8 @@ def generate_launch_description():
                         "target_point_topic": target_point_topic,
                         "target_frame": target_frame,
                         "one1000_frame": frame_id,
-                        "use_tf": True,
-                        "use_latest_tf": True,
+                        "use_uwb_tf": ParameterValue(use_uwb_tf, value_type=bool),
+                        "use_latest_tf": False,
                         "transform_timeout_sec": 0.2,
                         "prefer_xy": True,
                         "use_raw_fields": use_raw_fields,

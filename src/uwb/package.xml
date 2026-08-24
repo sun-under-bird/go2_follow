@@ -3,7 +3,7 @@
 <package format="3">
   <name>uwb_aoa_pkg</name>
   <version>0.0.0</version>
-  <description>libAoa_robot_pkg: Example to use ubitraq libAoa</description>
+  <description>Original UWB AoA driver with target, TF, and timestamp optimizations.</description>
   <maintainer email="sunjun@ubitraq.com">jun_sun</maintainer>
   <license>Apache-2.0</license>
 

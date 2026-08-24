@@ -67,7 +67,12 @@ if(BUILD_UWB_VENDOR_DRIVER)
   )
 
   add_executable(libAoa_robot_example src/libAoa_robot_example.cpp)
-  ament_target_dependencies(libAoa_robot_example rclcpp std_msgs)
+  ament_target_dependencies(libAoa_robot_example
+    geometry_msgs
+    rclcpp
+    std_msgs
+    tf2_ros
+  )
 
   target_link_libraries(libAoa_robot_example
     libAoa_robot
