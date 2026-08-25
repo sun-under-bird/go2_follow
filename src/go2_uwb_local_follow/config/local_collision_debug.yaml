@@ -1,0 +1,37 @@
+local_collision_monitor_node:
+  ros__parameters:
+    base_frame: base_footprint
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd
+    obstacle_topic: /local_grid_obstacle
+    planned_cmd_topic: /go2_uwb_local_follow/collision_checked_cmd
+    # 当前阶段只做调试验收，默认不连接真实 /cmd_vel。
+    cmd_vel_topic: /cmd_vel_avoidance
+    predicted_path_topic: /go2_uwb_local_follow/evaluated_path
+    diagnostics_topic: /go2_uwb_local_follow/collision_diagnostics
+
+    enable_motion: false
+    control_frequency: 20.0
+    diagnostic_frequency: 2.0
+    nominal_timeout_sec: 0.20
+    obstacle_timeout_sec: 0.30
+
+    max_linear_speed: 0.60
+    max_angular_speed: 1.20
+    prediction_time: 1.20
+    simulation_dt: 0.05
+
+    # Go2 采用保守矩形足迹；安全边界在长宽两侧分别膨胀 0.08 m。
+    robot_length: 0.70
+    robot_width: 0.40
+    safety_margin: 0.08
+    emergency_front_distance: 0.25
+    emergency_half_width: 0.30
+
+    obstacle_x_min: -0.50
+    obstacle_x_max: 3.00
+    obstacle_y_abs_max: 2.00
+    # 只去除实体机身内部的双目伪点，不能吞掉安全膨胀区内的真实障碍。
+    self_filter_x_min: -0.35
+    self_filter_x_max: 0.35
+    self_filter_y_abs: 0.20
+    max_obstacle_points: 5000

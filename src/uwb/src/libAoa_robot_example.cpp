@@ -31,8 +31,12 @@ class libAoa_robot_publisher : public rclcpp::Node
     {
       frame_id_ = this->declare_parameter<std::string>("frame_id", "uwb_link");
       publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 10.0);
+      aoa_frequency_hz_ = this->declare_parameter<int>("aoa_frequency_hz", 10);
       if (publish_rate_hz_ <= 0.0) {
         publish_rate_hz_ = 10.0;
+      }
+      if (aoa_frequency_hz_ <= 0) {
+        aoa_frequency_hz_ = 10;
       }
       publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
 
@@ -109,6 +113,7 @@ class libAoa_robot_publisher : public rclcpp::Node
 	void readSerialLoop(){
 
 		auto message = uwb_aoa_pkg::msg::LibAoaRobotMsg();
+		const auto algorithm_start_time = std::chrono::steady_clock::now();
 
 		uint8_t read_buf[2];
 		memset(&read_buf, '\0', sizeof(read_buf));
@@ -116,7 +121,7 @@ class libAoa_robot_publisher : public rclcpp::Node
 		struct input_data my_input;
 		struct output my_output;
 
-		my_input.aoa_frequency = 20;
+		my_input.aoa_frequency = aoa_frequency_hz_;
 		my_input.clean_buffer_time = 2;
 		my_input.config_r = 0;
 		my_input.config_rad = 0; // 角度偏移
@@ -145,15 +150,16 @@ class libAoa_robot_publisher : public rclcpp::Node
 					uint8_t parse_ret = uart_protocol_packet_process((void **)&c5);
 					if (parse_ret == 0xc5 && c5 != NULL) {
 
-						time_t start_time = time(NULL);
+						const auto steady_now = std::chrono::steady_clock::now();
+						const auto algorithm_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+							steady_now - algorithm_start_time).count();
 
 						my_input.Distance = c5->distance; // update dis
 						my_input.Azimuth = c5->angle; //update azi
 						my_input.Pitch = c5->pitch; // update pitch
-						my_input.t = start_time; // update time(uint32)
+						my_input.t = static_cast<uint32_t>(algorithm_time_ms);
 						algo_uwb_aoa_merge(&my_input, &my_output);
 
-						const auto steady_now = std::chrono::steady_clock::now();
 						// 留 10% 容差，避免出包间隔略小于目标周期时每两包丢一包。
 						// Allow 10% slack so a packet interval just under the period is not halved.
 						if (last_publish_time_ != std::chrono::steady_clock::time_point::min() &&
@@ -206,6 +212,7 @@ class libAoa_robot_publisher : public rclcpp::Node
 
 	std::string frame_id_;
 	double publish_rate_hz_;
+	int aoa_frequency_hz_;
 	std::chrono::duration<double> publish_period_{1.0};
 	std::chrono::steady_clock::time_point last_publish_time_{
 		std::chrono::steady_clock::time_point::min()};

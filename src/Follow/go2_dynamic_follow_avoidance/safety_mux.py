@@ -2,7 +2,7 @@ import math
 from typing import Optional
 
 import rclpy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import Odometry, Path
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
@@ -27,6 +27,7 @@ class SafetyMux(Node):
         self.declare_parameter("pointcloud_topic", "/local_grid_obstacle")
         self.declare_parameter("odom_topic", "/odom")
         self.declare_parameter("path_topic", "/follow_path")
+        self.declare_parameter("target_topic", "/one1000/target")
         self.declare_parameter("target_valid_topic", "/follow/target_valid")
         self.declare_parameter("path_valid_topic", "/follow/path_valid")
         self.declare_parameter("bypass_safety", False)
@@ -39,8 +40,15 @@ class SafetyMux(Node):
         self.declare_parameter("target_valid_timeout_sec", 0.5)
         self.declare_parameter("path_valid_timeout_sec", 0.5)
         self.declare_parameter("path_timeout_sec", 0.5)
+        self.declare_parameter("target_pose_timeout_sec", 0.8)
         self.declare_parameter("publish_rate_hz", 30.0)
-        self.declare_parameter("max_vx", 0.2)
+        self.declare_parameter("rotate_to_target_within_follow_distance", True)
+        self.declare_parameter("hold_rotate_enter_distance", 1.5)
+        self.declare_parameter("hold_rotate_exit_distance", 1.5)
+        self.declare_parameter("hold_rotate_yaw_gain", 1.0)
+        self.declare_parameter("hold_rotate_max_angular_vel", 0.8)
+        self.declare_parameter("hold_rotate_yaw_deadband_rad", 0.05)
+        self.declare_parameter("max_vx", 0.4)
         self.declare_parameter("max_vy", 0.3)
         self.declare_parameter("max_vyaw", 0.8)
         self.declare_parameter("max_reverse_vx", 0.0)
@@ -65,11 +73,14 @@ class SafetyMux(Node):
         self.latest_odom_time = None
         self.latest_path_time = None
         self.latest_path_pose_count = 0
+        self.latest_target_time = None
+        self.latest_target_xy = None
         self.target_valid_time = None
         self.path_valid_time = None
         self.nearest_front_obstacle: Optional[float] = None
         self.target_valid = False
         self.path_valid = False
+        self.hold_rotate_latched = False
         self.obstacle_stop_latched = False
         self.last_status = ""
         self.last_output = Twist()
@@ -84,6 +95,12 @@ class SafetyMux(Node):
         )
         self.create_subscription(Odometry, str(self.get_parameter("odom_topic").value), self._odom_cb, 10)
         self.create_subscription(Path, str(self.get_parameter("path_topic").value), self._path_cb, 10)
+        self.create_subscription(
+            PoseStamped,
+            str(self.get_parameter("target_topic").value),
+            self._target_cb,
+            10,
+        )
         self.create_subscription(Bool, str(self.get_parameter("target_valid_topic").value), self._target_valid_cb, 10)
         self.create_subscription(Bool, str(self.get_parameter("path_valid_topic").value), self._path_valid_cb, 10)
 
@@ -104,6 +121,14 @@ class SafetyMux(Node):
     def _path_cb(self, msg: Path):
         self.latest_path_time = self.get_clock().now()
         self.latest_path_pose_count = len(msg.poses)
+
+    def _target_cb(self, msg: PoseStamped):
+        target_x = float(msg.pose.position.x)
+        target_y = float(msg.pose.position.y)
+        if not math.isfinite(target_x) or not math.isfinite(target_y):
+            return
+        self.latest_target_xy = (target_x, target_y)
+        self.latest_target_time = self.get_clock().now()
 
     def _target_valid_cb(self, msg: Bool):
         self.target_valid = bool(msg.data)
@@ -224,6 +249,47 @@ class SafetyMux(Node):
             output.angular.z = 0.0
         return output
 
+    def _hold_rotate_cmd(self) -> Optional[Twist]:
+        if not bool(self.get_parameter("rotate_to_target_within_follow_distance").value):
+            self.hold_rotate_latched = False
+            return None
+        if self.latest_target_xy is None or not self._age_ok(
+            self.latest_target_time,
+            float(self.get_parameter("target_pose_timeout_sec").value),
+        ):
+            self.hold_rotate_latched = False
+            return None
+
+        target_x, target_y = self.latest_target_xy
+        distance = math.hypot(target_x, target_y)
+        enter_distance = float(self.get_parameter("hold_rotate_enter_distance").value)
+        exit_distance = max(
+            enter_distance,
+            float(self.get_parameter("hold_rotate_exit_distance").value),
+        )
+        if self.hold_rotate_latched:
+            self.hold_rotate_latched = distance <= exit_distance
+        else:
+            self.hold_rotate_latched = distance <= enter_distance
+        if not self.hold_rotate_latched:
+            return None
+
+        yaw_error = math.atan2(target_y, target_x)
+        yaw_deadband = float(self.get_parameter("hold_rotate_yaw_deadband_rad").value)
+        output = Twist()
+        if abs(yaw_error) <= yaw_deadband:
+            return output
+        max_angular_vel = min(
+            float(self.get_parameter("hold_rotate_max_angular_vel").value),
+            float(self.get_parameter("max_vyaw").value),
+        )
+        output.angular.z = clamp(
+            float(self.get_parameter("hold_rotate_yaw_gain").value) * yaw_error,
+            -max_angular_vel,
+            max_angular_vel,
+        )
+        return output
+
     def _tick(self):
         now = self.get_clock().now()
         dt = max(1e-3, (now - self.last_tick_time).nanoseconds * 1e-9)
@@ -231,11 +297,19 @@ class SafetyMux(Node):
 
         status = "ok"
         output = self._zero()
+        hold_rotate_cmd = self._hold_rotate_cmd()
 
         if bool(self.get_parameter("bypass_safety").value):
-            if not self.target_valid or not self._age_ok(
+            if hold_rotate_cmd is not None:
+                output = self._clip_cmd(hold_rotate_cmd)
+                if math.isclose(hold_rotate_cmd.angular.z, 0.0, abs_tol=1e-6):
+                    status = "hold: target centered"
+                else:
+                    status = "hold: rotate to UWB target"
+            elif not self.target_valid or not self._age_ok(
                 self.target_valid_time, float(self.get_parameter("target_valid_timeout_sec").value)
             ):
+                self.hold_rotate_latched = False
                 status = "bypass: target stop or invalid"
                 output = self._zero()
             elif not self._age_ok(self.latest_cmd_time, float(self.get_parameter("cmd_timeout_sec").value)) or self.latest_cmd is None:
@@ -244,9 +318,13 @@ class SafetyMux(Node):
             else:
                 status = "bypass: safety disabled"
                 output = self._clip_cmd(self.latest_cmd)
-        elif not self.target_valid or not self._age_ok(
-            self.target_valid_time, float(self.get_parameter("target_valid_timeout_sec").value)
+        elif hold_rotate_cmd is None and (
+            not self.target_valid
+            or not self._age_ok(
+                self.target_valid_time, float(self.get_parameter("target_valid_timeout_sec").value)
+            )
         ):
+            self.hold_rotate_latched = False
             status = "stop: UWB target invalid or stale"
         elif bool(self.get_parameter("require_path_watchdog").value) and (
             not self.path_valid
@@ -273,13 +351,19 @@ class SafetyMux(Node):
             float(self.get_parameter("pointcloud_timeout_sec").value),
         ):
             status = "stop: RTAB-Map obstacle cloud stale"
-        elif not self._age_ok(self.latest_cmd_time, float(self.get_parameter("cmd_timeout_sec").value)) or self.latest_cmd is None:
-            status = "stop: /cmd_vel_nav stale"
         elif self.obstacle_stop_latched:
             if self.nearest_front_obstacle is None:
                 status = "stop: obstacle latch"
             else:
                 status = f"stop: obstacle at {self.nearest_front_obstacle:.2f}m"
+        elif hold_rotate_cmd is not None:
+            output = self._ramp_cmd(hold_rotate_cmd, dt)
+            if math.isclose(hold_rotate_cmd.angular.z, 0.0, abs_tol=1e-6):
+                status = "hold: target centered"
+            else:
+                status = "hold: rotate to UWB target"
+        elif not self._age_ok(self.latest_cmd_time, float(self.get_parameter("cmd_timeout_sec").value)) or self.latest_cmd is None:
+            status = "stop: /cmd_vel_nav stale"
         else:
             target = self._clip_cmd(self.latest_cmd)
             emergency_x_max = float(self.get_parameter("emergency_x_max").value)

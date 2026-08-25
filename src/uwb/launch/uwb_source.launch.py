@@ -3,6 +3,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -10,6 +11,7 @@ def generate_launch_description():
     frame_id = LaunchConfiguration("frame_id")
     target_frame = LaunchConfiguration("target_frame")
     publish_rate_hz = LaunchConfiguration("publish_rate_hz")
+    aoa_frequency_hz = LaunchConfiguration("aoa_frequency_hz")
     use_raw_fields = LaunchConfiguration("use_raw_fields")
     invert_y = LaunchConfiguration("invert_y")
     target_point_topic = LaunchConfiguration("target_point_topic")
@@ -21,6 +23,7 @@ def generate_launch_description():
             DeclareLaunchArgument("frame_id", default_value="uwb_link"),
             DeclareLaunchArgument("target_frame", default_value="base_footprint"),
             DeclareLaunchArgument("publish_rate_hz", default_value="10.0"),
+            DeclareLaunchArgument("aoa_frequency_hz", default_value="10"),
             DeclareLaunchArgument("use_raw_fields", default_value="false"),
             DeclareLaunchArgument("invert_y", default_value="false"),
             DeclareLaunchArgument("target_point_topic", default_value="/uwb/target_point"),
@@ -36,6 +39,10 @@ def generate_launch_description():
                     {
                         "frame_id": frame_id,
                         "publish_rate_hz": publish_rate_hz,
+                        "aoa_frequency_hz": ParameterValue(
+                            aoa_frequency_hz,
+                            value_type=int,
+                        ),
                     }
                 ],
             ),

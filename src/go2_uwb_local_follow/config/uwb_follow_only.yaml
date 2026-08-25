@@ -1,0 +1,48 @@
+uwb_target_adapter_node:
+  ros__parameters:
+    raw_topic: /libAoa_robot_publisher
+    target_topic: /uwb/target_point
+    target_frame: base_footprint
+    # 厂家 x 向前、y 向左；安装原点偏差确认后在这里标定。
+    sensor_offset_x: 0.0
+    sensor_offset_y: 0.0
+    sensor_yaw: 0.0
+    diagnostics_topic: /uwb/target_adapter_diagnostics
+    diagnostic_frequency: 2.0
+
+uwb_follow_controller_node:
+  ros__parameters:
+    base_frame: base_footprint
+    target_topic: /uwb/target_point
+    # 第一阶段默认隔离输出，实机验收时显式改为 /cmd_vel。
+    cmd_vel_topic: /cmd_vel_follow
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd
+    diagnostics_topic: /go2_uwb_local_follow/follow_diagnostics
+    enable_motion: true
+    control_frequency: 20.0
+    diagnostic_frequency: 2.0
+    target_timeout_sec: 0.50
+    transform_timeout_sec: 0.10
+
+    follow_distance: 1.0
+    distance_deadband: 0.08
+    # 进入 0.08 rad（约 4.6°）停止转向；超过 0.15 rad（约 8.6°）立即重新纠偏。
+    # 调小可提高朝向精度但更易受 UWB 噪声影响；两者保留约 4° 滞回以抑制左右摆头。
+    angle_deadband: 0.08
+    angle_reengage: 0.15
+    linear_kp: 0.6
+    angular_kp: 1.0
+    # MCF 跟随速度范围；最小非零速度避免低速前倾但无法迈步。
+    min_linear_speed: 0.12
+    max_linear_speed: 0.60
+    # 保持略高于实测 0.8 rad/s 执行门槛，降低转向过冲。
+    max_angular_speed: 0.84
+    # 小于约 28.6° 时保留完整前进速度，优先采用行进中缓弯而不是频繁停走。
+    heading_slowdown_start: 0.50
+    heading_stop_angle: 1.05
+    # 盲转同样限制在较低但仍可执行的角速度。
+    blind_rotation_max_speed: 0.84
+    # 缩短低速无响应区间，到达 0.60 m/s 最高速度约需 0.75 秒。
+    max_linear_accel: 0.80
+    max_linear_decel: 0.80
+    max_angular_accel: 1.50

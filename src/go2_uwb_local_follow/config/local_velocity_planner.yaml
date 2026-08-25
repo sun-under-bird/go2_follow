@@ -1,0 +1,60 @@
+local_velocity_planner_node:
+  ros__parameters:
+    base_frame: base_footprint  # 规划坐标系；应与障碍点云和机器人足迹坐标系一致
+    odom_child_frame: base_footprint  # 里程计速度所属坐标系；只使用 twist，不使用 pose
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # UWB 名义速度输入话题
+    obstacle_topic: /local_grid_obstacle  # 过滤后的双目障碍点云话题
+    odom_topic: /odom_leg  # 实际初始速度输入话题
+    planned_cmd_topic: /go2_uwb_local_follow/planned_cmd  # 采样器选中的目标速度
+    final_cmd_topic: /go2_uwb_local_follow/final_cmd  # 加速度限幅后的最终速度
+    cmd_vel_topic: /cmd_vel_planned  # 实机验收时由 launch 覆盖为 /cmd_vel
+    selected_path_topic: /go2_uwb_local_follow/selected_path  # 选中轨迹可视化话题
+    diagnostics_topic: /go2_uwb_local_follow/planner_diagnostics  # 规划诊断话题
+
+    enable_motion: false  # true 发布运动速度，false 只计算并向底盘发布零速度
+    control_frequency: 15.0  # ↑响应快/CPU 高；↓响应慢/CPU 低；BM 点云同频可减少控制排队；步长 5 Hz
+    diagnostic_frequency: 2.0  # ↑诊断更密/通信多；↓诊断更稀；步长 1 Hz
+    nominal_timeout_sec: 0.20  # ↑容忍 UWB 抖动/丢失停车晚；↓停车快/易误停；步长 0.05 s
+    obstacle_timeout_sec: 1.00  # ↑容忍点云断流/故障响应晚；↓更敏感/易误停；步长 0.10 s
+    odom_timeout_sec: 0.10  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
+    odom_linear_deadband: 0.02  # ↑过滤更多线速度噪声/忽略微动；↓更灵敏/易抖；步长 0.01 m/s
+    odom_angular_deadband: 0.05  # ↑过滤更多角速度噪声/忽略微转；↓更灵敏/易抖；步长 0.01 rad/s
+    angular_velocity_damping_gain: 0.35  # ↑更早撤销同向转弯/不易过冲；↓更紧跟 UWB/易过冲；步长 0.05 s
+    angular_command_deadband: 0.08  # ↑更容易提前停止转向/朝向精度低；↓纠偏更积极/易摆头；步长 0.02 rad/s
+    angular_reverse_speed_threshold: 0.15  # ↑更早允许反向/响应快；↓必须更接近停稳/更少左右切换；步长 0.05 rad/s
+    avoidance_direction_hold_sec: 1.50  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
+
+    prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
+    simulation_dt: 0.08  # ↑计算快/检查粗；↓检查细/计算多；0.08 s 对应最高速约 4.8 cm/步；步长 0.01 s
+
+    robot_length: 0.70  # ↑前后硬碰撞足迹更大、更保守；↓更贴近障碍；步长 0.02 m
+    robot_width: 0.40  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
+    safety_margin: 0.05  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
+
+    min_linear_speed: 0.12  # ↑易跨过底盘死区/起步突兀；↓更柔和/可能不迈步；步长 0.02 m/s
+    max_linear_speed: 0.60  # ↑跟随快/制动距离长；↓更稳/可能跟不上；步长 0.05 m/s
+    min_effective_angular_speed: 0.50  # ↑保证能转/启动突兀；↓更柔和/可能无响应；步长 0.01 rad/s
+    max_angular_speed: 1.0  # ↑转向快/易过冲；↓转向稳/需高于执行门槛；步长 0.01 rad/s
+    max_linear_accel: 0.50  # ↑提速快/顿挫强；↓提速平滑/响应慢；步长 0.10 m/s²
+    max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²
+    max_angular_accel: 1.00  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
+
+    linear_samples: 8  # ↑线速度候选更细/CPU 高；↓选择粗/CPU 低；步长 1
+    angular_samples: 20  # ↑角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
+    obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
+    weight_follow_linear: 6.0  # ↑更服从 UWB 线速度；↓更允许避障减速；步长 0.5
+    weight_follow_angular: 12.0  # ↑更服从 UWB 角速度，名义为零时更直；↓更易主动绕行；步长 0.5
+    weight_smooth_linear: 6.0  # ↑线速度更连续/响应慢；↓响应快/易忽快忽慢；步长 0.5
+    weight_smooth_angular: 10.0  # ↑少换向/响应慢；↓更灵活/易左右摆头；步长 0.5
+    weight_obstacle: 0.8  # ↑更早减速、净空大；↓不易被远点拖慢、净空小；步长 0.5
+    weight_progress: 0.80  # ↑不愿低于 UWB 名义速度；↓更容易为安全减速；步长 0.10
+
+    emergency_front_distance: 0.15  # ↑更早急停；↓更靠近才急停；步长 0.05 m
+    emergency_half_width: 0.20  # ↑急停通道更宽；↓只关注更窄正前方；步长 0.05 m
+    obstacle_x_min: 0.10  # ↑删除更多近点/可能漏障碍；↓保留近点/机身伪点增多；步长 0.05 m
+    obstacle_x_max: 3.00  # ↑保留更远障碍/计算多；↓只看近处/计算少；步长 0.20 m
+    obstacle_y_abs_max: 5.00  # ↑保留更宽侧向区域/计算多；↓视野更窄/可能漏侧障；步长 0.20 m
+    self_filter_x_min: -0.35  # 减小会向后扩大机身过滤；增大会缩小后侧过滤；步长 0.02 m
+    self_filter_x_max: 0.35  # ↑向前扩大机身过滤/可能删近障；↓保留更多前点；步长 0.02 m
+    self_filter_y_abs: 0.20  # ↑横向机身过滤更宽/可能删近障；↓机身伪点可能增多；步长 0.02 m
+    max_obstacle_points: 5000  # ↑保留点多/规划慢；↓计算快/稠密场景信息少；步长 500
