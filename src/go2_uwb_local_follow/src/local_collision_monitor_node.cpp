@@ -89,7 +89,7 @@ public:
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
     nominal_timeout_sec_ = declare_parameter<double>("nominal_timeout_sec", 0.20);
     obstacle_timeout_sec_ = declare_parameter<double>("obstacle_timeout_sec", 0.30);
-    max_linear_speed_ = declare_parameter<double>("max_linear_speed", 0.60);
+    max_linear_speed_ = declare_parameter<double>("max_linear_speed", 0.80);
     max_angular_speed_ = declare_parameter<double>("max_angular_speed", 1.20);
 
     trajectory_config_.prediction_time = declare_parameter<double>("prediction_time", 1.20);
@@ -467,7 +467,7 @@ private:
   double diagnostic_frequency_{2.0};
   double nominal_timeout_sec_{0.20};
   double obstacle_timeout_sec_{0.30};
-  double max_linear_speed_{0.60};
+  double max_linear_speed_{0.80};
   double max_angular_speed_{1.20};
   TrajectoryConfig trajectory_config_;
   FootprintConfig footprint_config_;

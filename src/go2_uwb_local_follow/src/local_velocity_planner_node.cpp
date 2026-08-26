@@ -115,11 +115,11 @@ public:
     motion_limits_.min_linear_speed = declare_parameter<double>(
       "min_linear_speed", 0.12);
     motion_limits_.max_linear_speed = declare_parameter<double>(
-      "max_linear_speed", 0.60);
+      "max_linear_speed", 0.80);
     motion_limits_.min_angular_speed = declare_parameter<double>(
-      "min_effective_angular_speed", 0.82);
+      "min_follow_angular_speed", 0.0);
     motion_limits_.max_angular_speed = declare_parameter<double>(
-      "max_angular_speed", 0.84);
+      "max_angular_speed", 1.20);
     motion_limits_.max_linear_accel = declare_parameter<double>(
       "max_linear_accel", 0.80);
     motion_limits_.max_linear_decel = declare_parameter<double>(
@@ -129,6 +129,10 @@ public:
 
     sampling_config_.linear_samples = declare_parameter<int>("linear_samples", 9);
     sampling_config_.angular_samples = declare_parameter<int>("angular_samples", 25);
+    sampling_config_.min_avoidance_angular_speed = declare_parameter<double>(
+      "min_avoidance_angular_speed", 0.25);
+    sampling_config_.linear_speed_priority_scales = declare_parameter<std::vector<double>>(
+      "linear_speed_priority_scales", {1.0, 0.85, 0.70, 0.50, 0.0});
     sampling_config_.obstacle_influence_distance = declare_parameter<double>(
       "obstacle_influence_distance", 0.35);
     sampling_config_.weight_follow_linear = declare_parameter<double>(
@@ -238,6 +242,8 @@ private:
     std::size_t evaluated_count{0U};
     std::size_t collision_count{0U};
     int avoidance_turn_direction{0};
+    double selected_speed_scale{0.0};
+    bool avoidance_active{false};
     bool emergency{false};
   };
 
@@ -259,6 +265,10 @@ private:
       !validateVelocitySamplingConfig(sampling_config_, &reason))
     {
       throw std::invalid_argument(reason);
+    }
+    if (sampling_config_.min_avoidance_angular_speed > motion_limits_.max_angular_speed) {
+      throw std::invalid_argument(
+              "minimum avoidance angular speed must not exceed maximum angular speed");
     }
     if (!std::isfinite(control_frequency_) || control_frequency_ <= 0.0 ||
       !std::isfinite(diagnostic_frequency_) || diagnostic_frequency_ <= 0.0)
@@ -422,17 +432,9 @@ private:
            std::numeric_limits<double>::infinity();
   }
 
-  // 返回仍在保持期内的避障转向方向；UWB 主动转向时立即交还方向控制权。
-  int activeAvoidanceTurnDirection(
-    const PlannerVelocity2D & nominal_velocity,
-    const std::chrono::steady_clock::time_point & current)
+  // 返回仍在保持期内的避障转向方向，短时点云丢失或 UWB 小角度变化不会清除方向。
+  int activeAvoidanceTurnDirection(const std::chrono::steady_clock::time_point & current)
   {
-    constexpr double angular_tolerance = 1e-6;
-    if (std::abs(nominal_velocity.angular_z) > angular_tolerance) {
-      avoidance_turn_direction_ = 0;
-      have_avoidance_turn_time_ = false;
-      return 0;
-    }
     if (!have_avoidance_turn_time_ || avoidance_turn_direction_ == 0) {
       return 0;
     }
@@ -458,22 +460,20 @@ private:
 
     // 这里只改变评分参考，不改变加速度限幅使用的真实上一条指令。
     const double reference_magnitude = std::max(
-      std::abs(scoring_previous.angular_z), motion_limits_.min_angular_speed);
+      std::abs(scoring_previous.angular_z), sampling_config_.min_avoidance_angular_speed);
     scoring_previous.angular_z = std::copysign(
       reference_magnitude, static_cast<double>(preferred_direction));
     return scoring_previous;
   }
 
-  // 记录规划器在 UWB 要求直行时主动选择的绕障方向。
+  // 仅在名义轨迹进入障碍影响区且规划结果发生转向时记录绕障方向。
   void rememberAvoidanceTurnDirection(
-    const PlannerVelocity2D & nominal_velocity,
+    bool avoidance_active,
     const PlannerVelocity2D & selected_velocity,
     const std::chrono::steady_clock::time_point & current)
   {
     constexpr double angular_tolerance = 1e-6;
-    if (std::abs(nominal_velocity.angular_z) > angular_tolerance ||
-      std::abs(selected_velocity.angular_z) <= angular_tolerance)
-    {
+    if (!avoidance_active || std::abs(selected_velocity.angular_z) <= angular_tolerance) {
       return;
     }
     avoidance_turn_direction_ = selected_velocity.angular_z > 0.0 ? 1 : -1;
@@ -505,7 +505,7 @@ private:
     status.nominal_age = snapshotAge(nominal, current);
     status.obstacle_age = snapshotAge(obstacle, current);
     status.odom_age = snapshotAge(odom, current);
-    status.avoidance_turn_direction = activeAvoidanceTurnDirection(nominal.velocity, current);
+    status.avoidance_turn_direction = activeAvoidanceTurnDirection(current);
 
     if (!nominal.valid || status.nominal_age > nominal_timeout_sec_) {
       publishStop(status, "NOMINAL_TIMEOUT", {});
@@ -553,6 +553,8 @@ private:
     status.effective_nominal = result.effective_nominal;
     status.evaluated_count = result.evaluated_count;
     status.collision_count = result.collision_count;
+    status.avoidance_active = result.avoidance_active;
+    status.selected_speed_scale = result.selected_speed_scale;
 
     if (!result.valid) {
       const auto braking_path = predictAcceleratingTrajectory(
@@ -562,7 +564,8 @@ private:
     }
 
     status.planned = result.selected_velocity;
-    rememberAvoidanceTurnDirection(nominal.velocity, result.selected_velocity, current);
+    rememberAvoidanceTurnDirection(
+      result.avoidance_active, result.selected_velocity, current);
     status.avoidance_turn_direction = avoidance_turn_direction_;
     status.cost = result.cost;
     status.min_clearance = result.min_clearance;
@@ -574,7 +577,9 @@ private:
     }
     status.final_command = final_command;
     const std::string state = status.emergency ? "EMERGENCY_STOP" :
-      (enable_motion_ ? "PLANNING" : "PLANNING_DEBUG");
+      (result.avoidance_active ?
+      (enable_motion_ ? "AVOIDING" : "AVOIDING_DEBUG") :
+      (enable_motion_ ? "PLANNING" : "PLANNING_DEBUG"));
     publishDecision(status, state, result.selected_trajectory);
   }
 
@@ -679,7 +684,8 @@ private:
     diagnostic_msgs::msg::DiagnosticArray array;
     array.header.stamp = now();
     diagnostic_msgs::msg::DiagnosticStatus diagnostic;
-    diagnostic.level = status.state == "PLANNING" || status.state == "PLANNING_DEBUG" ?
+    diagnostic.level = status.state == "PLANNING" || status.state == "PLANNING_DEBUG" ||
+      status.state == "AVOIDING" || status.state == "AVOIDING_DEBUG" ?
       diagnostic_msgs::msg::DiagnosticStatus::OK :
       diagnostic_msgs::msg::DiagnosticStatus::WARN;
     diagnostic.name = get_fully_qualified_name() + std::string(": local velocity planner");
@@ -694,6 +700,8 @@ private:
       {"evaluated_count", std::to_string(status.evaluated_count)},
       {"collision_count", std::to_string(status.collision_count)},
       {"avoidance_turn_direction", std::to_string(status.avoidance_turn_direction)},
+      {"avoidance_active", status.avoidance_active ? "true" : "false"},
+      {"selected_speed_scale", formatDouble(status.selected_speed_scale)},
       {"emergency", status.emergency ? "true" : "false"},
       {"min_clearance", formatDouble(status.min_clearance)},
       {"planning_time_ms", formatDouble(status.planning_time_ms)},

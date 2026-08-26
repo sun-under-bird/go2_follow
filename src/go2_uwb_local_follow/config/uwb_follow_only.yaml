@@ -34,15 +34,15 @@ uwb_follow_controller_node:
     angular_kp: 1.0
     # MCF 跟随速度范围；最小非零速度避免低速前倾但无法迈步。
     min_linear_speed: 0.12
-    max_linear_speed: 0.60
-    # 保持略高于实测 0.8 rad/s 执行门槛，降低转向过冲。
-    max_angular_speed: 0.84
+    max_linear_speed: 0.80
+    # UWB 方位误差越大角速度越高，最大限制为 1.2 rad/s。
+    max_angular_speed: 1.20
     # 小于约 28.6° 时保留完整前进速度，优先采用行进中缓弯而不是频繁停走。
     heading_slowdown_start: 0.50
     heading_stop_angle: 1.05
-    # 盲转同样限制在较低但仍可执行的角速度。
-    blind_rotation_max_speed: 0.84
-    # 缩短低速无响应区间，到达 0.60 m/s 最高速度约需 0.75 秒。
+    # 目标进入侧后方时停止前进，盲转角速度同样限制为 1.2 rad/s。
+    blind_rotation_max_speed: 1.20
+    # 最大加速度 0.8 m/s² 时，从静止到 0.8 m/s 理论约需 1 秒。
     max_linear_accel: 0.80
     max_linear_decel: 0.80
     max_angular_accel: 1.50

@@ -128,14 +128,24 @@ TEST(PlannerConfig, RejectsInvalidFootprint)
   EXPECT_FALSE(reason.empty());
 }
 
-// 验证非零候选会跨过底盘线速度和角速度执行死区。
+// 验证显式配置角速度死区时，非零候选会跨过底盘执行门槛。
 TEST(VelocitySampling, AppliesEffectiveSpeedThresholds)
 {
-  const planner::MotionLimits limits;
+  planner::MotionLimits limits;
+  limits.min_angular_speed = 0.82;
   const auto effective = planner::makeEffectiveVelocity({0.04, -0.20}, limits);
 
   EXPECT_DOUBLE_EQ(effective.linear_x, limits.min_linear_speed);
   EXPECT_DOUBLE_EQ(effective.angular_z, -limits.min_angular_speed);
+}
+
+// 验证默认不设最小角速度，小角速度不会被强制放大。
+TEST(VelocitySampling, PreservesSmallAngularVelocityByDefault)
+{
+  const planner::MotionLimits limits;
+  const auto effective = planner::makeEffectiveVelocity({0.20, 0.085}, limits);
+
+  EXPECT_DOUBLE_EQ(effective.angular_z, 0.085);
 }
 
 // 验证同向实测角速度会削弱名义转向，在接近目标方向时提前撤销角速度。
@@ -264,8 +274,8 @@ TEST(LocalVelocityPlanner, ReturnsToStraightAfterAvoidanceTurn)
   EXPECT_NEAR(result.selected_velocity.angular_z, 0.0, 1e-9);
 }
 
-// 验证正前方障碍会让规划器选择安全停车而不是保持直行名义速度。
-TEST(LocalVelocityPlanner, StopsForBlockedStraightTrajectory)
+// 验证直行碰撞但同速转弯安全时，规划器保持 UWB 线速度并只调整角速度。
+TEST(LocalVelocityPlanner, KeepsNominalSpeedWhenTurningIsSafe)
 {
   const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
   const planner::FootprintConfig footprint;
@@ -277,12 +287,16 @@ TEST(LocalVelocityPlanner, StopsForBlockedStraightTrajectory)
     footprint, limits, sampling);
 
   ASSERT_TRUE(result.valid);
-  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, 0.0);
+  EXPECT_TRUE(result.avoidance_active);
+  EXPECT_DOUBLE_EQ(result.selected_speed_scale, 1.0);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, result.effective_nominal.linear_x);
+  EXPECT_GE(
+    std::abs(result.selected_velocity.angular_z), sampling.min_avoidance_angular_speed);
   EXPECT_GT(result.collision_count, 0U);
 }
 
-// 验证尚有安全低速轨迹时，近处障碍只触发减速而不会过早选择完全停车。
-TEST(LocalVelocityPlanner, SlowsWithoutPrematureStopForNearbyObstacle)
+// 验证障碍进入影响区但同速弧线仍安全时，不允许代价函数提前选择低速轨迹。
+TEST(LocalVelocityPlanner, KeepsNominalSpeedForNearbyObstacle)
 {
   const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
   const planner::FootprintConfig footprint;
@@ -294,11 +308,34 @@ TEST(LocalVelocityPlanner, SlowsWithoutPrematureStopForNearbyObstacle)
     footprint, limits, sampling);
 
   ASSERT_TRUE(result.valid);
-  EXPECT_GT(result.selected_velocity.linear_x, 0.0);
-  EXPECT_LT(result.selected_velocity.linear_x, result.effective_nominal.linear_x);
+  EXPECT_TRUE(result.avoidance_active);
+  EXPECT_DOUBLE_EQ(result.selected_speed_scale, 1.0);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, result.effective_nominal.linear_x);
   const auto collision = planner::checkTrajectoryCollision(
     result.selected_trajectory, obstacles, footprint);
   EXPECT_FALSE(collision.collision);
+}
+
+// 验证整层同速角速度都不安全时，规划器才进入下一线速度比例层。
+TEST(LocalVelocityPlanner, ReducesSpeedOnlyAfterNominalTierIsBlocked)
+{
+  const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
+  const planner::FootprintConfig footprint;
+  const planner::MotionLimits limits;
+  const planner::VelocitySamplingConfig sampling;
+  std::vector<planner::ObstaclePoint2D> obstacles;
+  for (int index = -15; index <= 15; ++index) {
+    obstacles.push_back({0.70, 0.10 * static_cast<double>(index)});
+  }
+  const auto result = planner::planLocalVelocity(
+    {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, obstacles, trajectory_config,
+    footprint, limits, sampling);
+
+  ASSERT_TRUE(result.valid);
+  EXPECT_TRUE(result.avoidance_active);
+  EXPECT_LT(result.selected_speed_scale, 1.0);
+  EXPECT_GT(result.selected_speed_scale, 0.0);
+  EXPECT_LT(result.selected_velocity.linear_x, result.effective_nominal.linear_x);
 }
 
 // 验证障碍已经进入当前膨胀足迹时所有候选都会被安全淘汰。
@@ -320,7 +357,8 @@ TEST(LocalVelocityPlanner, RejectsEveryCandidateForOccupiedFootprint)
 // 验证最终速度限幅跨过执行死区，并在角速度换向时先经过零指令。
 TEST(CommandLimiter, AppliesDeadzoneAndSafeAngularReversal)
 {
-  const planner::MotionLimits limits;
+  planner::MotionLimits limits;
+  limits.min_angular_speed = 1.15;
   const auto accelerating = planner::limitCommandVelocity(
     {0.0, 0.0}, {0.60, 0.90}, limits, 0.05);
   const auto reversing = planner::limitCommandVelocity(

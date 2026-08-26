@@ -212,7 +212,8 @@ bool validateVelocitySamplingConfig(
   if (config.linear_samples < 2 || config.angular_samples < 3) {
     return rejectWithReason("velocity sample counts are too small", reason);
   }
-  const bool finite = std::isfinite(config.obstacle_influence_distance) &&
+  const bool finite = std::isfinite(config.min_avoidance_angular_speed) &&
+    std::isfinite(config.obstacle_influence_distance) &&
     std::isfinite(config.weight_follow_linear) &&
     std::isfinite(config.weight_follow_angular) &&
     std::isfinite(config.weight_smooth_linear) &&
@@ -221,12 +222,32 @@ bool validateVelocitySamplingConfig(
   if (!finite) {
     return rejectWithReason("velocity sampling config contains non-finite values", reason);
   }
-  if (config.obstacle_influence_distance <= 0.0 || config.weight_follow_linear < 0.0 ||
+  if (config.min_avoidance_angular_speed < 0.0 ||
+    config.obstacle_influence_distance <= 0.0 || config.weight_follow_linear < 0.0 ||
     config.weight_follow_angular < 0.0 || config.weight_smooth_linear < 0.0 ||
     config.weight_smooth_angular < 0.0 || config.weight_obstacle < 0.0 ||
     config.weight_progress < 0.0)
   {
     return rejectWithReason("sampling distances and weights must be non-negative", reason);
+  }
+  if (config.linear_speed_priority_scales.empty()) {
+    return rejectWithReason("linear speed priority scales must not be empty", reason);
+  }
+  constexpr double tolerance = 1e-9;
+  double previous_scale = std::numeric_limits<double>::infinity();
+  for (const double scale : config.linear_speed_priority_scales) {
+    if (!std::isfinite(scale) || scale < 0.0 || scale > 1.0 ||
+      scale >= previous_scale - tolerance)
+    {
+      return rejectWithReason(
+        "linear speed priority scales must strictly descend within [0, 1]", reason);
+    }
+    previous_scale = scale;
+  }
+  if (std::abs(config.linear_speed_priority_scales.front() - 1.0) > tolerance ||
+    std::abs(config.linear_speed_priority_scales.back()) > tolerance)
+  {
+    return rejectWithReason("linear speed priority scales must start at 1 and end at 0", reason);
   }
   return true;
 }
@@ -553,7 +574,118 @@ PlannerCost scoreVelocityCandidate(
   return cost;
 }
 
-// 使用实测初始速度评估所有候选，淘汰碰撞轨迹并返回最低代价结果。
+namespace
+{
+
+// 向角速度列表追加唯一值，避免名义邻域和全局采样产生重复候选。
+void appendUniqueAngular(std::vector<double> & values, double angular_z)
+{
+  constexpr double tolerance = 1e-9;
+  const auto duplicate = std::find_if(
+    values.begin(), values.end(),
+    [angular_z](double existing) {
+      return std::abs(existing - angular_z) <= tolerance;
+    });
+  if (duplicate == values.end()) {
+    values.push_back(angular_z);
+  }
+}
+
+// 对主动避障候选应用独立最小角速度，UWB 原始名义角速度由调用方单独保留。
+double makeAvoidanceAngularVelocity(
+  double angular_z,
+  const MotionLimits & limits,
+  const VelocitySamplingConfig & config)
+{
+  double effective = clampValue(
+    angular_z, -limits.max_angular_speed, limits.max_angular_speed);
+  const double threshold = std::max(
+    limits.min_angular_speed, config.min_avoidance_angular_speed);
+  if (std::abs(effective) > 0.0 && std::abs(effective) < threshold) {
+    effective = std::copysign(threshold, effective);
+  }
+  return effective;
+}
+
+// 生成以 UWB 名义转向为中心的避障角速度集合，并保留零角速度安全候选。
+std::vector<double> sampleAvoidanceAngularVelocities(
+  const PlannerVelocity2D & effective_nominal,
+  const PlannerVelocity2D & previous_command,
+  const MotionLimits & limits,
+  const VelocitySamplingConfig & config)
+{
+  std::vector<double> angular_values;
+  // 进入避障后名义转向也必须跨过避障门槛；无障碍路径已在调用方提前直接返回。
+  appendUniqueAngular(
+    angular_values,
+    makeAvoidanceAngularVelocity(effective_nominal.angular_z, limits, config));
+  appendUniqueAngular(angular_values, 0.0);
+  appendUniqueAngular(
+    angular_values,
+    makeAvoidanceAngularVelocity(previous_command.angular_z, limits, config));
+
+  for (int index = 0; index < config.angular_samples; ++index) {
+    const double ratio = static_cast<double>(index) /
+      static_cast<double>(config.angular_samples - 1);
+    const double raw = -limits.max_angular_speed +
+      2.0 * limits.max_angular_speed * ratio;
+    appendUniqueAngular(
+      angular_values, makeAvoidanceAngularVelocity(raw, limits, config));
+  }
+
+  constexpr std::array<double, 9> angular_offsets{{
+    -0.60, -0.40, -0.20, -0.10, 0.0, 0.10, 0.20, 0.40, 0.60}};
+  for (const double offset : angular_offsets) {
+    appendUniqueAngular(
+      angular_values,
+      makeAvoidanceAngularVelocity(effective_nominal.angular_z + offset, limits, config));
+  }
+  appendUniqueAngular(
+    angular_values,
+    makeAvoidanceAngularVelocity(config.min_avoidance_angular_speed, limits, config));
+  appendUniqueAngular(
+    angular_values,
+    makeAvoidanceAngularVelocity(-config.min_avoidance_angular_speed, limits, config));
+  return angular_values;
+}
+
+struct LinearSpeedLevel
+{
+  double velocity{0.0};
+  double scale{0.0};
+};
+
+// 根据配置生成严格按优先级排列的线速度层，并合并最小线速度造成的重复层。
+std::vector<LinearSpeedLevel> makeLinearSpeedLevels(
+  double nominal_linear,
+  const MotionLimits & limits,
+  const VelocitySamplingConfig & config,
+  bool force_linear_stop)
+{
+  if (force_linear_stop || nominal_linear <= 0.0) {
+    return {{0.0, 0.0}};
+  }
+
+  std::vector<LinearSpeedLevel> levels;
+  constexpr double tolerance = 1e-9;
+  for (const double scale : config.linear_speed_priority_scales) {
+    const double velocity = scale <= 0.0 ? 0.0 :
+      makeEffectiveVelocity({nominal_linear * scale, 0.0}, limits).linear_x;
+    const bool duplicate = std::any_of(
+      levels.begin(), levels.end(),
+      [velocity](const LinearSpeedLevel & level) {
+        return std::abs(level.velocity - velocity) <= tolerance;
+      });
+    if (!duplicate) {
+      levels.push_back({velocity, scale});
+    }
+  }
+  return levels;
+}
+
+}  // namespace
+
+// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时按比例降速。
 LocalPlanResult planLocalVelocity(
   const PlannerVelocity2D & measured_velocity,
   const PlannerVelocity2D & previous_command,
@@ -568,28 +700,74 @@ LocalPlanResult planLocalVelocity(
   LocalPlanResult result;
   result.effective_nominal = makeEffectiveVelocity(nominal_velocity, limits);
   const PlannerVelocity2D clamped_previous = clampVelocityToLimits(previous_command, limits);
-  const auto candidates = sampleCandidateVelocities(
-    result.effective_nominal, clamped_previous, limits, sampling_config, force_linear_stop);
-  result.evaluated_count = candidates.size();
 
-  for (const auto & candidate : candidates) {
-    auto trajectory = predictAcceleratingTrajectory(
-      measured_velocity, candidate, trajectory_config, limits, true);
-    const CollisionResult collision = checkTrajectoryCollision(
-      trajectory, obstacles, footprint_config);
-    if (collision.collision) {
-      ++result.collision_count;
-      continue;
+  // 先单独验证 UWB 名义轨迹；净空充足时直接交给最终变化率限制器平滑执行。
+  auto nominal_trajectory = predictAcceleratingTrajectory(
+    measured_velocity, result.effective_nominal, trajectory_config, limits, true);
+  const CollisionResult nominal_collision = checkTrajectoryCollision(
+    nominal_trajectory, obstacles, footprint_config);
+  const bool nominal_has_clearance = !std::isfinite(nominal_collision.min_clearance) ||
+    nominal_collision.min_clearance >= sampling_config.obstacle_influence_distance;
+  result.avoidance_active = force_linear_stop || nominal_collision.collision ||
+    !nominal_has_clearance;
+  if (!result.avoidance_active) {
+    result.valid = true;
+    result.selected_velocity = result.effective_nominal;
+    result.selected_trajectory = std::move(nominal_trajectory);
+    result.cost = scoreVelocityCandidate(
+      result.selected_velocity, result.effective_nominal, clamped_previous,
+      nominal_collision.min_clearance, limits, sampling_config);
+    result.min_clearance = nominal_collision.min_clearance;
+    result.evaluated_count = 1U;
+    result.selected_speed_scale = result.effective_nominal.linear_x > 0.0 ? 1.0 : 0.0;
+    return result;
+  }
+
+  const auto angular_values = sampleAvoidanceAngularVelocities(
+    result.effective_nominal, clamped_previous, limits, sampling_config);
+  const auto speed_levels = makeLinearSpeedLevels(
+    result.effective_nominal.linear_x, limits, sampling_config, force_linear_stop);
+
+  // 每个速度层内部只比较角速度；本层存在安全轨迹后立即返回，禁止代价函数偷选更低速度。
+  for (const auto & level : speed_levels) {
+    bool level_valid = false;
+    PlannerVelocity2D level_velocity;
+    std::vector<PlannerPose2D> level_trajectory;
+    PlannerCost level_cost;
+    double level_clearance = std::numeric_limits<double>::infinity();
+
+    for (const double angular_z : angular_values) {
+      const PlannerVelocity2D candidate{level.velocity, angular_z};
+      auto trajectory = predictAcceleratingTrajectory(
+        measured_velocity, candidate, trajectory_config, limits, true);
+      const CollisionResult collision = checkTrajectoryCollision(
+        trajectory, obstacles, footprint_config);
+      ++result.evaluated_count;
+      if (collision.collision) {
+        ++result.collision_count;
+        continue;
+      }
+
+      const PlannerCost cost = scoreVelocityCandidate(
+        candidate, result.effective_nominal, clamped_previous,
+        collision.min_clearance, limits, sampling_config);
+      if (!level_valid || cost.total < level_cost.total) {
+        level_valid = true;
+        level_velocity = candidate;
+        level_trajectory = std::move(trajectory);
+        level_cost = cost;
+        level_clearance = collision.min_clearance;
+      }
     }
-    const PlannerCost cost = scoreVelocityCandidate(
-      candidate, result.effective_nominal, clamped_previous,
-      collision.min_clearance, limits, sampling_config);
-    if (!result.valid || cost.total < result.cost.total) {
+
+    if (level_valid) {
       result.valid = true;
-      result.selected_velocity = candidate;
-      result.selected_trajectory = std::move(trajectory);
-      result.cost = cost;
-      result.min_clearance = collision.min_clearance;
+      result.selected_velocity = level_velocity;
+      result.selected_trajectory = std::move(level_trajectory);
+      result.cost = level_cost;
+      result.min_clearance = level_clearance;
+      result.selected_speed_scale = level.scale;
+      return result;
     }
   }
   return result;

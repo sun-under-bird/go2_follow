@@ -65,9 +65,9 @@ struct CollisionResult
 struct MotionLimits
 {
   double min_linear_speed{0.12};
-  double max_linear_speed{0.60};
-  double min_angular_speed{0.82};
-  double max_angular_speed{0.84};
+  double max_linear_speed{0.80};
+  double min_angular_speed{0.0};
+  double max_angular_speed{1.20};
   double max_linear_accel{0.80};
   double max_linear_decel{0.80};
   double max_angular_accel{1.50};
@@ -87,6 +87,10 @@ struct VelocitySamplingConfig
 {
   int linear_samples{9};
   int angular_samples{25};
+  // 避障候选的最小非零角速度；UWB 名义角速度不受该门槛影响。
+  double min_avoidance_angular_speed{0.25};
+  // 按顺序尝试的 UWB 线速度比例，当前层存在安全轨迹时不再继续减速。
+  std::vector<double> linear_speed_priority_scales{1.0, 0.85, 0.70, 0.50, 0.0};
   double obstacle_influence_distance{0.35};
   double weight_follow_linear{8.0};
   double weight_follow_angular{12.0};
@@ -108,6 +112,7 @@ struct PlannerCost
 struct LocalPlanResult
 {
   bool valid{false};
+  bool avoidance_active{false};
   PlannerVelocity2D effective_nominal;
   PlannerVelocity2D selected_velocity;
   std::vector<PlannerPose2D> selected_trajectory;
@@ -115,6 +120,7 @@ struct LocalPlanResult
   double min_clearance{std::numeric_limits<double>::infinity()};
   std::size_t evaluated_count{0U};
   std::size_t collision_count{0U};
+  double selected_speed_scale{0.0};
 };
 
 // 校验轨迹预测的时域和积分步长。
@@ -191,7 +197,7 @@ PlannerVelocity2D stabilizeNominalAngularVelocity(
   const PlannerVelocity2D & measured_velocity,
   const AngularStabilizationConfig & config);
 
-// 生成覆盖全局范围、名义速度邻域和关键停车/原地转向速度的候选集合。
+// 生成兼容调试使用的全局速度候选集合。
 std::vector<PlannerVelocity2D> sampleCandidateVelocities(
   const PlannerVelocity2D & nominal_velocity,
   const PlannerVelocity2D & previous_command,
@@ -208,7 +214,7 @@ PlannerCost scoreVelocityCandidate(
   const MotionLimits & limits,
   const VelocitySamplingConfig & config);
 
-// 使用实测初始速度评估所有候选，淘汰碰撞轨迹并返回最低代价结果。
+// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时按比例降速。
 LocalPlanResult planLocalVelocity(
   const PlannerVelocity2D & measured_velocity,
   const PlannerVelocity2D & previous_command,

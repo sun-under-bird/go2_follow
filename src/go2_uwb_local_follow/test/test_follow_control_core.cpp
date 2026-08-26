@@ -63,6 +63,35 @@ TEST(FollowControl, LimitsMaximumLinearSpeed)
   EXPECT_NEAR(result.target_velocity.linear_x, config.max_linear_speed, 1e-12);
 }
 
+// 验证同样距离下目标角度越大，线速度越低且角速度随角度误差增大。
+TEST(FollowControl, AdjustsVelocityByDistanceAndHeading)
+{
+  follow::FollowConfig config;
+  constexpr double distance = 4.0;
+  const auto straight = follow::computeFollowTarget(distance, 0.0, config);
+  const double heading = 0.80;
+  const auto angled = follow::computeFollowTarget(
+    distance * std::cos(heading), distance * std::sin(heading), config);
+
+  EXPECT_DOUBLE_EQ(straight.target_velocity.linear_x, config.max_linear_speed);
+  EXPECT_GT(angled.target_velocity.linear_x, 0.0);
+  EXPECT_LT(angled.target_velocity.linear_x, straight.target_velocity.linear_x);
+  EXPECT_GT(angled.target_velocity.angular_z, 0.0);
+}
+
+// 验证远距离大角度目标的线速度和角速度分别受新上限约束。
+TEST(FollowControl, UsesExpandedSpeedLimits)
+{
+  follow::FollowConfig config;
+  const auto straight = follow::computeFollowTarget(10.0, 0.0, config);
+  const auto side = follow::computeFollowTarget(0.0, 10.0, config);
+
+  EXPECT_DOUBLE_EQ(config.max_linear_speed, 0.80);
+  EXPECT_DOUBLE_EQ(config.max_angular_speed, 1.20);
+  EXPECT_DOUBLE_EQ(straight.target_velocity.linear_x, 0.80);
+  EXPECT_DOUBLE_EQ(std::abs(side.target_velocity.angular_z), 1.20);
+}
+
 // 验证目标位于侧后方时禁止前进并限制为低速盲转。
 TEST(FollowControl, LimitsBlindRotationWithoutReverse)
 {
