@@ -16,7 +16,7 @@ local_collision_monitor_node:
     obstacle_timeout_sec: 0.30
 
     max_linear_speed: 0.80
-    max_angular_speed: 1.20
+    max_angular_speed: 2.00
     prediction_time: 1.20
     simulation_dt: 0.05
 

@@ -84,12 +84,13 @@ TEST(FollowControl, UsesExpandedSpeedLimits)
 {
   follow::FollowConfig config;
   const auto straight = follow::computeFollowTarget(10.0, 0.0, config);
-  const auto side = follow::computeFollowTarget(0.0, 10.0, config);
+  const auto behind = follow::computeFollowTarget(-10.0, 0.0, config);
 
   EXPECT_DOUBLE_EQ(config.max_linear_speed, 0.80);
-  EXPECT_DOUBLE_EQ(config.max_angular_speed, 1.20);
+  EXPECT_DOUBLE_EQ(config.max_angular_speed, 2.00);
+  EXPECT_DOUBLE_EQ(config.max_angular_accel, 2.00);
   EXPECT_DOUBLE_EQ(straight.target_velocity.linear_x, 0.80);
-  EXPECT_DOUBLE_EQ(std::abs(side.target_velocity.angular_z), 1.20);
+  EXPECT_DOUBLE_EQ(std::abs(behind.target_velocity.angular_z), 2.00);
 }
 
 // 验证目标位于侧后方时禁止前进并限制为低速盲转。
@@ -143,7 +144,7 @@ TEST(VelocityRate, LimitsAccelerationPerControlPeriod)
   const auto output = follow::limitVelocityRate(previous, target, config, 0.05);
 
   EXPECT_NEAR(output.linear_x, 0.040, 1e-12);
-  EXPECT_NEAR(output.angular_z, 0.075, 1e-12);
+  EXPECT_NEAR(output.angular_z, config.max_angular_accel * 0.05, 1e-12);
 }
 
 // 验证减速使用独立的更高线减速度参数。

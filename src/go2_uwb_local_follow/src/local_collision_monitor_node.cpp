@@ -90,7 +90,7 @@ public:
     nominal_timeout_sec_ = declare_parameter<double>("nominal_timeout_sec", 0.20);
     obstacle_timeout_sec_ = declare_parameter<double>("obstacle_timeout_sec", 0.30);
     max_linear_speed_ = declare_parameter<double>("max_linear_speed", 0.80);
-    max_angular_speed_ = declare_parameter<double>("max_angular_speed", 1.20);
+    max_angular_speed_ = declare_parameter<double>("max_angular_speed", 2.00);
 
     trajectory_config_.prediction_time = declare_parameter<double>("prediction_time", 1.20);
     trajectory_config_.simulation_dt = declare_parameter<double>("simulation_dt", 0.05);
@@ -468,7 +468,7 @@ private:
   double nominal_timeout_sec_{0.20};
   double obstacle_timeout_sec_{0.30};
   double max_linear_speed_{0.80};
-  double max_angular_speed_{1.20};
+  double max_angular_speed_{2.00};
   TrajectoryConfig trajectory_config_;
   FootprintConfig footprint_config_;
   double emergency_front_distance_{0.25};

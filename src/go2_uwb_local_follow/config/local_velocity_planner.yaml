@@ -24,24 +24,27 @@ local_velocity_planner_node:
     angular_reverse_speed_threshold: 0.15  # ↑更早允许反向/响应快；↓必须更接近停稳/更少左右切换；步长 0.05 rad/s
     avoidance_direction_hold_sec: 1.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
 
-    prediction_time: 1.2  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
+    prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
     simulation_dt: 0.08  # ↑计算快/检查粗；↓检查细/计算多；0.08 s 对应最高速约 4.8 cm/步；步长 0.01 s
 
     robot_length: 0.70  # ↑前后硬碰撞足迹更大、更保守；↓更贴近障碍；步长 0.02 m
-    robot_width: 0.35  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
+    robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
     safety_margin: 0.02  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
 
     min_linear_speed: 0.12  # ↑易跨过底盘死区/起步突兀；↓更柔和/可能不迈步；步长 0.02 m/s
     max_linear_speed: 0.80  # ↑跟随快/制动距离长；↓更稳/可能跟不上；步长 0.05 m/s
+
+
     min_follow_angular_speed: 0.0  # 仅用于 UWB 跟随；0 保留连续小角度精细纠偏
-    max_angular_speed: 1.20  # UWB 跟随与避障共同使用的最大角速度
+    max_angular_speed: 2.00  # UWB 跟随最大角速度；无障碍时规划器保留该上限
     max_linear_accel: 0.50  # ↑提速快/顿挫强；↓提速平滑/响应慢；步长 0.10 m/s²
     max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²
-    max_angular_accel: 1.50  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
+    max_angular_accel: 2.00  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
 
     linear_samples: 10  # 保留给全局候选调试接口；分层规划使用下方速度比例
     angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
     min_avoidance_angular_speed: 0.50  # 仅主动避障候选使用；跟随小角速度不受影响；步长 0.05 rad/s
+    max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随仍可达到 2.0 rad/s；步长 0.10 rad/s
     linear_speed_priority_scales: [1.0, 0.85, 0.70, 0.50, 0.0]  # 当前速度层无安全轨迹才进入下一层
     obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
     weight_follow_linear: 4.0  # ↑更服从 UWB 线速度；↓更允许避障减速；步长 0.5
@@ -51,8 +54,10 @@ local_velocity_planner_node:
     weight_obstacle: 2.0  # ↑更早减速、净空大；↓不易被远点拖慢、净空小；步长 0.5
     weight_progress: 1.0  # ↑不愿低于 UWB 名义速度；↓更容易为安全减速；步长 0.10
 
-    emergency_front_distance: 0.1  # ↑更早急停；↓更靠近才急停；步长 0.05 m
-    emergency_half_width: 0.20  # ↑急停通道更宽；↓只关注更窄正前方；步长 0.05 m
+    emergency_front_distance: 0.15  # ↑更早急停；↓更靠近才急停；步长 0.05 m
+    emergency_half_width: 0.30  # ↑急停通道更宽；↓只关注更窄正前方；步长 0.05 m
+    # 紧急区连续命中该帧数才停车，连续清空同样帧数才解除；严格按新点云帧计数。
+    emergency_confirm_frames: 3  # ↑更耐单帧伪点/确认更慢；↓响应更快/易误停；步长 1 帧
     obstacle_x_min: 0.10  # ↑删除更多近点/可能漏障碍；↓保留近点/机身伪点增多；步长 0.05 m
     obstacle_x_max: 3.00  # ↑保留更远障碍/计算多；↓只看近处/计算少；步长 0.20 m
     obstacle_y_abs_max: 3.00  # ↑保留更宽侧向区域/计算多；↓视野更窄/可能漏侧障；步长 0.20 m

@@ -67,10 +67,10 @@ struct MotionLimits
   double min_linear_speed{0.12};
   double max_linear_speed{0.80};
   double min_angular_speed{0.0};
-  double max_angular_speed{1.20};
+  double max_angular_speed{2.00};
   double max_linear_accel{0.80};
   double max_linear_decel{0.80};
-  double max_angular_accel{1.50};
+  double max_angular_accel{2.00};
 };
 
 struct AngularStabilizationConfig
@@ -89,6 +89,8 @@ struct VelocitySamplingConfig
   int angular_samples{25};
   // 避障候选的最小非零角速度；UWB 名义角速度不受该门槛影响。
   double min_avoidance_angular_speed{0.25};
+  // 主动避障候选的最大角速度；无障碍 UWB 跟随仍使用运动学总上限。
+  double max_avoidance_angular_speed{1.50};
   // 按顺序尝试的 UWB 线速度比例，当前层存在安全轨迹时不再继续减速。
   std::vector<double> linear_speed_priority_scales{1.0, 0.85, 0.70, 0.50, 0.0};
   double obstacle_influence_distance{0.35};

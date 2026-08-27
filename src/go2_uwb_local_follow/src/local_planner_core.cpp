@@ -213,6 +213,7 @@ bool validateVelocitySamplingConfig(
     return rejectWithReason("velocity sample counts are too small", reason);
   }
   const bool finite = std::isfinite(config.min_avoidance_angular_speed) &&
+    std::isfinite(config.max_avoidance_angular_speed) &&
     std::isfinite(config.obstacle_influence_distance) &&
     std::isfinite(config.weight_follow_linear) &&
     std::isfinite(config.weight_follow_angular) &&
@@ -223,6 +224,7 @@ bool validateVelocitySamplingConfig(
     return rejectWithReason("velocity sampling config contains non-finite values", reason);
   }
   if (config.min_avoidance_angular_speed < 0.0 ||
+    config.max_avoidance_angular_speed < config.min_avoidance_angular_speed ||
     config.obstacle_influence_distance <= 0.0 || config.weight_follow_linear < 0.0 ||
     config.weight_follow_angular < 0.0 || config.weight_smooth_linear < 0.0 ||
     config.weight_smooth_angular < 0.0 || config.weight_obstacle < 0.0 ||
@@ -471,6 +473,25 @@ std::vector<PlannerVelocity2D> sampleCandidateVelocities(
 {
   std::vector<double> linear_values;
   std::vector<double> angular_values;
+  const double avoidance_maximum = std::min(
+    limits.max_angular_speed, config.max_avoidance_angular_speed);
+  const double avoidance_minimum = std::min(
+    avoidance_maximum,
+    std::max(limits.min_angular_speed, config.min_avoidance_angular_speed));
+  const auto applySamplingPolicy =
+    [force_linear_stop, avoidance_minimum, avoidance_maximum](PlannerVelocity2D velocity) {
+      if (force_linear_stop) {
+        velocity.linear_x = 0.0;
+      }
+      velocity.angular_z = clampValue(
+        velocity.angular_z, -avoidance_maximum, avoidance_maximum);
+      if (std::abs(velocity.angular_z) > 0.0 &&
+        std::abs(velocity.angular_z) < avoidance_minimum)
+      {
+        velocity.angular_z = std::copysign(avoidance_minimum, velocity.angular_z);
+      }
+      return velocity;
+    };
   for (int index = 0; index < config.linear_samples; ++index) {
     const double ratio = static_cast<double>(index) /
       static_cast<double>(config.linear_samples - 1);
@@ -486,8 +507,9 @@ std::vector<PlannerVelocity2D> sampleCandidateVelocities(
   for (int index = 0; index < config.angular_samples; ++index) {
     const double ratio = static_cast<double>(index) /
       static_cast<double>(config.angular_samples - 1);
-    const double raw = -limits.max_angular_speed + 2.0 * limits.max_angular_speed * ratio;
-    const double effective = makeEffectiveVelocity({0.0, raw}, limits).angular_z;
+    const double raw = -avoidance_maximum + 2.0 * avoidance_maximum * ratio;
+    const double effective = applySamplingPolicy(
+      makeEffectiveVelocity({0.0, raw}, limits)).angular_z;
     if (std::find(angular_values.begin(), angular_values.end(), effective) ==
       angular_values.end())
     {
@@ -502,19 +524,15 @@ std::vector<PlannerVelocity2D> sampleCandidateVelocities(
     }
   }
 
-  const PlannerVelocity2D effective_nominal = makeEffectiveVelocity(nominal_velocity, limits);
-  const PlannerVelocity2D effective_previous = makeEffectiveVelocity(previous_command, limits);
-  const auto applyLinearPolicy = [force_linear_stop](PlannerVelocity2D velocity) {
-      if (force_linear_stop) {
-        velocity.linear_x = 0.0;
-      }
-      return velocity;
-    };
-  appendUniqueVelocity(candidates, applyLinearPolicy(effective_nominal));
-  appendUniqueVelocity(candidates, applyLinearPolicy(effective_previous));
+  const PlannerVelocity2D effective_nominal = applySamplingPolicy(
+    makeEffectiveVelocity(nominal_velocity, limits));
+  const PlannerVelocity2D effective_previous = applySamplingPolicy(
+    makeEffectiveVelocity(previous_command, limits));
+  appendUniqueVelocity(candidates, effective_nominal);
+  appendUniqueVelocity(candidates, effective_previous);
   appendUniqueVelocity(candidates, PlannerVelocity2D{});
-  appendUniqueVelocity(candidates, {0.0, limits.min_angular_speed});
-  appendUniqueVelocity(candidates, {0.0, -limits.min_angular_speed});
+  appendUniqueVelocity(candidates, applySamplingPolicy({0.0, limits.min_angular_speed}));
+  appendUniqueVelocity(candidates, applySamplingPolicy({0.0, -limits.min_angular_speed}));
 
   constexpr std::array<double, 5> linear_offsets{{0.0, -0.05, 0.05, -0.10, 0.10}};
   constexpr std::array<double, 7> angular_offsets{{0.0, -0.10, 0.10, -0.20, 0.20, -0.40,
@@ -524,8 +542,8 @@ std::vector<PlannerVelocity2D> sampleCandidateVelocities(
       PlannerVelocity2D nearby{
         effective_nominal.linear_x + linear_offset,
         effective_nominal.angular_z + angular_offset};
-      nearby = makeEffectiveVelocity(nearby, limits);
-      appendUniqueVelocity(candidates, applyLinearPolicy(nearby));
+      nearby = applySamplingPolicy(makeEffectiveVelocity(nearby, limits));
+      appendUniqueVelocity(candidates, nearby);
     }
   }
   return candidates;
@@ -591,16 +609,18 @@ void appendUniqueAngular(std::vector<double> & values, double angular_z)
   }
 }
 
-// 对主动避障候选应用独立最小角速度，UWB 原始名义角速度由调用方单独保留。
+// 对主动避障候选应用独立的最小和最大角速度，UWB 原始名义角速度由调用方单独保留。
 double makeAvoidanceAngularVelocity(
   double angular_z,
   const MotionLimits & limits,
   const VelocitySamplingConfig & config)
 {
+  const double maximum = std::min(
+    limits.max_angular_speed, config.max_avoidance_angular_speed);
   double effective = clampValue(
-    angular_z, -limits.max_angular_speed, limits.max_angular_speed);
-  const double threshold = std::max(
-    limits.min_angular_speed, config.min_avoidance_angular_speed);
+    angular_z, -maximum, maximum);
+  const double threshold = std::min(
+    maximum, std::max(limits.min_angular_speed, config.min_avoidance_angular_speed));
   if (std::abs(effective) > 0.0 && std::abs(effective) < threshold) {
     effective = std::copysign(threshold, effective);
   }
@@ -627,8 +647,8 @@ std::vector<double> sampleAvoidanceAngularVelocities(
   for (int index = 0; index < config.angular_samples; ++index) {
     const double ratio = static_cast<double>(index) /
       static_cast<double>(config.angular_samples - 1);
-    const double raw = -limits.max_angular_speed +
-      2.0 * limits.max_angular_speed * ratio;
+    const double raw = -config.max_avoidance_angular_speed +
+      2.0 * config.max_avoidance_angular_speed * ratio;
     appendUniqueAngular(
       angular_values, makeAvoidanceAngularVelocity(raw, limits, config));
   }

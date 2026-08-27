@@ -85,15 +85,15 @@ public:
     config_.angular_kp = declare_parameter<double>("angular_kp", 1.0);
     config_.min_linear_speed = declare_parameter<double>("min_linear_speed", 0.12);
     config_.max_linear_speed = declare_parameter<double>("max_linear_speed", 0.80);
-    config_.max_angular_speed = declare_parameter<double>("max_angular_speed", 1.20);
+    config_.max_angular_speed = declare_parameter<double>("max_angular_speed", 2.00);
     config_.heading_slowdown_start = declare_parameter<double>(
       "heading_slowdown_start", 0.50);
     config_.heading_stop_angle = declare_parameter<double>("heading_stop_angle", 1.05);
     config_.blind_rotation_max_speed = declare_parameter<double>(
-      "blind_rotation_max_speed", 1.20);
+      "blind_rotation_max_speed", 2.00);
     config_.max_linear_accel = declare_parameter<double>("max_linear_accel", 0.80);
     config_.max_linear_decel = declare_parameter<double>("max_linear_decel", 0.80);
-    config_.max_angular_accel = declare_parameter<double>("max_angular_accel", 1.50);
+    config_.max_angular_accel = declare_parameter<double>("max_angular_accel", 2.00);
     validateParameters();
 
     target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(

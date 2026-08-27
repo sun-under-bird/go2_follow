@@ -119,18 +119,20 @@ public:
     motion_limits_.min_angular_speed = declare_parameter<double>(
       "min_follow_angular_speed", 0.0);
     motion_limits_.max_angular_speed = declare_parameter<double>(
-      "max_angular_speed", 1.20);
+      "max_angular_speed", 2.00);
     motion_limits_.max_linear_accel = declare_parameter<double>(
       "max_linear_accel", 0.80);
     motion_limits_.max_linear_decel = declare_parameter<double>(
       "max_linear_decel", 0.80);
     motion_limits_.max_angular_accel = declare_parameter<double>(
-      "max_angular_accel", 1.50);
+      "max_angular_accel", 2.00);
 
     sampling_config_.linear_samples = declare_parameter<int>("linear_samples", 9);
     sampling_config_.angular_samples = declare_parameter<int>("angular_samples", 25);
     sampling_config_.min_avoidance_angular_speed = declare_parameter<double>(
       "min_avoidance_angular_speed", 0.25);
+    sampling_config_.max_avoidance_angular_speed = declare_parameter<double>(
+      "max_avoidance_angular_speed", 1.50);
     sampling_config_.linear_speed_priority_scales = declare_parameter<std::vector<double>>(
       "linear_speed_priority_scales", {1.0, 0.85, 0.70, 0.50, 0.0});
     sampling_config_.obstacle_influence_distance = declare_parameter<double>(
@@ -149,6 +151,8 @@ public:
     emergency_front_distance_ = declare_parameter<double>(
       "emergency_front_distance", 0.25);
     emergency_half_width_ = declare_parameter<double>("emergency_half_width", 0.30);
+    emergency_confirm_frames_ = static_cast<int>(std::max<std::int64_t>(
+        1, declare_parameter<std::int64_t>("emergency_confirm_frames", 2)));
     obstacle_x_min_ = declare_parameter<double>("obstacle_x_min", -0.50);
     obstacle_x_max_ = declare_parameter<double>("obstacle_x_max", 3.00);
     obstacle_y_abs_max_ = declare_parameter<double>("obstacle_y_abs_max", 2.00);
@@ -266,9 +270,11 @@ private:
     {
       throw std::invalid_argument(reason);
     }
-    if (sampling_config_.min_avoidance_angular_speed > motion_limits_.max_angular_speed) {
+    if (sampling_config_.max_avoidance_angular_speed > motion_limits_.max_angular_speed ||
+      motion_limits_.min_angular_speed > sampling_config_.max_avoidance_angular_speed)
+    {
       throw std::invalid_argument(
-              "minimum avoidance angular speed must not exceed maximum angular speed");
+              "avoidance angular limits must stay within follow angular speed limits");
     }
     if (!std::isfinite(control_frequency_) || control_frequency_ <= 0.0 ||
       !std::isfinite(diagnostic_frequency_) || diagnostic_frequency_ <= 0.0)
@@ -448,6 +454,33 @@ private:
     return avoidance_turn_direction_;
   }
 
+  // 按新点云帧确认紧急障碍，过滤只出现一帧的近场伪点。
+  bool confirmEmergencyObstacle(
+    bool detected,
+    const std::chrono::steady_clock::time_point & obstacle_receipt)
+  {
+    // 控制频率高于点云频率，同一帧只能计数一次，否则确认机制会退化成单帧触发。
+    if (have_confirm_receipt_ && obstacle_receipt == last_confirm_receipt_) {
+      return emergency_latched_;
+    }
+    last_confirm_receipt_ = obstacle_receipt;
+    have_confirm_receipt_ = true;
+
+    if (detected) {
+      emergency_clear_count_ = 0;
+      emergency_hit_count_ = std::min(emergency_hit_count_ + 1, emergency_confirm_frames_);
+    } else {
+      emergency_hit_count_ = 0;
+      emergency_clear_count_ = std::min(emergency_clear_count_ + 1, emergency_confirm_frames_);
+    }
+    if (emergency_hit_count_ >= emergency_confirm_frames_) {
+      emergency_latched_ = true;
+    } else if (emergency_clear_count_ >= emergency_confirm_frames_) {
+      emergency_latched_ = false;
+    }
+    return emergency_latched_;
+  }
+
   // 生成仅供候选评分使用的历史速度，让短暂停车后仍优先沿原方向绕障。
   PlannerVelocity2D makeScoringPreviousCommand(
     const PlannerVelocity2D & previous_command,
@@ -536,8 +569,10 @@ private:
 
     const auto & points = *obstacle.points;
     status.obstacle_count = points.size();
-    status.emergency = hasEmergencyFrontObstacle(
-      points, footprint_config_, emergency_front_distance_, emergency_half_width_);
+    status.emergency = confirmEmergencyObstacle(
+      hasEmergencyFrontObstacle(
+        points, footprint_config_, emergency_front_distance_, emergency_half_width_),
+      obstacle.receipt_time);
     const PlannerVelocity2D previous_command = last_command_valid_ ?
       last_command_ : odom.velocity;
     const PlannerVelocity2D scoring_previous_command = makeScoringPreviousCommand(
@@ -571,6 +606,13 @@ private:
     status.min_clearance = result.min_clearance;
     PlannerVelocity2D final_command = limitCommandVelocity(
       previous_command, result.selected_velocity, motion_limits_, control_dt);
+    if (result.avoidance_active) {
+      // 避障状态使用独立上限，防止上一周期较大的跟随转向指令继续透传。
+      final_command.angular_z = clampValue(
+        final_command.angular_z,
+        -sampling_config_.max_avoidance_angular_speed,
+        sampling_config_.max_avoidance_angular_speed);
+    }
     if (status.emergency) {
       // 紧急区优先立即撤销前进指令，角速度仍必须来自通过足迹检查的候选。
       final_command.linear_x = 0.0;
@@ -759,6 +801,7 @@ private:
   VelocitySamplingConfig sampling_config_;
   double emergency_front_distance_{0.25};
   double emergency_half_width_{0.30};
+  int emergency_confirm_frames_{2};
   double obstacle_x_min_{-0.50};
   double obstacle_x_max_{3.00};
   double obstacle_y_abs_max_{2.00};
@@ -775,6 +818,11 @@ private:
   bool last_command_valid_{false};
   int avoidance_turn_direction_{0};
   bool have_avoidance_turn_time_{false};
+  int emergency_hit_count_{0};
+  int emergency_clear_count_{0};
+  bool emergency_latched_{false};
+  bool have_confirm_receipt_{false};
+  std::chrono::steady_clock::time_point last_confirm_receipt_{};
   std::chrono::steady_clock::time_point last_avoidance_turn_time_{};
   std::chrono::steady_clock::time_point last_control_time_{};
 

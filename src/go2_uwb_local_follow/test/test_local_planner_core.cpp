@@ -236,6 +236,9 @@ TEST(VelocitySampling, IncludesCriticalCandidates)
   EXPECT_TRUE(contains(0.0, 0.0));
   EXPECT_TRUE(contains(0.0, limits.min_angular_speed));
   EXPECT_TRUE(contains(0.0, -limits.min_angular_speed));
+  for (const auto & candidate : candidates) {
+    EXPECT_LE(std::abs(candidate.angular_z), sampling.max_avoidance_angular_speed);
+  }
 }
 
 // 验证空旷场景中最低代价候选保持在名义跟随速度附近。
@@ -295,6 +298,29 @@ TEST(LocalVelocityPlanner, KeepsNominalSpeedWhenTurningIsSafe)
   EXPECT_GT(result.collision_count, 0U);
 }
 
+// 验证无障碍跟随保留 2.0 上限，进入主动避障后改用独立的 1.5 上限。
+TEST(LocalVelocityPlanner, SeparatesFollowAndAvoidanceAngularLimits)
+{
+  const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
+  const planner::FootprintConfig footprint;
+  const planner::MotionLimits limits;
+  const planner::VelocitySamplingConfig sampling;
+  const auto following = planner::planLocalVelocity(
+    {0.0, 0.0}, {0.0, 0.0}, {0.0, 1.80}, {}, trajectory_config,
+    footprint, limits, sampling);
+  const auto avoiding = planner::planLocalVelocity(
+    {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, {{0.75, 0.0}}, trajectory_config,
+    footprint, limits, sampling);
+
+  ASSERT_TRUE(following.valid);
+  EXPECT_FALSE(following.avoidance_active);
+  EXPECT_DOUBLE_EQ(following.selected_velocity.angular_z, 1.80);
+  ASSERT_TRUE(avoiding.valid);
+  EXPECT_TRUE(avoiding.avoidance_active);
+  EXPECT_LE(
+    std::abs(avoiding.selected_velocity.angular_z), sampling.max_avoidance_angular_speed);
+}
+
 // 验证障碍进入影响区但同速弧线仍安全时，不允许代价函数提前选择低速轨迹。
 TEST(LocalVelocityPlanner, KeepsNominalSpeedForNearbyObstacle)
 {
@@ -321,7 +347,8 @@ TEST(LocalVelocityPlanner, ReducesSpeedOnlyAfterNominalTierIsBlocked)
 {
   const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
   const planner::FootprintConfig footprint;
-  const planner::MotionLimits limits;
+  planner::MotionLimits limits;
+  limits.max_angular_accel = 1.50;
   const planner::VelocitySamplingConfig sampling;
   std::vector<planner::ObstaclePoint2D> obstacles;
   for (int index = -15; index <= 15; ++index) {
@@ -374,10 +401,14 @@ TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
 {
   planner::VelocitySamplingConfig sampling;
   sampling.linear_samples = 1;
+  planner::VelocitySamplingConfig avoidance_limits;
+  avoidance_limits.min_avoidance_angular_speed = 1.0;
+  avoidance_limits.max_avoidance_angular_speed = 0.9;
   planner::MotionLimits limits;
   limits.min_angular_speed = limits.max_angular_speed + 0.1;
   std::string reason;
 
   EXPECT_FALSE(planner::validateVelocitySamplingConfig(sampling, &reason));
+  EXPECT_FALSE(planner::validateVelocitySamplingConfig(avoidance_limits, &reason));
   EXPECT_FALSE(planner::validateMotionLimits(limits, &reason));
 }
