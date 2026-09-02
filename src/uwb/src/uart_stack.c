@@ -1,35 +1,36 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
+#include <time.h>
 
 #include "uart_stack.h"
 
 #define UART_STACK_VERSION V02
 
-#include <stdarg.h>
-#include <time.h>
-
 #define UWB_LOG_INTERVAL_NS 1000000000L
 
+// 限制底层串口日志频率，避免高频输出阻塞数据解析线程。
 static int uwb_log_printf(const char *format, ...)
 {
-    static struct timespec last_log_time = {0, 0};
-    struct timespec now;
-    long elapsed_ns;
-    va_list args;
-    int result;
+	static struct timespec last_log_time = {0, 0};
+	struct timespec now;
+	long elapsed_ns;
+	va_list args;
+	int result;
 
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    elapsed_ns = (now.tv_sec - last_log_time.tv_sec) * 1000000000L
-        + now.tv_nsec - last_log_time.tv_nsec;
-    if (last_log_time.tv_sec != 0 && elapsed_ns < UWB_LOG_INTERVAL_NS) {
-        return 0;
-    }
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	elapsed_ns = (now.tv_sec - last_log_time.tv_sec) * 1000000000L
+		+ now.tv_nsec - last_log_time.tv_nsec;
+	if (last_log_time.tv_sec != 0 && elapsed_ns < UWB_LOG_INTERVAL_NS)
+	{
+		return 0;
+	}
 
-    last_log_time = now;
-    va_start(args, format);
-    result = vprintf(format, args);
-    va_end(args);
-    return result;
+	last_log_time = now;
+	va_start(args, format);
+	result = vprintf(format, args);
+	va_end(args);
+	return result;
 }
 
 #define UWB_LOG uwb_log_printf
@@ -54,14 +55,9 @@ static uint8_t rx_packet_ok = 0x00;
 static uint16_t receive_tlv_len = 0;
 static uint16_t new_crc_data = 0x0000;
 
-//system counter
-static uint32_t sys_cnt = 0;
-//extern uint32_t sys_cnt;
-
-
 static uint16_t math_crc16(uint16_t last_crc_result, const void *data, uint16_t len)
 {
-	const static uint16_t crc_tab[16] =
+	static const uint16_t crc_tab[16] =
 		{
 			0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
 			0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF};
@@ -101,7 +97,7 @@ static int8_t calc_crc(uint8_t *data, uint16_t datat_len, uint8_t *crc_high, uin
 	return 0;
 }
 
-// when uart interrupt receive data, call the function
+// 逐字节解析串口帧，并在长度异常时复位状态机以防止缓冲区越界。
 int8_t uart_receive_byte(uint8_t input_data)
 {
 	static dataRxState rxState = waitForFirstStart;
@@ -140,7 +136,7 @@ int8_t uart_receive_byte(uint8_t input_data)
 			rec_tlvlen_buf[1] = input_data;
 
 			receive_tlv_len = (uint16_t)(rec_tlvlen_buf[1] << 8) + (uint16_t)(rec_tlvlen_buf[0] << 0);
-			if (receive_tlv_len + 2 > sizeof(radar_rx_Buf))
+			if (receive_tlv_len > sizeof(radar_rx_Buf) - 2U)
 			{
 				receive_tlv_len = 0;
 				rec_tlvlen_count = 0;
@@ -248,8 +244,6 @@ void uart_protocol_transmit(uint8_t cmd, uint8_t* data, uint16_t len)
 int8_t uart_protocol_packet_process(void **buffer)
 {
 	uint8_t cmd = radar_rx_Buf[0];	//type
-	uint8_t len = radar_rx_Buf[1];	//len
-	uint8_t id = 0;					//CAN/CANFD ID	
 
 	uint8_t ret = 1;
 

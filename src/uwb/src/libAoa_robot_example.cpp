@@ -1,231 +1,228 @@
-#include <cstdio>
-extern "C"{
-  #include "uwb_robot_algo.h"
-  #include "uart_stack.h"
-}
-
 #include <atomic>
+#include <cerrno>
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
-#include <ctime>
-#include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 
-#include <fcntl.h>   // Contains file controls like O_RDWR
-#include <errno.h>   // Error integer and strerror() function
-#include <termios.h> // Contains POSIX terminal control definitions
-#include <unistd.h>  // write(), read(), close()
+#include <fcntl.h>
+#include <poll.h>
+#include <termios.h>
+#include <unistd.h>
+
+extern "C"
+{
+#include "uart_stack.h"
+#include "uwb_robot_algo.h"
+}
 
 #include "rclcpp/rclcpp.hpp"
 #include "uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp"
 
-using namespace std::chrono_literals;
-
-class libAoa_robot_publisher : public rclcpp::Node
+namespace uwb_aoa_pkg
 {
-  public:
-    libAoa_robot_publisher(const std::string & dev_name)
-    : Node("libAoa_robot_publisher"),running_(false),serial_port_(-1)
-    {
-      frame_id_ = this->declare_parameter<std::string>("frame_id", "uwb_link");
-      publish_rate_hz_ = this->declare_parameter<double>("publish_rate_hz", 10.0);
-      aoa_frequency_hz_ = this->declare_parameter<int>("aoa_frequency_hz", 10);
-      if (publish_rate_hz_ <= 0.0) {
-        publish_rate_hz_ = 10.0;
-      }
-      if (aoa_frequency_hz_ <= 0) {
-        aoa_frequency_hz_ = 10;
-      }
-      publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
 
-      publisher_ = this->create_publisher<uwb_aoa_pkg::msg::LibAoaRobotMsg>("/libAoa_robot_publisher", 10);
+class LibAoaRobotPublisher : public rclcpp::Node
+{
+public:
+  // 初始化厂家融合参数、串口和原始 UWB 消息发布线程。
+  explicit LibAoaRobotPublisher(const std::string & device_name)
+  : Node("libAoa_robot_publisher")
+  {
+    frame_id_ = declare_parameter<std::string>("frame_id", "uwb_link");
+    publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 10.0);
+    aoa_frequency_hz_ = declare_parameter<int>("aoa_frequency_hz", 10);
+    if (frame_id_.empty()) {
+      throw std::invalid_argument("frame_id must not be empty");
+    }
+    if (publish_rate_hz_ <= 0.0) {
+      throw std::invalid_argument("publish_rate_hz must be positive");
+    }
+    if (aoa_frequency_hz_ <= 0) {
+      throw std::invalid_argument("aoa_frequency_hz must be positive");
+    }
+    publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
 
-	  {
+    publisher_ = create_publisher<msg::LibAoaRobotMsg>("/libAoa_robot_publisher", 10);
+    openAndConfigureSerial(device_name);
+    running_ = true;
+    read_thread_ = std::thread(&LibAoaRobotPublisher::readSerialLoop, this);
+    RCLCPP_INFO(get_logger(), "UWB serial driver started on %s", device_name.c_str());
+  }
 
-		serial_port_ = open(dev_name.c_str(), O_RDWR); // linux
-		if (serial_port_ < 0)
-		{
-			RCLCPP_FATAL(this->get_logger(),"can't open port %s: %s", dev_name.c_str(), strerror(errno));
-			return;
-		}
-		struct termios tty;
-		if (tcgetattr(serial_port_, &tty) != 0)
-		{
-			printf("Error! Check uart connection/permission!\n");
-			printf("Error %i from tcgetattr: %s\n", errno, strerror(errno));
-			close(serial_port_);
-			serial_port_ = -1;
-			return;
-		}
+  // 停止读取线程并关闭串口，避免节点退出后继续占用设备。
+  ~LibAoaRobotPublisher() override
+  {
+    running_ = false;
+    if (read_thread_.joinable()) {
+      read_thread_.join();
+    }
+    if (serial_port_ >= 0) {
+      close(serial_port_);
+    }
+  }
 
-		tty.c_cflag &= ~PARENB;        // Clear parity bit, disabling parity (most common)
-		tty.c_cflag &= ~CSTOPB;        // Clear stop field, only one stop bit used in communication (most common)
-		tty.c_cflag &= ~CSIZE;         // Clear all bits that set the data size
-		tty.c_cflag |= CS8;            // 8 bits per byte (most common)
-		tty.c_cflag &= ~CRTSCTS;       // Disable RTS/CTS hardware flow control (most common)
-		tty.c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
-
-		tty.c_lflag &= ~ICANON;
-		tty.c_lflag &= ~ECHO;                                                        // Disable echo
-		tty.c_lflag &= ~ECHOE;                                                       // Disable erasure
-		tty.c_lflag &= ~ECHONL;                                                      // Disable new-line echo
-		tty.c_lflag &= ~ISIG;                                                        // Disable interpretation of INTR, QUIT and SUSP
-		tty.c_iflag &= ~(IXON | IXOFF | IXANY);                                      // Turn off s/w flow ctrl
-		tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Disable any special handling of received bytes
-
-		tty.c_oflag &= ~OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
-		tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
-
-		tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
-		tty.c_cc[VMIN] = 0;
-
-		// Set in/out baud rate to be 115200
-		cfsetispeed(&tty, B115200);
-		cfsetospeed(&tty, B115200);
-
-		// Save tty settings, also checking for error
-		if (tcsetattr(serial_port_, TCSANOW, &tty) != 0)
-		{
-			printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
-			close(serial_port_);
-			serial_port_ = -1;
-			return;
-		}
-
-		RCLCPP_INFO(this->get_logger(),"open port success: %d\n",serial_port_);
-	  }
-
-	  running_ = true;
-	  read_thread_ = std::thread(&libAoa_robot_publisher::readSerialLoop,this);
-	  RCLCPP_INFO(this->get_logger(),"start serial publish");
+private:
+  // 打开 115200-8N1 串口并切换到原始字节读取模式。
+  void openAndConfigureSerial(const std::string & device_name)
+  {
+    serial_port_ = open(device_name.c_str(), O_RDWR);
+    if (serial_port_ < 0) {
+      throw std::runtime_error(
+              "cannot open UWB serial port " + device_name + ": " + std::strerror(errno));
     }
 
-	~libAoa_robot_publisher(){
-		running_ = false;
-		if (read_thread_.joinable()) read_thread_.join();
-		if (serial_port_ >= 0) close(serial_port_);
-	}
+    struct termios tty {};
+    if (tcgetattr(serial_port_, &tty) != 0) {
+      const std::string reason = std::strerror(errno);
+      close(serial_port_);
+      serial_port_ = -1;
+      throw std::runtime_error("cannot read UWB serial attributes: " + reason);
+    }
 
-  private:
+    tty.c_cflag &= ~PARENB;
+    tty.c_cflag &= ~CSTOPB;
+    tty.c_cflag &= ~CSIZE;
+    tty.c_cflag |= CS8;
+    tty.c_cflag &= ~CRTSCTS;
+    tty.c_cflag |= CREAD | CLOCAL;
+    tty.c_lflag &= ~ICANON;
+    tty.c_lflag &= ~ECHO;
+    tty.c_lflag &= ~ECHOE;
+    tty.c_lflag &= ~ECHONL;
+    tty.c_lflag &= ~ISIG;
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+    tty.c_oflag &= ~OPOST;
+    tty.c_oflag &= ~ONLCR;
+    tty.c_cc[VTIME] = 10;
+    tty.c_cc[VMIN] = 0;
+    cfsetispeed(&tty, B115200);
+    cfsetospeed(&tty, B115200);
 
-	void readSerialLoop(){
+    if (tcsetattr(serial_port_, TCSANOW, &tty) != 0) {
+      const std::string reason = std::strerror(errno);
+      close(serial_port_);
+      serial_port_ = -1;
+      throw std::runtime_error("cannot configure UWB serial port: " + reason);
+    }
+  }
 
-		auto message = uwb_aoa_pkg::msg::LibAoaRobotMsg();
-		const auto algorithm_start_time = std::chrono::steady_clock::now();
+  // 连续解析 C5 数据包，经厂家算法融合后发布机器人平面目标坐标。
+  void readSerialLoop()
+  {
+    msg::LibAoaRobotMsg message;
+    struct input_data algorithm_input {};
+    struct output algorithm_output {};
+    const auto algorithm_start_time = std::chrono::steady_clock::now();
+    algorithm_input.aoa_frequency = aoa_frequency_hz_;
+    algorithm_input.clean_buffer_time = 2;
+    algorithm_input.config_r = 0;
+    algorithm_input.config_rad = 0;
+    algorithm_input.direction = -1;
+    algorithm_input.stopband_rate = 0.1;
+    algorithm_input.State = 1;
+    algorithm_input.win_fil = 5;
+    algorithm_input.use_pitch_dis = 0;
 
-		uint8_t read_buf[2];
-		memset(&read_buf, '\0', sizeof(read_buf));
+    std::uint8_t input_byte = 0;
+    while (rclcpp::ok() && running_) {
+      // 使用短超时轮询，保证串口无数据时节点也能及时响应退出和重启。
+      struct pollfd descriptor {serial_port_, POLLIN, 0};
+      const int poll_result = poll(&descriptor, 1, 200);
+      if (poll_result <= 0) {
+        continue;
+      }
+      if ((descriptor.revents & (POLLERR | POLLHUP | POLLNVAL)) != 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        continue;
+      }
+      if ((descriptor.revents & POLLIN) == 0) {
+        continue;
+      }
+      const ssize_t bytes_read = read(serial_port_, &input_byte, 1);
+      if (bytes_read <= 0 || uart_receive_byte(input_byte) != 1) {
+        continue;
+      }
 
-		struct input_data my_input;
-		struct output my_output;
+      uwb_aoa_fob_pkg_t * packet = nullptr;
+      const std::uint8_t packet_type = uart_protocol_packet_process(
+        reinterpret_cast<void **>(&packet));
+      if (packet_type != NOTIFY_DISTANCE_ANGLE_RSSI_FOBID || packet == nullptr) {
+        continue;
+      }
 
-		my_input.aoa_frequency = aoa_frequency_hz_;
-		my_input.clean_buffer_time = 2;
-		my_input.config_r = 0;
-		my_input.config_rad = 0; // 角度偏移
-		my_input.direction = -1;
-		my_input.stopband_rate = 0.1;
-		my_input.t = 0;
-		my_input.Azimuth = 0;
-		my_input.Distance = 0;
-		my_input.Pitch = 0;
-		my_input.State = 1;
-		my_input.StationXOffset = 0;
-		my_input.StationYOffset = 0;
-		my_input.win_fil = 5;
-		my_input.use_pitch_dis = 0;
+      algorithm_input.Distance = packet->distance;
+      algorithm_input.Azimuth = packet->angle;
+      algorithm_input.Pitch = packet->pitch;
+      const auto steady_now = std::chrono::steady_clock::now();
+      const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        steady_now - algorithm_start_time).count();
+      algorithm_input.t = static_cast<std::uint32_t>(elapsed_ms);
+      algo_uwb_aoa_merge(&algorithm_input, &algorithm_output);
 
-		my_output.r = 0; my_output.rad = 0; my_output.state = 0;
-		my_output.x = 0; my_output.y = 0;
+      // 预留 10% 出包周期容差，避免轻微抖动导致发布频率意外减半。
+      if (have_publish_time_ && steady_now - last_publish_time_ < publish_period_ * 0.9) {
+        continue;
+      }
+      have_publish_time_ = true;
+      last_publish_time_ = steady_now;
 
-		while (rclcpp::ok() && running_){
-			int num_bytes = read(serial_port_, &read_buf, 1);
-			if (num_bytes > 0)
-			{
-				int ret = uart_receive_byte(read_buf[0]);
-				if (ret == 1) {
-					uwb_aoa_fob_pkg_t *c5 = NULL;
-					uint8_t parse_ret = uart_protocol_packet_process((void **)&c5);
-					if (parse_ret == 0xc5 && c5 != NULL) {
+      message.header.stamp = now();
+      message.header.frame_id = frame_id_;
+      message.r = algorithm_output.r;
+      message.a = algorithm_output.rad;
+      message.x = algorithm_output.x;
+      message.y = algorithm_output.y;
+      message.state = algorithm_output.state;
+      for (std::size_t index = 0; index < message.rssi.size(); ++index) {
+        message.rssi[index] = packet->rssi[index];
+      }
+      message.pos_confidence = packet->pos_confidence;
+      message.sync_cnt = packet->sync_cnt;
+      message.fob_id = packet->fob_id;
+      message.fob_type = packet->fob_type;
+      message.raw_distance = packet->distance;
+      message.raw_angle = packet->angle;
+      message.raw_pitch = packet->pitch;
+      message.rx_power = packet->rx_power;
+      message.rssi_fpp = packet->rssi_fpp;
+      message.rssi_np = packet->rssi_np;
+      message.rssi_ble = packet->rssi_ble;
+      publisher_->publish(message);
+    }
+  }
 
-						const auto steady_now = std::chrono::steady_clock::now();
-						const auto algorithm_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-							steady_now - algorithm_start_time).count();
-
-						my_input.Distance = c5->distance; // update dis
-						my_input.Azimuth = c5->angle; //update azi
-						my_input.Pitch = c5->pitch; // update pitch
-						my_input.t = static_cast<uint32_t>(algorithm_time_ms);
-						algo_uwb_aoa_merge(&my_input, &my_output);
-
-						// 留 10% 容差，避免出包间隔略小于目标周期时每两包丢一包。
-						// Allow 10% slack so a packet interval just under the period is not halved.
-						if (last_publish_time_ != std::chrono::steady_clock::time_point::min() &&
-							steady_now - last_publish_time_ < publish_period_ * 0.9)
-						{
-							continue;
-						}
-						last_publish_time_ = steady_now;
-
-						message.header.stamp = this->now();
-						message.header.frame_id = frame_id_;
-
-						message.x = my_output.x;
-						message.y = my_output.y;
-						message.r = my_output.r;
-						message.a = my_output.rad;
-						message.state = my_output.state;
-
-						message.rssi[0] = c5->rssi[0];
-						message.rssi[1] = c5->rssi[1];
-						message.rssi[2] = c5->rssi[2];
-						message.rssi[3] = c5->rssi[3];
-						message.rssi[4] = c5->rssi[4];
-						message.rssi[5] = c5->rssi[5];
-
-						message.pos_confidence = c5->pos_confidence;
-
-						message.sync_cnt = c5->sync_cnt;
-						message.fob_id = c5->fob_id;
-						message.fob_type = c5->fob_type;
-						message.raw_distance = c5->distance;
-						message.raw_angle = c5->angle;
-						message.raw_pitch = c5->pitch;
-						message.rx_power = c5->rx_power;
-						message.rssi_fpp = c5->rssi_fpp;
-						message.rssi_np = c5->rssi_np;
-						message.rssi_ble = c5->rssi_ble;
-
-						publisher_->publish(message);
-					}
-				}
-			}
-		}
-	}
-
-    rclcpp::Publisher<uwb_aoa_pkg::msg::LibAoaRobotMsg>::SharedPtr publisher_;
-	std::thread read_thread_;
-	std::atomic<bool> running_;
-	int serial_port_;
-
-	std::string frame_id_;
-	double publish_rate_hz_;
-	int aoa_frequency_hz_;
-	std::chrono::duration<double> publish_period_{1.0};
-	std::chrono::steady_clock::time_point last_publish_time_{
-		std::chrono::steady_clock::time_point::min()};
+  rclcpp::Publisher<msg::LibAoaRobotMsg>::SharedPtr publisher_;
+  std::thread read_thread_;
+  std::atomic<bool> running_{false};
+  int serial_port_{-1};
+  std::string frame_id_;
+  double publish_rate_hz_{10.0};
+  int aoa_frequency_hz_{10};
+  std::chrono::duration<double> publish_period_{0.1};
+  bool have_publish_time_{false};
+  std::chrono::steady_clock::time_point last_publish_time_{};
 };
 
+}  // namespace uwb_aoa_pkg
 
-
+// 启动 UWB 串口驱动，并在初始化失败时以非零状态退出。
 int main(int argc, char ** argv)
 {
-	rclcpp::init(argc, argv);
-	const std::string dev_name = argc > 1 ? argv[1] : "/dev/ttyUSB0";
-  	rclcpp::spin(std::make_shared<libAoa_robot_publisher>(dev_name));
- 	rclcpp::shutdown();
-
-	return 0;
+  rclcpp::init(argc, argv);
+  try {
+    const std::string device_name = argc > 1 ? argv[1] : "/dev/ttyUSB0";
+    rclcpp::spin(std::make_shared<uwb_aoa_pkg::LibAoaRobotPublisher>(device_name));
+  } catch (const std::exception & exception) {
+    RCLCPP_FATAL(rclcpp::get_logger("libAoa_robot_publisher"), "%s", exception.what());
+    rclcpp::shutdown();
+    return 1;
+  }
+  rclcpp::shutdown();
+  return 0;
 }

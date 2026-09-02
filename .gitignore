@@ -1,7 +1,13 @@
 build/
 install/
 log/
+**/build/
+**/install/
+**/log/
 *.pyc
 __pycache__/
 .cache/
 .vscode/
+diagnostics/
+*.db3
+*.mcap

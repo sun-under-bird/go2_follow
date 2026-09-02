@@ -112,7 +112,7 @@ private:
     const double target_y = sensor_offset_y_ + sine * message->x + cosine * message->y;
 
     geometry_msgs::msg::PointStamped target;
-    // 厂家消息没有 Header，因此时间戳严格定义为本节点收到该帧的时刻。
+    // 统一使用本节点接收时刻，避免驱动时钟与控制节点时钟不一致造成目标误判过期。
     target.header.stamp = now();
     target.header.frame_id = target_frame_;
     target.point.x = target_x;
