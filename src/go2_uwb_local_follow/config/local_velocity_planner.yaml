@@ -3,7 +3,7 @@ local_velocity_planner_node:
     base_frame: base_footprint  # 规划坐标系；应与障碍点云和机器人足迹坐标系一致
     odom_child_frame: base_footprint  # 里程计速度所属坐标系；只使用 twist，不使用 pose
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # UWB 名义速度输入话题
-    obstacle_topic: /local_grid_obstacle  # 过滤后的双目障碍点云话题
+    obstacle_topic: /local_rolling_obstacle  # 里程计补偿和时间衰减后的滚动局部障碍点云
     odom_topic: /odom_leg  # 实际初始速度输入话题
     planned_cmd_topic: /go2_uwb_local_follow/planned_cmd  # 采样器选中的目标速度
     final_cmd_topic: /go2_uwb_local_follow/final_cmd  # 加速度限幅后的最终速度
@@ -15,7 +15,7 @@ local_velocity_planner_node:
     control_frequency: 20.0  # ↑响应快/CPU 高；↓响应慢/CPU 低；BM 点云同频可减少控制排队；步长 5 Hz
     diagnostic_frequency: 2.0  # ↑诊断更密/通信多；↓诊断更稀；步长 1 Heffectivez
     nominal_timeout_sec: 0.20  # ↑容忍 UWB 抖动/丢失停车晚；↓停车快/易误停；步长 0.05 s
-    obstacle_timeout_sec: 1.50  # ↑容忍点云断流/故障响应晚；↓更敏感/易误停；步长 0.10 s
+    obstacle_timeout_sec: 0.70  # 略大于滚动地图原始点云超时，禁止历史重发布掩盖感知断流
     odom_timeout_sec: 0.10  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
     odom_linear_deadband: 0.02  # ↑过滤更多线速度噪声/忽略微动；↓更灵敏/易抖；步长 0.01 m/s
     odom_angular_deadband: 0.05  # ↑过滤更多角速度噪声/忽略微转；↓更灵敏/易抖；步长 0.01 rad/s
@@ -60,10 +60,11 @@ local_velocity_planner_node:
     emergency_half_width: 0.30  # ↑急停通道更宽；↓只关注更窄正前方；步长 0.05 m
     # 紧急区连续命中该帧数才停车，连续清空同样帧数才解除；严格按新点云帧计数。
     emergency_confirm_frames: 3  # ↑更耐单帧伪点/确认更慢；↓响应更快/易误停；步长 1 帧
-    obstacle_x_min: 0.10  # ↑删除更多近点/可能漏障碍；↓保留近点/机身伪点增多；步长 0.05 m
+    obstacle_x_min: -0.50  # 保留运动补偿后落到侧后方的历史障碍，用于旋转足迹扫掠检查
     obstacle_x_max: 3.00  # ↑保留更远障碍/计算多；↓只看近处/计算少；步长 0.20 m
     obstacle_y_abs_max: 3.00  # ↑保留更宽侧向区域/计算多；↓视野更窄/可能漏侧障；步长 0.20 m
-    self_filter_x_min: -0.35  # 减小会向后扩大机身过滤；增大会缩小后侧过滤；步长 0.02 m
+    enable_self_filter: false  # 原始点云已完成环境过滤，禁止删除进入当前足迹的历史真实障碍
+    self_filter_x_min: -0.35  # 仅在 enable_self_filter=true 时生效
     self_filter_x_max: 0.35  # ↑向前扩大机身过滤/可能删近障；↓保留更多前点；步长 0.02 m
     self_filter_y_abs: 0.20  # ↑横向机身过滤更宽/可能删近障；↓机身伪点可能增多；步长 0.02 m
     max_obstacle_points: 5000  # ↑保留点多/规划慢；↓计算快/稠密场景信息少；步长 500

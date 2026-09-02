@@ -159,6 +159,7 @@ public:
     obstacle_x_min_ = declare_parameter<double>("obstacle_x_min", -0.50);
     obstacle_x_max_ = declare_parameter<double>("obstacle_x_max", 3.00);
     obstacle_y_abs_max_ = declare_parameter<double>("obstacle_y_abs_max", 2.00);
+    enable_self_filter_ = declare_parameter<bool>("enable_self_filter", true);
     self_filter_x_min_ = declare_parameter<double>("self_filter_x_min", -0.35);
     self_filter_x_max_ = declare_parameter<double>("self_filter_x_max", 0.35);
     self_filter_y_abs_ = declare_parameter<double>("self_filter_y_abs", 0.20);
@@ -405,7 +406,7 @@ private:
           continue;
         }
         const bool inside_self_filter =
-          x >= self_filter_x_min_ && x <= self_filter_x_max_ &&
+          enable_self_filter_ && x >= self_filter_x_min_ && x <= self_filter_x_max_ &&
           std::abs(y) <= self_filter_y_abs_;
         if (inside_self_filter) {
           continue;
@@ -817,6 +818,7 @@ private:
   double obstacle_x_min_{-0.50};
   double obstacle_x_max_{3.00};
   double obstacle_y_abs_max_{2.00};
+  bool enable_self_filter_{true};
   double self_filter_x_min_{-0.35};
   double self_filter_x_max_{0.35};
   double self_filter_y_abs_{0.20};

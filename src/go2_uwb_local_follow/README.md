@@ -1,11 +1,12 @@
 # go2_uwb_local_follow
 
-当前已实现四个可独立验收的阶段：
+当前已实现五个可独立验收的阶段：
 
 1. 双目视差与 `base_footprint` 障碍点云。
 2. 厂家 UWB 原始消息适配与不带避障的纯跟随控制。
 3. 名义轨迹预测、矩形足迹碰撞检查和紧急停车调试。
 4. 使用 `/odom_leg` 实测初始速度的局部速度采样与碰撞规划。
+5. 使用点云时间戳和 `/odom_leg` 位姿补偿的滚动局部障碍地图。
 
 ```text
 infra1/infra2 已校正图像
@@ -13,6 +14,8 @@ infra1/infra2 已校正图像
   -> /stereo/disparity
   -> stereo_obstacle_projector_node
   -> /local_grid_obstacle (base_footprint)
+  -> rolling_obstacle_map_node + /odom_leg pose
+  -> /local_rolling_obstacle (当前点云时刻 base_footprint)
 ```
 
 自定义节点直接抽样视差并按 `Z=fT/d` 反投影，不创建完整稠密点云。每个三维点按视差时间戳通过 TF 转换到 `base_footprint`，只保留 `0.10 <= z <= 0.50 m`，最后执行 5 cm 体素过滤。
@@ -24,9 +27,9 @@ infra1/infra2 已校正图像
 ## 编译
 
 ```bash
-cd /root/go2_follow_worktree
+cd /home/bird/go2_follow_rolling_map
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install --packages-select go2_uwb_local_follow
+colcon build --symlink-install --packages-up-to go2_uwb_local_follow
 source install/setup.bash
 ```
 
@@ -53,6 +56,7 @@ ros2 launch go2_uwb_local_follow local_follow.launch.py enable_motion:=false
 
 ```bash
 ros2 launch go2_uwb_local_follow stereo_obstacle_cloud.launch.py
+ros2 launch go2_uwb_local_follow rolling_obstacle_map.launch.py
 ```
 
 临时发布完整深度图用于检查：
@@ -67,7 +71,9 @@ ros2 launch go2_uwb_local_follow stereo_obstacle_cloud.launch.py \
 ```bash
 ros2 topic hz /stereo/disparity
 ros2 topic hz /local_grid_obstacle
+ros2 topic hz /local_rolling_obstacle
 ros2 topic echo /stereo/obstacle_diagnostics
+ros2 topic echo /go2_uwb_local_follow/rolling_map_diagnostics
 ros2 topic echo /local_grid_obstacle --field header --once
 ros2 run tf2_ros tf2_echo base_footprint camera_infra1_optical_frame
 ```
@@ -151,10 +157,23 @@ UWB 名义转向使用角度滞回：目标方位进入 `angle_deadband` 后停�
 只有再次越过更大的 `angle_reengage` 才重新转向。这用于避免底盘最小有效
 角速度较大时，机器人每次穿过目标方向就立即反转。
 
-`local_velocity_planner_node` 订阅 `/odom_leg`（`nav_msgs/msg/Odometry`），但只读取
-`twist.twist.linear.x` 和 `twist.twist.angular.z` 作为当前真实速度；不使用 odom
-位姿、不累计轨迹，也不把障碍物转换到 odom。每条候选轨迹从该实测速度开始，
-按照加减速度限制展开，并在 `1.2 s` 预测时域末尾继续追加到完全停止的制动尾段。
+`local_velocity_planner_node` 仍只读取 `/odom_leg` 的 `twist.twist.linear.x` 和
+`twist.twist.angular.z` 作为当前真实速度。新增的 `rolling_obstacle_map_node` 独立
+读取同一话题的带时间戳 pose：每帧 `/local_grid_obstacle` 先按点云时间戳插值
+`odom -> base_footprint` 位姿并转换到局部 `odom` 体素地图，再把全部保留障碍补偿到
+该点云时刻的当前 `base_footprint`，发布 `/local_rolling_obstacle` 给原规划器。
+它不需要 SLAM、全局地图或全局路径。
+
+滚动地图默认只保留机器人周围 `3.0 m`、最近 `1.0 s` 内观测到的障碍；同一体素
+的新观测刷新时间，超时、超范围和超过点数上限的障碍自动删除。里程计时间回退
+或短时间位置/朝向大跳变会立即清空历史地图。滚动地图只在收到合法的新原始点云
+后发布，因此不会用历史点持续重发来掩盖双目断流；规划器对其使用 `0.70 s` 超时。
+规划器在该分支保留补偿后位于 `x >= -0.50 m` 的侧后方障碍，并关闭二次机身过滤，
+避免真实历史障碍进入当前足迹后反而被当作机器人自身点删除。
+
+每条候选轨迹仍从实测速度开始，按照加减速度限制展开，并在 `1.2 s` 预测时域
+末尾继续追加到完全停止的制动尾段。速度采样、净空/TTC 分层和碰撞评分逻辑没有
+因滚动地图而改变。
 
 规划器按 `[1.0, 0.85, 0.70, 0.50, 0.0]` 分层尝试 UWB 名义线速度，每一层只
 采样角速度并淘汰碰撞轨迹。无硬碰撞但未达到基础净空或保守 TTC 的轨迹记为
@@ -184,6 +203,7 @@ ros2 launch go2_uwb_local_follow local_velocity_planner.launch.py
 ros2 topic echo /go2_uwb_local_follow/planned_cmd
 ros2 topic echo /go2_uwb_local_follow/final_cmd
 ros2 topic echo /go2_uwb_local_follow/planner_diagnostics
+ros2 topic echo /go2_uwb_local_follow/rolling_map_diagnostics
 ```
 
 在 RViz 中显示 `/go2_uwb_local_follow/selected_path`。该 Path 包括规划时域以及

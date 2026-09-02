@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""启动使用实测初始速度、制动尾段和足迹碰撞检查的局部速度规划器."""
+"""启动里程计补偿滚动地图和使用实测初始速度的局部速度规划器."""
 
 from pathlib import Path
 
@@ -28,13 +28,38 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description() -> LaunchDescription:
     package_share = Path(get_package_share_directory("go2_uwb_local_follow"))
     default_params = str(package_share / "config" / "local_velocity_planner.yaml")
+    default_rolling_map_params = str(
+        package_share / "config" / "rolling_obstacle_map.yaml"
+    )
 
     params_file = LaunchConfiguration("params_file")
+    rolling_map_params_file = LaunchConfiguration("rolling_map_params_file")
     nominal_cmd_topic = LaunchConfiguration("nominal_cmd_topic")
     obstacle_topic = LaunchConfiguration("obstacle_topic")
+    rolling_obstacle_topic = LaunchConfiguration("rolling_obstacle_topic")
     odom_topic = LaunchConfiguration("odom_topic")
+    base_frame = LaunchConfiguration("base_frame")
+    odom_frame = LaunchConfiguration("odom_frame")
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     enable_motion = LaunchConfiguration("enable_motion")
+
+    rolling_map_node = Node(
+        package="go2_uwb_local_follow",
+        executable="rolling_obstacle_map_node",
+        name="rolling_obstacle_map_node",
+        output="screen",
+        parameters=[
+            rolling_map_params_file,
+            {
+                "base_frame": base_frame,
+                "odom_frame": odom_frame,
+                "odom_child_frame": base_frame,
+                "input_obstacle_topic": obstacle_topic,
+                "output_obstacle_topic": rolling_obstacle_topic,
+                "odom_topic": odom_topic,
+            },
+        ],
+    )
 
     planner_node = Node(
         package="go2_uwb_local_follow",
@@ -44,8 +69,10 @@ def generate_launch_description() -> LaunchDescription:
         parameters=[
             params_file,
             {
+                "base_frame": base_frame,
+                "odom_child_frame": base_frame,
                 "nominal_cmd_topic": nominal_cmd_topic,
-                "obstacle_topic": obstacle_topic,
+                "obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
                 "cmd_vel_topic": cmd_vel_topic,
                 "enable_motion": ParameterValue(enable_motion, value_type=bool),
@@ -57,17 +84,26 @@ def generate_launch_description() -> LaunchDescription:
         [
             DeclareLaunchArgument("params_file", default_value=default_params),
             DeclareLaunchArgument(
+                "rolling_map_params_file", default_value=default_rolling_map_params
+            ),
+            DeclareLaunchArgument(
                 "nominal_cmd_topic",
                 default_value="/go2_uwb_local_follow/nominal_cmd",
             ),
             DeclareLaunchArgument(
                 "obstacle_topic", default_value="/local_grid_obstacle"
             ),
+            DeclareLaunchArgument(
+                "rolling_obstacle_topic", default_value="/local_rolling_obstacle"
+            ),
             DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
+            DeclareLaunchArgument("base_frame", default_value="base_footprint"),
+            DeclareLaunchArgument("odom_frame", default_value="odom"),
             DeclareLaunchArgument(
                 "cmd_vel_topic", default_value="/cmd_vel_planned"
             ),
             DeclareLaunchArgument("enable_motion", default_value="false"),
+            rolling_map_node,
             planner_node,
         ]
     )

@@ -43,6 +43,15 @@ target_include_directories(local_planner_core PUBLIC
 )
 target_compile_features(local_planner_core PUBLIC cxx_std_17)
 
+add_library(rolling_obstacle_map_core
+  src/rolling_obstacle_map_core.cpp
+)
+target_include_directories(rolling_obstacle_map_core PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_compile_features(rolling_obstacle_map_core PUBLIC cxx_std_17)
+
 add_executable(stereo_obstacle_projector_node
   src/stereo_obstacle_projector_node.cpp
 )
@@ -122,16 +131,34 @@ ament_target_dependencies(local_velocity_planner_node
   sensor_msgs
 )
 
+add_executable(rolling_obstacle_map_node
+  src/rolling_obstacle_map_node.cpp
+)
+target_include_directories(rolling_obstacle_map_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+target_compile_features(rolling_obstacle_map_node PUBLIC cxx_std_17)
+target_link_libraries(rolling_obstacle_map_node rolling_obstacle_map_core)
+ament_target_dependencies(rolling_obstacle_map_node
+  diagnostic_msgs
+  geometry_msgs
+  nav_msgs
+  rclcpp
+  sensor_msgs
+)
+
 install(
   TARGETS
     stereo_projection_core
     follow_control_core
     local_planner_core
+    rolling_obstacle_map_core
     stereo_obstacle_projector_node
     uwb_target_adapter_node
     uwb_follow_controller_node
     local_collision_monitor_node
     local_velocity_planner_node
+    rolling_obstacle_map_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -161,8 +188,19 @@ if(BUILD_TESTING)
   )
   target_link_libraries(test_local_planner_core local_planner_core)
   target_include_directories(test_local_planner_core PRIVATE include)
+
+  ament_add_gtest(test_rolling_obstacle_map_core
+    test/test_rolling_obstacle_map_core.cpp
+  )
+  target_link_libraries(test_rolling_obstacle_map_core rolling_obstacle_map_core)
+  target_include_directories(test_rolling_obstacle_map_core PRIVATE include)
 endif()
 
 ament_export_include_directories(include)
-ament_export_libraries(stereo_projection_core follow_control_core local_planner_core)
+ament_export_libraries(
+  stereo_projection_core
+  follow_control_core
+  local_planner_core
+  rolling_obstacle_map_core
+)
 ament_package()

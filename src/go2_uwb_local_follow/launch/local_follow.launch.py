@@ -32,15 +32,18 @@ def generate_launch_description() -> LaunchDescription:
     stereo_params_file = LaunchConfiguration("stereo_params_file")
     follow_params_file = LaunchConfiguration("follow_params_file")
     planner_params_file = LaunchConfiguration("planner_params_file")
+    rolling_map_params_file = LaunchConfiguration("rolling_map_params_file")
     left_image = LaunchConfiguration("left_image")
     left_camera_info = LaunchConfiguration("left_camera_info")
     right_image = LaunchConfiguration("right_image")
     right_camera_info = LaunchConfiguration("right_camera_info")
     disparity_topic = LaunchConfiguration("disparity_topic")
     obstacle_topic = LaunchConfiguration("obstacle_topic")
+    rolling_obstacle_topic = LaunchConfiguration("rolling_obstacle_topic")
     raw_uwb_topic = LaunchConfiguration("raw_uwb_topic")
     target_topic = LaunchConfiguration("target_topic")
     base_frame = LaunchConfiguration("base_frame")
+    odom_frame = LaunchConfiguration("odom_frame")
     odom_topic = LaunchConfiguration("odom_topic")
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     enable_motion = LaunchConfiguration("enable_motion")
@@ -112,6 +115,24 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
+    rolling_map_node = Node(
+        package="go2_uwb_local_follow",
+        executable="rolling_obstacle_map_node",
+        name="rolling_obstacle_map_node",
+        output="screen",
+        parameters=[
+            rolling_map_params_file,
+            {
+                "base_frame": base_frame,
+                "odom_frame": odom_frame,
+                "odom_child_frame": base_frame,
+                "input_obstacle_topic": obstacle_topic,
+                "output_obstacle_topic": rolling_obstacle_topic,
+                "odom_topic": odom_topic,
+            },
+        ],
+    )
+
     planner_node = Node(
         package="go2_uwb_local_follow",
         executable="local_velocity_planner_node",
@@ -123,7 +144,7 @@ def generate_launch_description() -> LaunchDescription:
                 "base_frame": base_frame,
                 "odom_child_frame": base_frame,
                 "nominal_cmd_topic": "/go2_uwb_local_follow/nominal_cmd",
-                "obstacle_topic": obstacle_topic,
+                "obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
                 "cmd_vel_topic": cmd_vel_topic,
                 "enable_motion": ParameterValue(enable_motion, value_type=bool),
@@ -144,6 +165,10 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "planner_params_file",
                 default_value=str(config_directory / "local_velocity_planner.yaml"),
+            ),
+            DeclareLaunchArgument(
+                "rolling_map_params_file",
+                default_value=str(config_directory / "rolling_obstacle_map.yaml"),
             ),
             DeclareLaunchArgument(
                 "left_image",
@@ -168,10 +193,14 @@ def generate_launch_description() -> LaunchDescription:
                 "obstacle_topic", default_value="/local_grid_obstacle"
             ),
             DeclareLaunchArgument(
+                "rolling_obstacle_topic", default_value="/local_rolling_obstacle"
+            ),
+            DeclareLaunchArgument(
                 "raw_uwb_topic", default_value="/libAoa_robot_publisher"
             ),
             DeclareLaunchArgument("target_topic", default_value="/uwb/target_point"),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
+            DeclareLaunchArgument("odom_frame", default_value="odom"),
             DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
             DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
             DeclareLaunchArgument("enable_motion", default_value="true"),
@@ -180,6 +209,7 @@ def generate_launch_description() -> LaunchDescription:
             projector_node,
             adapter_node,
             follow_node,
+            rolling_map_node,
             planner_node,
         ]
     )
