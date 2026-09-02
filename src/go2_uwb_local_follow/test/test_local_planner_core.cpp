@@ -283,7 +283,10 @@ TEST(LocalVelocityPlanner, KeepsNominalSpeedWhenTurningIsSafe)
   const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
   const planner::FootprintConfig footprint;
   const planner::MotionLimits limits;
-  const planner::VelocitySamplingConfig sampling;
+  planner::VelocitySamplingConfig sampling;
+  // 本用例只验证硬碰撞条件下的同速转弯，软净空和 TTC 降层由独立用例覆盖。
+  sampling.minimum_safe_clearance = 0.0;
+  sampling.minimum_ttc = 0.0;
   const std::vector<planner::ObstaclePoint2D> obstacles{{0.75, 0.0}};
   const auto result = planner::planLocalVelocity(
     {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, obstacles, trajectory_config,
@@ -365,6 +368,91 @@ TEST(LocalVelocityPlanner, ReducesSpeedOnlyAfterNominalTierIsBlocked)
   EXPECT_LT(result.selected_velocity.linear_x, result.effective_nominal.linear_x);
 }
 
+// 验证高速层只有勉强净空时继续降层，并在首个满足 TTC 的非零速度层返回。
+TEST(LocalVelocityPlanner, ReducesSpeedForMarginalClearanceTtc)
+{
+  const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
+  const planner::FootprintConfig footprint;
+  const planner::MotionLimits limits;
+  planner::VelocitySamplingConfig sampling;
+  sampling.angular_samples = 3;
+  sampling.min_avoidance_angular_speed = 0.0;
+  sampling.max_avoidance_angular_speed = 0.0;
+  sampling.linear_speed_priority_scales = {1.0, 0.5, 0.0};
+  sampling.minimum_safe_clearance = 0.05;
+  sampling.minimum_ttc = 0.40;
+  const std::vector<planner::ObstaclePoint2D> obstacles{{0.60, 0.38}};
+
+  const auto result = planner::planLocalVelocity(
+    {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, obstacles, trajectory_config,
+    footprint, limits, sampling);
+
+  ASSERT_TRUE(result.valid);
+  EXPECT_TRUE(result.avoidance_active);
+  EXPECT_DOUBLE_EQ(result.selected_speed_scale, 0.5);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, 0.15);
+  EXPECT_GT(result.marginal_count, 0U);
+  EXPECT_GE(result.min_clearance, result.required_clearance);
+  EXPECT_GE(result.clearance_ttc, sampling.minimum_ttc);
+}
+
+// 验证较低的非零速度层一旦严格安全，即使停车代价更低也禁止选择零速层。
+TEST(LocalVelocityPlanner, PrefersAnySafeMovingTierOverStopping)
+{
+  const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
+  const planner::FootprintConfig footprint;
+  const planner::MotionLimits limits;
+  planner::VelocitySamplingConfig sampling;
+  sampling.angular_samples = 3;
+  sampling.min_avoidance_angular_speed = 0.0;
+  sampling.max_avoidance_angular_speed = 0.0;
+  sampling.linear_speed_priority_scales = {1.0, 0.5, 0.0};
+  sampling.minimum_safe_clearance = 0.05;
+  sampling.minimum_ttc = 0.40;
+  sampling.weight_follow_linear = 0.0;
+  sampling.weight_follow_angular = 0.0;
+  sampling.weight_smooth_linear = 0.0;
+  sampling.weight_smooth_angular = 0.0;
+  sampling.weight_obstacle = 0.0;
+  sampling.weight_progress = 0.0;
+  const std::vector<planner::ObstaclePoint2D> obstacles{{0.60, 0.38}};
+
+  const auto result = planner::planLocalVelocity(
+    {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, obstacles, trajectory_config,
+    footprint, limits, sampling);
+
+  ASSERT_TRUE(result.valid);
+  EXPECT_DOUBLE_EQ(result.selected_speed_scale, 0.5);
+  EXPECT_GT(result.selected_velocity.linear_x, 0.0);
+}
+
+// 验证全部非零层都只有勉强轨迹时，最后允许选择无硬碰撞的停车兜底。
+TEST(LocalVelocityPlanner, AllowsStopOnlyAfterEveryMovingTierIsMarginal)
+{
+  const planner::TrajectoryConfig trajectory_config{1.20, 0.05};
+  const planner::FootprintConfig footprint;
+  const planner::MotionLimits limits;
+  planner::VelocitySamplingConfig sampling;
+  sampling.angular_samples = 3;
+  sampling.min_avoidance_angular_speed = 0.0;
+  sampling.max_avoidance_angular_speed = 0.0;
+  sampling.linear_speed_priority_scales = {1.0, 0.5, 0.0};
+  sampling.minimum_safe_clearance = 0.25;
+  sampling.minimum_ttc = 2.0;
+  const std::vector<planner::ObstaclePoint2D> obstacles{{0.60, 0.38}};
+
+  const auto result = planner::planLocalVelocity(
+    {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, obstacles, trajectory_config,
+    footprint, limits, sampling);
+
+  ASSERT_TRUE(result.valid);
+  EXPECT_DOUBLE_EQ(result.selected_speed_scale, 0.0);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, 0.0);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.angular_z, 0.0);
+  EXPECT_GT(result.marginal_count, 0U);
+  EXPECT_LT(result.min_clearance, result.required_clearance);
+}
+
 // 验证障碍已经进入当前膨胀足迹时所有候选都会被安全淘汰。
 TEST(LocalVelocityPlanner, RejectsEveryCandidateForOccupiedFootprint)
 {
@@ -404,11 +492,17 @@ TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
   planner::VelocitySamplingConfig avoidance_limits;
   avoidance_limits.min_avoidance_angular_speed = 1.0;
   avoidance_limits.max_avoidance_angular_speed = 0.9;
+  planner::VelocitySamplingConfig clearance_limits;
+  clearance_limits.minimum_safe_clearance = -0.01;
+  planner::VelocitySamplingConfig ttc_limits;
+  ttc_limits.minimum_ttc = -0.01;
   planner::MotionLimits limits;
   limits.min_angular_speed = limits.max_angular_speed + 0.1;
   std::string reason;
 
   EXPECT_FALSE(planner::validateVelocitySamplingConfig(sampling, &reason));
   EXPECT_FALSE(planner::validateVelocitySamplingConfig(avoidance_limits, &reason));
+  EXPECT_FALSE(planner::validateVelocitySamplingConfig(clearance_limits, &reason));
+  EXPECT_FALSE(planner::validateVelocitySamplingConfig(ttc_limits, &reason));
   EXPECT_FALSE(planner::validateMotionLimits(limits, &reason));
 }

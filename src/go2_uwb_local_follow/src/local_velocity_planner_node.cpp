@@ -137,6 +137,9 @@ public:
       "linear_speed_priority_scales", {1.0, 0.85, 0.70, 0.50, 0.0});
     sampling_config_.obstacle_influence_distance = declare_parameter<double>(
       "obstacle_influence_distance", 0.35);
+    sampling_config_.minimum_safe_clearance = declare_parameter<double>(
+      "minimum_safe_clearance", 0.05);
+    sampling_config_.minimum_ttc = declare_parameter<double>("minimum_ttc", 0.20);
     sampling_config_.weight_follow_linear = declare_parameter<double>(
       "weight_follow_linear", 8.0);
     sampling_config_.weight_follow_angular = declare_parameter<double>(
@@ -241,10 +244,13 @@ private:
     double obstacle_age{std::numeric_limits<double>::infinity()};
     double odom_age{std::numeric_limits<double>::infinity()};
     double min_clearance{std::numeric_limits<double>::infinity()};
+    double required_clearance{0.0};
+    double clearance_ttc{std::numeric_limits<double>::infinity()};
     double planning_time_ms{0.0};
     std::size_t obstacle_count{0U};
     std::size_t evaluated_count{0U};
     std::size_t collision_count{0U};
+    std::size_t marginal_count{0U};
     int avoidance_turn_direction{0};
     double selected_speed_scale{0.0};
     bool avoidance_active{false};
@@ -588,6 +594,7 @@ private:
     status.effective_nominal = result.effective_nominal;
     status.evaluated_count = result.evaluated_count;
     status.collision_count = result.collision_count;
+    status.marginal_count = result.marginal_count;
     status.avoidance_active = result.avoidance_active;
     status.selected_speed_scale = result.selected_speed_scale;
 
@@ -604,6 +611,8 @@ private:
     status.avoidance_turn_direction = avoidance_turn_direction_;
     status.cost = result.cost;
     status.min_clearance = result.min_clearance;
+    status.required_clearance = result.required_clearance;
+    status.clearance_ttc = result.clearance_ttc;
     PlannerVelocity2D final_command = limitCommandVelocity(
       previous_command, result.selected_velocity, motion_limits_, control_dt);
     if (result.avoidance_active) {
@@ -741,11 +750,14 @@ private:
       {"obstacle_count", std::to_string(status.obstacle_count)},
       {"evaluated_count", std::to_string(status.evaluated_count)},
       {"collision_count", std::to_string(status.collision_count)},
+      {"marginal_count", std::to_string(status.marginal_count)},
       {"avoidance_turn_direction", std::to_string(status.avoidance_turn_direction)},
       {"avoidance_active", status.avoidance_active ? "true" : "false"},
       {"selected_speed_scale", formatDouble(status.selected_speed_scale)},
       {"emergency", status.emergency ? "true" : "false"},
       {"min_clearance", formatDouble(status.min_clearance)},
+      {"required_clearance", formatDouble(status.required_clearance)},
+      {"clearance_ttc", formatDouble(status.clearance_ttc)},
       {"planning_time_ms", formatDouble(status.planning_time_ms)},
       {"measured_v", formatDouble(status.measured.linear_x)},
       {"measured_w", formatDouble(status.measured.angular_z)},

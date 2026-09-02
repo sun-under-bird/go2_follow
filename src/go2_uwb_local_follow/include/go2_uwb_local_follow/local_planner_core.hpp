@@ -94,6 +94,10 @@ struct VelocitySamplingConfig
   // 按顺序尝试的 UWB 线速度比例，当前层存在安全轨迹时不再继续减速。
   std::vector<double> linear_speed_priority_scales{1.0, 0.85, 0.70, 0.50, 0.0};
   double obstacle_influence_distance{0.35};
+  // 候选轨迹除硬碰撞检查外还必须保留的最小软净空。
+  double minimum_safe_clearance{0.05};
+  // 用足迹边界速度估算的最小净空 TTC，速度越高要求的净空越大。
+  double minimum_ttc{0.20};
   double weight_follow_linear{8.0};
   double weight_follow_angular{12.0};
   double weight_smooth_linear{4.0};
@@ -120,8 +124,11 @@ struct LocalPlanResult
   std::vector<PlannerPose2D> selected_trajectory;
   PlannerCost cost;
   double min_clearance{std::numeric_limits<double>::infinity()};
+  double required_clearance{0.0};
+  double clearance_ttc{std::numeric_limits<double>::infinity()};
   std::size_t evaluated_count{0U};
   std::size_t collision_count{0U};
+  std::size_t marginal_count{0U};
   double selected_speed_scale{0.0};
 };
 

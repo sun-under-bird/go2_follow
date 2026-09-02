@@ -215,6 +215,8 @@ bool validateVelocitySamplingConfig(
   const bool finite = std::isfinite(config.min_avoidance_angular_speed) &&
     std::isfinite(config.max_avoidance_angular_speed) &&
     std::isfinite(config.obstacle_influence_distance) &&
+    std::isfinite(config.minimum_safe_clearance) &&
+    std::isfinite(config.minimum_ttc) &&
     std::isfinite(config.weight_follow_linear) &&
     std::isfinite(config.weight_follow_angular) &&
     std::isfinite(config.weight_smooth_linear) &&
@@ -225,7 +227,8 @@ bool validateVelocitySamplingConfig(
   }
   if (config.min_avoidance_angular_speed < 0.0 ||
     config.max_avoidance_angular_speed < config.min_avoidance_angular_speed ||
-    config.obstacle_influence_distance <= 0.0 || config.weight_follow_linear < 0.0 ||
+    config.obstacle_influence_distance <= 0.0 || config.minimum_safe_clearance < 0.0 ||
+    config.minimum_ttc < 0.0 || config.weight_follow_linear < 0.0 ||
     config.weight_follow_angular < 0.0 || config.weight_smooth_linear < 0.0 ||
     config.weight_smooth_angular < 0.0 || config.weight_obstacle < 0.0 ||
     config.weight_progress < 0.0)
@@ -675,6 +678,48 @@ struct LinearSpeedLevel
   double scale{0.0};
 };
 
+struct CandidateSafetyEvaluation
+{
+  bool strictly_safe{false};
+  double required_clearance{0.0};
+  double clearance_ttc{std::numeric_limits<double>::infinity()};
+};
+
+// 根据平移和旋转造成的足迹边界速度，计算候选轨迹需要满足的软净空与保守 TTC。
+CandidateSafetyEvaluation evaluateCandidateSafety(
+  const PlannerVelocity2D & candidate,
+  const CollisionResult & collision,
+  const FootprintConfig & footprint,
+  const VelocitySamplingConfig & config)
+{
+  CandidateSafetyEvaluation evaluation;
+  const double half_length = footprint.robot_length * 0.5 + footprint.safety_margin;
+  const double half_width = footprint.robot_width * 0.5 + footprint.safety_margin;
+  const double footprint_radius = std::hypot(half_length, half_width);
+  const double boundary_speed = std::abs(candidate.linear_x) +
+    std::abs(candidate.angular_z) * footprint_radius;
+  evaluation.required_clearance = std::max(
+    config.minimum_safe_clearance, config.minimum_ttc * boundary_speed);
+
+  constexpr double speed_tolerance = 1e-9;
+  if (std::isfinite(collision.min_clearance) && boundary_speed > speed_tolerance) {
+    evaluation.clearance_ttc = std::max(0.0, collision.min_clearance) / boundary_speed;
+  }
+
+  constexpr double clearance_tolerance = 1e-9;
+  evaluation.strictly_safe = !collision.collision &&
+    collision.min_clearance + clearance_tolerance >= evaluation.required_clearance;
+  return evaluation;
+}
+
+// 判断候选是否为停止平移且停止旋转的最终兜底目标。
+bool isFullStopVelocity(const PlannerVelocity2D & velocity)
+{
+  constexpr double tolerance = 1e-9;
+  return std::abs(velocity.linear_x) <= tolerance &&
+         std::abs(velocity.angular_z) <= tolerance;
+}
+
 // 根据配置生成严格按优先级排列的线速度层，并合并最小线速度造成的重复层。
 std::vector<LinearSpeedLevel> makeLinearSpeedLevels(
   double nominal_linear,
@@ -726,10 +771,12 @@ LocalPlanResult planLocalVelocity(
     measured_velocity, result.effective_nominal, trajectory_config, limits, true);
   const CollisionResult nominal_collision = checkTrajectoryCollision(
     nominal_trajectory, obstacles, footprint_config);
+  const CandidateSafetyEvaluation nominal_safety = evaluateCandidateSafety(
+    result.effective_nominal, nominal_collision, footprint_config, sampling_config);
   const bool nominal_has_clearance = !std::isfinite(nominal_collision.min_clearance) ||
     nominal_collision.min_clearance >= sampling_config.obstacle_influence_distance;
   result.avoidance_active = force_linear_stop || nominal_collision.collision ||
-    !nominal_has_clearance;
+    !nominal_has_clearance || !nominal_safety.strictly_safe;
   if (!result.avoidance_active) {
     result.valid = true;
     result.selected_velocity = result.effective_nominal;
@@ -738,6 +785,8 @@ LocalPlanResult planLocalVelocity(
       result.selected_velocity, result.effective_nominal, clamped_previous,
       nominal_collision.min_clearance, limits, sampling_config);
     result.min_clearance = nominal_collision.min_clearance;
+    result.required_clearance = nominal_safety.required_clearance;
+    result.clearance_ttc = nominal_safety.clearance_ttc;
     result.evaluated_count = 1U;
     result.selected_speed_scale = result.effective_nominal.linear_x > 0.0 ? 1.0 : 0.0;
     return result;
@@ -755,6 +804,8 @@ LocalPlanResult planLocalVelocity(
     std::vector<PlannerPose2D> level_trajectory;
     PlannerCost level_cost;
     double level_clearance = std::numeric_limits<double>::infinity();
+    double level_required_clearance = 0.0;
+    double level_clearance_ttc = std::numeric_limits<double>::infinity();
 
     for (const double angular_z : angular_values) {
       const PlannerVelocity2D candidate{level.velocity, angular_z};
@@ -768,6 +819,17 @@ LocalPlanResult planLocalVelocity(
         continue;
       }
 
+      const CandidateSafetyEvaluation safety = evaluateCandidateSafety(
+        candidate, collision, footprint_config, sampling_config);
+      const bool full_stop_fallback = isFullStopVelocity(candidate);
+      if (!safety.strictly_safe) {
+        ++result.marginal_count;
+        // 停车是所有非零速度层失败后的最后兜底，只要求完整制动轨迹不发生硬碰撞。
+        if (!full_stop_fallback) {
+          continue;
+        }
+      }
+
       const PlannerCost cost = scoreVelocityCandidate(
         candidate, result.effective_nominal, clamped_previous,
         collision.min_clearance, limits, sampling_config);
@@ -777,6 +839,8 @@ LocalPlanResult planLocalVelocity(
         level_trajectory = std::move(trajectory);
         level_cost = cost;
         level_clearance = collision.min_clearance;
+        level_required_clearance = safety.required_clearance;
+        level_clearance_ttc = safety.clearance_ttc;
       }
     }
 
@@ -786,6 +850,8 @@ LocalPlanResult planLocalVelocity(
       result.selected_trajectory = std::move(level_trajectory);
       result.cost = level_cost;
       result.min_clearance = level_clearance;
+      result.required_clearance = level_required_clearance;
+      result.clearance_ttc = level_clearance_ttc;
       result.selected_speed_scale = level.scale;
       return result;
     }

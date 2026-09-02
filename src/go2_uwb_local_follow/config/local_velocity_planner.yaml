@@ -47,6 +47,8 @@ local_velocity_planner_node:
     max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随仍可达到 2.0 rad/s；步长 0.10 rad/s
     linear_speed_priority_scales: [1.0, 0.85, 0.70, 0.50, 0.0]  # 当前速度层无安全轨迹才进入下一层
     obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
+    minimum_safe_clearance: 0.05  # 候选相对膨胀足迹的基础软净空；低于该值视为勉强不碰撞
+    minimum_ttc: 0.20  # 按足迹边界速度换算所需净空；↑高速更早降层，↓更偏向保持速度；步长 0.05 s
     weight_follow_linear: 4.0  # ↑更服从 UWB 线速度；↓更允许避障减速；步长 0.5
     weight_follow_angular: 3.0  # ↑更服从 UWB 角速度，名义为零时更直；↓更易主动绕行；步长 0.5
     weight_smooth_linear: 6.0  # ↑线速度更连续/响应慢；↓响应快/易忽快忽慢；步长 0.5
