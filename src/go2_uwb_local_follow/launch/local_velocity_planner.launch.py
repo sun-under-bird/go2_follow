@@ -35,7 +35,7 @@ def generate_launch_description() -> LaunchDescription:
     params_file = LaunchConfiguration("params_file")
     rolling_map_params_file = LaunchConfiguration("rolling_map_params_file")
     nominal_cmd_topic = LaunchConfiguration("nominal_cmd_topic")
-    obstacle_topic = LaunchConfiguration("obstacle_topic")
+    observation_topic = LaunchConfiguration("observation_topic")
     rolling_obstacle_topic = LaunchConfiguration("rolling_obstacle_topic")
     odom_topic = LaunchConfiguration("odom_topic")
     base_frame = LaunchConfiguration("base_frame")
@@ -54,7 +54,7 @@ def generate_launch_description() -> LaunchDescription:
                 "base_frame": base_frame,
                 "odom_frame": odom_frame,
                 "odom_child_frame": base_frame,
-                "input_obstacle_topic": obstacle_topic,
+                "input_observation_topic": observation_topic,
                 "output_obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
             },
@@ -91,7 +91,7 @@ def generate_launch_description() -> LaunchDescription:
                 default_value="/go2_uwb_local_follow/nominal_cmd",
             ),
             DeclareLaunchArgument(
-                "obstacle_topic", default_value="/local_grid_obstacle"
+                "observation_topic", default_value="/local_depth_observation"
             ),
             DeclareLaunchArgument(
                 "rolling_obstacle_topic", default_value="/local_rolling_obstacle"

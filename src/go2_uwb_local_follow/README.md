@@ -6,19 +6,23 @@
 2. 厂家 UWB 原始消息适配与不带避障的纯跟随控制。
 3. 名义轨迹预测、矩形足迹碰撞检查和紧急停车调试。
 4. 使用 `/odom_leg` 实测初始速度的局部速度采样与碰撞规划。
-5. 使用点云时间戳和 `/odom_leg` 位姿补偿的滚动局部障碍地图。
+5. 使用点云时间戳、`/odom_leg` 位姿补偿、时间衰减和深度射线清除的滚动局部障碍地图。
 
 ```text
 infra1/infra2 已校正图像
   -> stereo_image_proc/disparity_node
   -> /stereo/disparity
   -> stereo_obstacle_projector_node
-  -> /local_grid_obstacle (base_footprint)
+  -> /local_grid_obstacle (过滤后的障碍点，兼容与调试输出)
+  -> /local_depth_observation (障碍点 + 射线端点 + 相机视点)
   -> rolling_obstacle_map_node + /odom_leg pose
   -> /local_rolling_obstacle (当前点云时刻 base_footprint)
 ```
 
-自定义节点直接抽样视差并按 `Z=fT/d` 反投影，不创建完整稠密点云。每个三维点按视差时间戳通过 TF 转换到 `base_footprint`，只保留 `0.10 <= z <= 0.50 m`，最后执行 5 cm 体素过滤。
+自定义节点直接抽样视差并按 `Z=fT/d` 反投影，不创建完整稠密点云。每个三维点按
+视差时间戳通过 TF 转换到 `base_footprint`：`0.10 <= z <= 0.50 m` 的点参与障碍
+过滤；`-0.10 <= z <= 0.50 m` 的有效深度点还可作为自由空间射线端点，因此低于
+障碍高度阈值的地面观测也能清除旧障碍。障碍点最后执行 5 cm 体素过滤。
 
 每个二维网格需要可配置数量的当前帧深度点支持，且障碍簇默认至少包含 3 个
 三维 26 邻域连通体素。当前配置每网格需要 6 个深度点，可删除支持点过少以及
@@ -71,14 +75,17 @@ ros2 launch go2_uwb_local_follow stereo_obstacle_cloud.launch.py \
 ```bash
 ros2 topic hz /stereo/disparity
 ros2 topic hz /local_grid_obstacle
+ros2 topic hz /local_depth_observation
 ros2 topic hz /local_rolling_obstacle
 ros2 topic echo /stereo/obstacle_diagnostics
 ros2 topic echo /go2_uwb_local_follow/rolling_map_diagnostics
-ros2 topic echo /local_grid_obstacle --field header --once
+ros2 topic echo /local_depth_observation --field header --once
 ros2 run tf2_ros tf2_echo base_footprint camera_infra1_optical_frame
 ```
 
-空场景下，`/local_grid_obstacle` 可以是零点的合法当前帧点云。视差有效样本不足、TF 失败或输入超过 0.60 秒未更新时，不会把感知故障误报成自由空间，诊断话题会报告对应错误。
+空场景下，`/local_grid_obstacle` 可以是零点的合法当前帧点云。只有视差有效的深度点
+才产生射线；无效视差仍视为未知空间，不能清除障碍。视差有效样本不足、TF 失败或
+输入超过 0.60 秒未更新时，不会把感知故障误报成自由空间，诊断话题会报告对应错误。
 
 ## UWB 纯跟随阶段
 
@@ -159,15 +166,22 @@ UWB 名义转向使用角度滞回：目标方位进入 `angle_deadband` 后停�
 
 `local_velocity_planner_node` 仍只读取 `/odom_leg` 的 `twist.twist.linear.x` 和
 `twist.twist.angular.z` 作为当前真实速度。新增的 `rolling_obstacle_map_node` 独立
-读取同一话题的带时间戳 pose：每帧 `/local_grid_obstacle` 先按点云时间戳插值
-`odom -> base_footprint` 位姿并转换到局部 `odom` 体素地图，再把全部保留障碍补偿到
-该点云时刻的当前 `base_footprint`，发布 `/local_rolling_obstacle` 给原规划器。
+读取同一话题的带时间戳 pose：每帧 `/local_depth_observation` 先按观测时间戳插值
+`odom -> base_footprint` 位姿并转换到局部 `odom` 二维体素地图，再把全部保留障碍补偿到
+该观测时刻的当前 `base_footprint`，发布 `/local_rolling_obstacle` 给原规划器。
 它不需要 SLAM、全局地图或全局路径。
 
-滚动地图默认只保留机器人周围 `3.0 m`、最近 `1.0 s` 内观测到的障碍；同一体素
-的新观测刷新时间，超时、超范围和超过点数上限的障碍自动删除。里程计时间回退
-或短时间位置/朝向大跳变会立即清空历史地图。滚动地图只在收到合法的新原始点云
-后发布，因此不会用历史点持续重发来掩盖双目断流；规划器对其使用 `0.70 s` 超时。
+滚动地图虽然保留障碍点的 `z` 用于输出，但占用单元、射线遍历和规划碰撞都只使用
+`x/y`，所以它是二维地图。当前帧深度射线会清除相机与有效深度端点之间的历史
+占用单元；当前帧确认的障碍会阻断射线并受到保护，射线末端保留 `0.10 m` 安全余量，
+同一单元默认至少需要 `2` 条本帧射线穿过才清除。无效视差和量程外区域保持未知，
+不会被当成自由空间。
+
+时间衰减继续作为保守兜底：滚动地图默认只保留机器人周围 `3.0 m`、最近 `1.0 s`
+内观测到的障碍；同一体素的新观测刷新时间，超时、超范围和超过点数上限的障碍
+自动删除。里程计时间回退或短时间位置/朝向大跳变会立即清空历史地图。滚动地图
+只在收到合法的新深度观测后发布，因此不会用历史点持续重发来掩盖双目断流；规划器
+对其使用 `0.70 s` 超时。
 规划器在该分支保留补偿后位于 `x >= -0.50 m` 的侧后方障碍，并关闭二次机身过滤，
 避免真实历史障碍进入当前足迹后反而被当作机器人自身点删除。
 

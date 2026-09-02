@@ -125,7 +125,8 @@ bool validateProjectionConfig(const ProjectionConfig & config, std::string * rea
     std::isfinite(config.depth_min) && std::isfinite(config.depth_max) &&
     std::isfinite(config.obstacle_x_min) && std::isfinite(config.obstacle_x_max) &&
     std::isfinite(config.obstacle_y_abs_max) && std::isfinite(config.obstacle_z_min) &&
-    std::isfinite(config.obstacle_z_max) && std::isfinite(config.voxel_size);
+    std::isfinite(config.obstacle_z_max) && std::isfinite(config.ray_endpoint_z_min) &&
+    std::isfinite(config.ray_endpoint_z_max) && std::isfinite(config.voxel_size);
   if (!finite) {
     return rejectWithReason("projection config contains non-finite values", reason);
   }
@@ -140,6 +141,9 @@ bool validateProjectionConfig(const ProjectionConfig & config, std::string * rea
   }
   if (config.obstacle_z_max < config.obstacle_z_min) {
     return rejectWithReason("obstacle z range must satisfy min <= max", reason);
+  }
+  if (config.ray_endpoint_z_max < config.ray_endpoint_z_min) {
+    return rejectWithReason("ray endpoint z range must satisfy min <= max", reason);
   }
   if (config.voxel_size <= 0.0) {
     return rejectWithReason("voxel size must be positive", reason);
@@ -184,6 +188,17 @@ bool keepBasePoint(const Point3D & point, const ProjectionConfig & config)
   return point.x >= config.obstacle_x_min && point.x <= config.obstacle_x_max &&
          std::abs(point.y) <= config.obstacle_y_abs_max &&
          point.z >= config.obstacle_z_min && point.z <= config.obstacle_z_max;
+}
+
+// 判断有效深度终点是否位于可用于二维自由空间清除的高度和范围内。
+bool keepRayEndpoint(const Point3D & point, const ProjectionConfig & config)
+{
+  if (!finitePoint(point)) {
+    return false;
+  }
+  return point.x >= config.obstacle_x_min && point.x <= config.obstacle_x_max &&
+         std::abs(point.y) <= config.obstacle_y_abs_max &&
+         point.z >= config.ray_endpoint_z_min && point.z <= config.ray_endpoint_z_max;
 }
 
 // 先按二维网格统计点支持数，再用三维 26 邻域聚簇删除不连续的小伪影。

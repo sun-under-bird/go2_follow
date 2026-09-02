@@ -36,6 +36,7 @@
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/point_field.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "stereo_msgs/msg/disparity_image.hpp"
 #include "tf2/LinearMath/Matrix3x3.h"
@@ -171,6 +172,8 @@ public:
       "camera_info_topic", "/camera/camera/infra1/camera_info");
     obstacle_cloud_topic_ = declare_parameter<std::string>(
       "obstacle_cloud_topic", "/local_grid_obstacle");
+    ray_observation_topic_ = declare_parameter<std::string>(
+      "ray_observation_topic", "/local_depth_observation");
     diagnostics_topic_ = declare_parameter<std::string>(
       "diagnostics_topic", "/stereo/obstacle_diagnostics");
     depth_debug_topic_ = declare_parameter<std::string>(
@@ -179,6 +182,8 @@ public:
     publish_debug_depth_ = declare_parameter<bool>("publish_debug_depth", false);
     pixel_stride_ = static_cast<std::size_t>(std::max<std::int64_t>(
         1, declare_parameter<std::int64_t>("pixel_stride", 2)));
+    ray_pixel_stride_ = static_cast<std::size_t>(std::max<std::int64_t>(
+        1, declare_parameter<std::int64_t>("ray_pixel_stride", 6)));
     min_valid_disparity_samples_ = static_cast<std::size_t>(std::max<std::int64_t>(
         1, declare_parameter<std::int64_t>("min_valid_disparity_samples", 200)));
     max_output_points_ = static_cast<std::size_t>(std::max<std::int64_t>(
@@ -197,6 +202,8 @@ public:
     config_.obstacle_y_abs_max = declare_parameter<double>("obstacle_y_abs_max", 2.00);
     config_.obstacle_z_min = declare_parameter<double>("obstacle_z_min", 0.10);
     config_.obstacle_z_max = declare_parameter<double>("obstacle_z_max", 0.50);
+    config_.ray_endpoint_z_min = declare_parameter<double>("ray_endpoint_z_min", -0.10);
+    config_.ray_endpoint_z_max = declare_parameter<double>("ray_endpoint_z_max", 0.50);
     config_.voxel_size = declare_parameter<double>("voxel_size", 0.05);
 
     validateParameters();
@@ -212,6 +219,8 @@ public:
 
     obstacle_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
       obstacle_cloud_topic_, sensor_qos);
+    ray_observation_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
+      ray_observation_topic_, sensor_qos);
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       diagnostics_topic_, 10);
     if (publish_debug_depth_) {
@@ -224,9 +233,9 @@ public:
 
     RCLCPP_INFO(
       get_logger(),
-      "Stereo obstacle projector started: disparity=%s camera_info=%s output=%s frame=%s",
+      "Stereo obstacle projector started: disparity=%s camera_info=%s obstacle=%s rays=%s frame=%s",
       disparity_topic_.c_str(), camera_info_topic_.c_str(), obstacle_cloud_topic_.c_str(),
-      base_frame_.c_str());
+      ray_observation_topic_.c_str(), base_frame_.c_str());
   }
 
 private:
@@ -234,8 +243,8 @@ private:
   void validateParameters()
   {
     std::string reason;
-    if (base_frame_.empty()) {
-      throw std::invalid_argument("base_frame must not be empty");
+    if (base_frame_.empty() || obstacle_cloud_topic_.empty() || ray_observation_topic_.empty()) {
+      throw std::invalid_argument("base_frame and cloud topics must not be empty");
     }
     if (!validateProjectionConfig(config_, &reason)) {
       throw std::invalid_argument(reason);
@@ -245,6 +254,9 @@ private:
     }
     if (!std::isfinite(input_timeout_sec_) || input_timeout_sec_ <= 0.0) {
       throw std::invalid_argument("input_timeout_sec must be positive");
+    }
+    if (ray_pixel_stride_ < pixel_stride_ || ray_pixel_stride_ % pixel_stride_ != 0U) {
+      throw std::invalid_argument("ray_pixel_stride must be a multiple of pixel_stride");
     }
   }
 
@@ -426,11 +438,15 @@ private:
     frame_calibration.fx = message->f;
     const auto window = clippedValidWindow(*message);
     std::vector<Point3D> base_points;
+    std::vector<Point3D> ray_endpoints;
     const std::size_t sampled_width =
       window.x_end > window.x_begin ? (window.x_end - window.x_begin) / pixel_stride_ + 1U : 0U;
     const std::size_t sampled_height =
       window.y_end > window.y_begin ? (window.y_end - window.y_begin) / pixel_stride_ + 1U : 0U;
     base_points.reserve(sampled_width * sampled_height);
+    ray_endpoints.reserve(
+      sampled_width * sampled_height * pixel_stride_ * pixel_stride_ /
+      (ray_pixel_stride_ * ray_pixel_stride_));
 
     std::size_t sampled_count = 0U;
     std::size_t valid_disparity_count = 0U;
@@ -457,6 +473,13 @@ private:
           optical_point->x, optical_point->y, optical_point->z);
         const tf2::Vector3 base = rotation * optical + translation;
         const Point3D base_point{base.x(), base.y(), base.z()};
+        const bool ray_sample =
+          (u - window.x_begin) % ray_pixel_stride_ == 0U &&
+          (v - window.y_begin) % ray_pixel_stride_ == 0U;
+        if (ray_sample && keepRayEndpoint(base_point, config_)) {
+          // 地面和碰撞高度内的有效深度都可证明射线前方为空闲，终点分类另行处理。
+          ray_endpoints.push_back(base_point);
+        }
         if (keepBasePoint(base_point, config_)) {
           base_points.push_back(base_point);
         }
@@ -491,6 +514,9 @@ private:
     }
 
     publishObstacleCloud(*message, obstacle_points);
+    publishRayObservation(
+      *message, ray_endpoints, obstacle_points,
+      Point3D{translation.x(), translation.y(), translation.z()});
     const auto processing_end = std::chrono::steady_clock::now();
     {
       std::lock_guard<std::mutex> lock(receipt_mutex_);
@@ -506,6 +532,7 @@ private:
         {"valid_disparity", std::to_string(valid_disparity_count)},
         {"within_depth", std::to_string(depth_count)},
         {"within_base_filter", std::to_string(base_points.size())},
+        {"ray_endpoints", std::to_string(ray_endpoints.size())},
         {"min_points_per_voxel", std::to_string(min_points_per_voxel_)},
         {"min_voxels_per_cluster", std::to_string(min_voxels_per_cluster_)},
         {"output_points", std::to_string(obstacle_points.size())},
@@ -538,6 +565,63 @@ private:
       ++iter_z;
     }
     obstacle_cloud_pub_->publish(cloud);
+  }
+
+  // 发布同帧清除射线、确认障碍和相机原点，供滚动地图原子化更新。
+  void publishRayObservation(
+    const stereo_msgs::msg::DisparityImage & disparity,
+    const std::vector<Point3D> & ray_endpoints,
+    const std::vector<Point3D> & obstacle_points,
+    const Point3D & sensor_origin)
+  {
+    sensor_msgs::msg::PointCloud2 cloud;
+    cloud.header.stamp = disparity.header.stamp;
+    cloud.header.frame_id = base_frame_;
+    cloud.height = 1U;
+    cloud.is_dense = true;
+
+    sensor_msgs::PointCloud2Modifier modifier(cloud);
+    modifier.setPointCloud2Fields(
+      7,
+      "x", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "y", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "z", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "intensity", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "vp_x", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "vp_y", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "vp_z", 1, sensor_msgs::msg::PointField::FLOAT32);
+    modifier.resize(ray_endpoints.size() + obstacle_points.size());
+    sensor_msgs::PointCloud2Iterator<float> x_iterator(cloud, "x");
+    sensor_msgs::PointCloud2Iterator<float> y_iterator(cloud, "y");
+    sensor_msgs::PointCloud2Iterator<float> z_iterator(cloud, "z");
+    sensor_msgs::PointCloud2Iterator<float> intensity_iterator(cloud, "intensity");
+    sensor_msgs::PointCloud2Iterator<float> viewpoint_x_iterator(cloud, "vp_x");
+    sensor_msgs::PointCloud2Iterator<float> viewpoint_y_iterator(cloud, "vp_y");
+    sensor_msgs::PointCloud2Iterator<float> viewpoint_z_iterator(cloud, "vp_z");
+    const auto append_point =
+      [&](const Point3D & point, float intensity) {
+        *x_iterator = static_cast<float>(point.x);
+        *y_iterator = static_cast<float>(point.y);
+        *z_iterator = static_cast<float>(point.z);
+        *intensity_iterator = intensity;
+        *viewpoint_x_iterator = static_cast<float>(sensor_origin.x);
+        *viewpoint_y_iterator = static_cast<float>(sensor_origin.y);
+        *viewpoint_z_iterator = static_cast<float>(sensor_origin.z);
+        ++x_iterator;
+        ++y_iterator;
+        ++z_iterator;
+        ++intensity_iterator;
+        ++viewpoint_x_iterator;
+        ++viewpoint_y_iterator;
+        ++viewpoint_z_iterator;
+      };
+    for (const auto & endpoint : ray_endpoints) {
+      append_point(endpoint, 0.0F);
+    }
+    for (const auto & obstacle : obstacle_points) {
+      append_point(obstacle, 1.0F);
+    }
+    ray_observation_pub_->publish(cloud);
   }
 
   // 可选发布以米为单位的完整 32FC1 深度图，默认关闭以节省带宽。
@@ -645,11 +729,13 @@ private:
   std::string disparity_topic_;
   std::string camera_info_topic_;
   std::string obstacle_cloud_topic_;
+  std::string ray_observation_topic_;
   std::string diagnostics_topic_;
   std::string depth_debug_topic_;
 
   bool publish_debug_depth_{false};
   std::size_t pixel_stride_{2U};
+  std::size_t ray_pixel_stride_{6U};
   std::size_t min_valid_disparity_samples_{200U};
   std::size_t max_output_points_{20000U};
   std::size_t min_points_per_voxel_{3U};
@@ -675,6 +761,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_cloud_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ray_observation_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_debug_pub_;
   rclcpp::TimerBase::SharedPtr watchdog_timer_;

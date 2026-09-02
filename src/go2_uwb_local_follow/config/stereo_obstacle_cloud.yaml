@@ -22,12 +22,15 @@ stereo_obstacle_projector_node:
     disparity_topic: /stereo/disparity
     camera_info_topic: /camera/camera/infra1/camera_info
     obstacle_cloud_topic: /local_grid_obstacle
+    ray_observation_topic: /local_depth_observation
     diagnostics_topic: /stereo/obstacle_diagnostics
     depth_debug_topic: /stereo/depth_debug
 
     # 默认只生成过滤后的点云；需要核对深度时再临时打开完整深度图。
     publish_debug_depth: false
     pixel_stride: 2
+    # 自由空间射线比障碍采样更稀疏，6 必须是 pixel_stride 的整数倍。
+    ray_pixel_stride: 6
     min_valid_disparity_samples: 200
     max_output_points: 20000
     # 每个 5 cm 二维体素至少需要 6 个当前帧深度点支持。
@@ -45,4 +48,7 @@ stereo_obstacle_projector_node:
     # 高度边界在 base_footprint 下计算，0.10 m 和 0.50 m 本身保留。
     obstacle_z_min: 0.10
     obstacle_z_max: 0.50
+    # 地面点不标记为障碍，但有效地面深度可作为二维自由空间射线终点。
+    ray_endpoint_z_min: -0.10
+    ray_endpoint_z_max: 0.50
     voxel_size: 0.05

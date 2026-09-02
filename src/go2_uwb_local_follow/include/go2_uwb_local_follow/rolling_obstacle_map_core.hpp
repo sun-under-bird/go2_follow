@@ -51,6 +51,10 @@ struct RollingMapConfig
   double odom_jump_distance{1.00};
   double odom_jump_yaw{0.80};
   double odom_jump_check_interval_sec{0.50};
+  bool enable_ray_clearing{true};
+  double ray_clearing_max_range{3.00};
+  double ray_clearing_endpoint_margin{0.10};
+  std::size_t ray_clearing_min_observations{2U};
 };
 
 enum class PoseAppendResult
@@ -112,6 +116,13 @@ public:
     const std::vector<RollingObstaclePoint> & base_points,
     const TimedPose2D & pose);
 
+  // 先用同帧有效深度射线清除历史体素，再写入当前障碍并执行时间和范围裁剪。
+  std::size_t integrateObservation(
+    const std::vector<RollingObstaclePoint> & base_obstacles,
+    const std::vector<RollingObstaclePoint> & base_ray_endpoints,
+    const RollingObstaclePoint & base_sensor_origin,
+    const TimedPose2D & pose);
+
   // 将当前保留的 odom 障碍转换到指定姿态的机身坐标系。
   std::vector<RollingObstaclePoint> pointsInBase(const TimedPose2D & pose) const;
 
@@ -145,6 +156,12 @@ private:
 
   // 删除超过保留时间或滚动半径的障碍，并按新鲜度和距离限制总点数。
   void prune(const TimedPose2D & pose);
+
+  // 统计每个二维体素的同帧射线穿越次数，并清除达到确认阈值的历史障碍。
+  std::size_t clearObservedFreeSpace(
+    const std::vector<RollingObstaclePoint> & odom_ray_endpoints,
+    const RollingObstaclePoint & odom_sensor_origin,
+    const std::unordered_map<CellKey, bool, CellKeyHash> & protected_cells);
 
   RollingMapConfig config_;
   std::unordered_map<CellKey, CellValue, CellKeyHash> cells_;

@@ -39,6 +39,7 @@ def generate_launch_description() -> LaunchDescription:
     right_camera_info = LaunchConfiguration("right_camera_info")
     disparity_topic = LaunchConfiguration("disparity_topic")
     obstacle_topic = LaunchConfiguration("obstacle_topic")
+    depth_observation_topic = LaunchConfiguration("depth_observation_topic")
     rolling_obstacle_topic = LaunchConfiguration("rolling_obstacle_topic")
     raw_uwb_topic = LaunchConfiguration("raw_uwb_topic")
     target_topic = LaunchConfiguration("target_topic")
@@ -76,6 +77,7 @@ def generate_launch_description() -> LaunchDescription:
                 "disparity_topic": disparity_topic,
                 "camera_info_topic": left_camera_info,
                 "obstacle_cloud_topic": obstacle_topic,
+                "ray_observation_topic": depth_observation_topic,
                 "publish_debug_depth": ParameterValue(
                     publish_debug_depth, value_type=bool
                 ),
@@ -126,7 +128,7 @@ def generate_launch_description() -> LaunchDescription:
                 "base_frame": base_frame,
                 "odom_frame": odom_frame,
                 "odom_child_frame": base_frame,
-                "input_obstacle_topic": obstacle_topic,
+                "input_observation_topic": depth_observation_topic,
                 "output_obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
             },
@@ -191,6 +193,9 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument(
                 "obstacle_topic", default_value="/local_grid_obstacle"
+            ),
+            DeclareLaunchArgument(
+                "depth_observation_topic", default_value="/local_depth_observation"
             ),
             DeclareLaunchArgument(
                 "rolling_obstacle_topic", default_value="/local_rolling_obstacle"

@@ -59,6 +59,17 @@ TEST(BasePointFilter, KeepsInclusiveHeightBoundaries)
   EXPECT_FALSE(stereo::keepBasePoint({1.0, 0.0, 0.501}, config));
 }
 
+// 验证有效地面深度只作为清除射线终点，而高处点不会参与二维清除。
+TEST(BasePointFilter, KeepsGroundForRayClearingOnly)
+{
+  stereo::ProjectionConfig config;
+
+  EXPECT_FALSE(stereo::keepBasePoint({1.0, 0.0, 0.0}, config));
+  EXPECT_TRUE(stereo::keepRayEndpoint({1.0, 0.0, 0.0}, config));
+  EXPECT_TRUE(stereo::keepRayEndpoint({1.0, 0.0, 0.50}, config));
+  EXPECT_FALSE(stereo::keepRayEndpoint({1.0, 0.0, 0.60}, config));
+}
+
 // 验证同一二维体素只保留平面距离机器人最近的点。
 TEST(VoxelDownsample, KeepsNearestPointInEachCell)
 {
@@ -134,6 +145,18 @@ TEST(ProjectionConfig, RejectsInvertedHeightRange)
   stereo::ProjectionConfig config;
   config.obstacle_z_min = 0.60;
   config.obstacle_z_max = 0.10;
+  std::string reason;
+
+  EXPECT_FALSE(stereo::validateProjectionConfig(config, &reason));
+  EXPECT_FALSE(reason.empty());
+}
+
+// 验证非法射线终点高度范围会在节点启动前被拒绝。
+TEST(ProjectionConfig, RejectsInvertedRayEndpointHeightRange)
+{
+  stereo::ProjectionConfig config;
+  config.ray_endpoint_z_min = 0.50;
+  config.ray_endpoint_z_max = -0.10;
   std::string reason;
 
   EXPECT_FALSE(stereo::validateProjectionConfig(config, &reason));

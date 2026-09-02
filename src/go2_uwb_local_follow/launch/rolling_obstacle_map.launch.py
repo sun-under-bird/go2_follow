@@ -29,7 +29,7 @@ def generate_launch_description() -> LaunchDescription:
     default_params = str(package_share / "config" / "rolling_obstacle_map.yaml")
 
     params_file = LaunchConfiguration("params_file")
-    input_obstacle_topic = LaunchConfiguration("input_obstacle_topic")
+    input_observation_topic = LaunchConfiguration("input_observation_topic")
     output_obstacle_topic = LaunchConfiguration("output_obstacle_topic")
     odom_topic = LaunchConfiguration("odom_topic")
     base_frame = LaunchConfiguration("base_frame")
@@ -46,7 +46,7 @@ def generate_launch_description() -> LaunchDescription:
                 "base_frame": base_frame,
                 "odom_child_frame": base_frame,
                 "odom_frame": odom_frame,
-                "input_obstacle_topic": input_obstacle_topic,
+                "input_observation_topic": input_observation_topic,
                 "output_obstacle_topic": output_obstacle_topic,
                 "odom_topic": odom_topic,
             },
@@ -57,7 +57,7 @@ def generate_launch_description() -> LaunchDescription:
         [
             DeclareLaunchArgument("params_file", default_value=default_params),
             DeclareLaunchArgument(
-                "input_obstacle_topic", default_value="/local_grid_obstacle"
+                "input_observation_topic", default_value="/local_depth_observation"
             ),
             DeclareLaunchArgument(
                 "output_obstacle_topic", default_value="/local_rolling_obstacle"

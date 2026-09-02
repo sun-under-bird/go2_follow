@@ -88,7 +88,9 @@ bool validateRollingMapConfig(const RollingMapConfig & config, std::string * rea
     std::isfinite(config.max_pose_extrapolation_sec) &&
     std::isfinite(config.odom_jump_distance) &&
     std::isfinite(config.odom_jump_yaw) &&
-    std::isfinite(config.odom_jump_check_interval_sec);
+    std::isfinite(config.odom_jump_check_interval_sec) &&
+    std::isfinite(config.ray_clearing_max_range) &&
+    std::isfinite(config.ray_clearing_endpoint_margin);
   if (!finite) {
     return rejectWithReason("rolling map config contains non-finite values", reason);
   }
@@ -96,7 +98,10 @@ bool validateRollingMapConfig(const RollingMapConfig & config, std::string * rea
     config.rolling_radius <= 0.0 || config.max_obstacle_points == 0U ||
     config.odom_buffer_duration_sec <= 0.0 || config.max_pose_extrapolation_sec < 0.0 ||
     config.odom_jump_distance <= 0.0 || config.odom_jump_yaw <= 0.0 ||
-    config.odom_jump_check_interval_sec <= 0.0)
+    config.odom_jump_check_interval_sec <= 0.0 || config.ray_clearing_max_range <= 0.0 ||
+    config.ray_clearing_endpoint_margin < 0.0 ||
+    config.ray_clearing_endpoint_margin >= config.ray_clearing_max_range ||
+    config.ray_clearing_min_observations == 0U)
   {
     return rejectWithReason("rolling map distances, durations and limits are invalid", reason);
   }
@@ -281,10 +286,25 @@ void RollingObstacleMap::integrate(
   const std::vector<RollingObstaclePoint> & base_points,
   const TimedPose2D & pose)
 {
+  (void)integrateObservation(base_points, {}, RollingObstaclePoint{}, pose);
+}
+
+// 先用同帧有效深度射线清除历史体素，再写入当前障碍并执行时间和范围裁剪。
+std::size_t RollingObstacleMap::integrateObservation(
+  const std::vector<RollingObstaclePoint> & base_obstacles,
+  const std::vector<RollingObstaclePoint> & base_ray_endpoints,
+  const RollingObstaclePoint & base_sensor_origin,
+  const TimedPose2D & pose)
+{
   if (!finitePose(pose)) {
-    return;
+    return 0U;
   }
-  for (const auto & base_point : base_points) {
+
+  std::vector<RollingObstaclePoint> odom_obstacles;
+  odom_obstacles.reserve(base_obstacles.size());
+  std::unordered_map<CellKey, bool, CellKeyHash> protected_cells;
+  protected_cells.reserve(base_obstacles.size());
+  for (const auto & base_point : base_obstacles) {
     if (!finitePoint(base_point)) {
       continue;
     }
@@ -292,9 +312,33 @@ void RollingObstacleMap::integrate(
     const CellKey key{
       static_cast<std::int64_t>(std::floor(odom_point.x / config_.voxel_size)),
       static_cast<std::int64_t>(std::floor(odom_point.y / config_.voxel_size))};
+    odom_obstacles.push_back(odom_point);
+    protected_cells.emplace(key, true);
+  }
+
+  std::size_t cleared_cells = 0U;
+  if (config_.enable_ray_clearing && finitePoint(base_sensor_origin)) {
+    std::vector<RollingObstaclePoint> odom_ray_endpoints;
+    odom_ray_endpoints.reserve(base_ray_endpoints.size());
+    for (const auto & base_endpoint : base_ray_endpoints) {
+      if (finitePoint(base_endpoint)) {
+        odom_ray_endpoints.push_back(transformRollingPointToOdom(base_endpoint, pose));
+      }
+    }
+    const RollingObstaclePoint odom_sensor_origin =
+      transformRollingPointToOdom(base_sensor_origin, pose);
+    cleared_cells = clearObservedFreeSpace(
+      odom_ray_endpoints, odom_sensor_origin, protected_cells);
+  }
+
+  for (const auto & odom_point : odom_obstacles) {
+    const CellKey key{
+      static_cast<std::int64_t>(std::floor(odom_point.x / config_.voxel_size)),
+      static_cast<std::int64_t>(std::floor(odom_point.y / config_.voxel_size))};
     cells_[key] = CellValue{odom_point, pose.stamp_ns};
   }
   prune(pose);
+  return cleared_cells;
 }
 
 // 将当前保留的 odom 障碍转换到指定姿态的机身坐标系。
@@ -330,6 +374,90 @@ void RollingObstacleMap::clear()
 std::size_t RollingObstacleMap::size() const
 {
   return cells_.size();
+}
+
+// 统计每个二维体素的同帧射线穿越次数，并清除达到确认阈值的历史障碍。
+std::size_t RollingObstacleMap::clearObservedFreeSpace(
+  const std::vector<RollingObstaclePoint> & odom_ray_endpoints,
+  const RollingObstaclePoint & odom_sensor_origin,
+  const std::unordered_map<CellKey, bool, CellKeyHash> & protected_cells)
+{
+  if (odom_ray_endpoints.empty() || cells_.empty() || !finitePoint(odom_sensor_origin)) {
+    return 0U;
+  }
+
+  std::unordered_map<CellKey, std::size_t, CellKeyHash> clearing_votes;
+  clearing_votes.reserve(std::min(cells_.size(), odom_ray_endpoints.size()));
+  for (const auto & endpoint : odom_ray_endpoints) {
+    if (!finitePoint(endpoint)) {
+      continue;
+    }
+    const double delta_x = endpoint.x - odom_sensor_origin.x;
+    const double delta_y = endpoint.y - odom_sensor_origin.y;
+    const double full_range = std::hypot(delta_x, delta_y);
+    const double clearing_range = std::min(
+      full_range - config_.ray_clearing_endpoint_margin,
+      config_.ray_clearing_max_range);
+    if (!std::isfinite(full_range) || clearing_range <= 0.0) {
+      continue;
+    }
+
+    const double scale = clearing_range / full_range;
+    const double end_x = odom_sensor_origin.x + delta_x * scale;
+    const double end_y = odom_sensor_origin.y + delta_y * scale;
+    CellKey current{
+      static_cast<std::int64_t>(std::floor(odom_sensor_origin.x / config_.voxel_size)),
+      static_cast<std::int64_t>(std::floor(odom_sensor_origin.y / config_.voxel_size))};
+    const CellKey end{
+      static_cast<std::int64_t>(std::floor(end_x / config_.voxel_size)),
+      static_cast<std::int64_t>(std::floor(end_y / config_.voxel_size))};
+    const std::int64_t step_x = delta_x > 0.0 ? 1 : (delta_x < 0.0 ? -1 : 0);
+    const std::int64_t step_y = delta_y > 0.0 ? 1 : (delta_y < 0.0 ? -1 : 0);
+    const double infinity = std::numeric_limits<double>::infinity();
+    const double t_delta_x = step_x == 0 ? infinity : config_.voxel_size / std::abs(delta_x);
+    const double t_delta_y = step_y == 0 ? infinity : config_.voxel_size / std::abs(delta_y);
+    const double next_boundary_x = step_x > 0 ?
+      static_cast<double>(current.x + 1) * config_.voxel_size :
+      static_cast<double>(current.x) * config_.voxel_size;
+    const double next_boundary_y = step_y > 0 ?
+      static_cast<double>(current.y + 1) * config_.voxel_size :
+      static_cast<double>(current.y) * config_.voxel_size;
+    double t_max_x = step_x == 0 ? infinity :
+      (next_boundary_x - odom_sensor_origin.x) / delta_x;
+    double t_max_y = step_y == 0 ? infinity :
+      (next_boundary_y - odom_sensor_origin.y) / delta_y;
+
+    while (!(current == end)) {
+      if (t_max_x < t_max_y) {
+        current.x += step_x;
+        t_max_x += t_delta_x;
+      } else if (t_max_y < t_max_x) {
+        current.y += step_y;
+        t_max_y += t_delta_y;
+      } else {
+        current.x += step_x;
+        current.y += step_y;
+        t_max_x += t_delta_x;
+        t_max_y += t_delta_y;
+      }
+
+      // 当前帧确认的障碍是射线终止面，禁止清除它及其后方的历史障碍。
+      if (protected_cells.count(current) != 0U) {
+        break;
+      }
+      if (cells_.count(current) != 0U) {
+        ++clearing_votes[current];
+      }
+    }
+  }
+
+  std::size_t cleared_cells = 0U;
+  for (const auto & vote : clearing_votes) {
+    if (vote.second >= config_.ray_clearing_min_observations) {
+      cleared_cells += cells_.erase(vote.first);
+    }
+  }
+  return cleared_cells;
 }
 
 // 删除超过保留时间或滚动半径的障碍，并按新鲜度和距离限制总点数。

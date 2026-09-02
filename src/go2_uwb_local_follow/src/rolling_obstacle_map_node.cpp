@@ -32,6 +32,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
+#include "sensor_msgs/msg/point_field.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 
 #include "go2_uwb_local_follow/rolling_obstacle_map_core.hpp"
@@ -42,6 +43,16 @@ namespace
 {
 
 constexpr double kNanosecondsPerSecond = 1.0e9;
+
+// 判断 PointCloud2 是否包含指定字段。
+bool cloudHasField(const sensor_msgs::msg::PointCloud2 & cloud, const std::string & name)
+{
+  return std::any_of(
+    cloud.fields.begin(), cloud.fields.end(),
+    [&name](const sensor_msgs::msg::PointField & field) {
+      return field.name == name;
+    });
+}
 
 // 将有限浮点数格式化为诊断话题使用的短字符串。
 std::string formatDouble(double value, int precision = 3)
@@ -97,8 +108,8 @@ public:
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
     odom_child_frame_ = declare_parameter<std::string>("odom_child_frame", "base_footprint");
-    input_obstacle_topic_ = declare_parameter<std::string>(
-      "input_obstacle_topic", "/local_grid_obstacle");
+    input_observation_topic_ = declare_parameter<std::string>(
+      "input_observation_topic", "/local_depth_observation");
     output_obstacle_topic_ = declare_parameter<std::string>(
       "output_obstacle_topic", "/local_rolling_obstacle");
     odom_topic_ = declare_parameter<std::string>("odom_topic", "/odom_leg");
@@ -114,8 +125,8 @@ public:
     auto odom_qos = rclcpp::SensorDataQoS();
     odom_qos.keep_last(200);
     obstacle_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      input_obstacle_topic_, cloud_qos,
-      std::bind(&RollingObstacleMapNode::obstacleCallback, this, std::placeholders::_1));
+      input_observation_topic_, cloud_qos,
+      std::bind(&RollingObstacleMapNode::observationCallback, this, std::placeholders::_1));
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       odom_topic_, odom_qos,
       std::bind(&RollingObstacleMapNode::odomCallback, this, std::placeholders::_1));
@@ -132,7 +143,7 @@ public:
     RCLCPP_INFO(
       get_logger(),
       "Rolling obstacle map started: input=%s odom=%s output=%s retention=%.2fs radius=%.2fm",
-      input_obstacle_topic_.c_str(), odom_topic_.c_str(), output_obstacle_topic_.c_str(),
+      input_observation_topic_.c_str(), odom_topic_.c_str(), output_obstacle_topic_.c_str(),
       map_config_.obstacle_retention_sec, map_config_.rolling_radius);
   }
 
@@ -144,6 +155,9 @@ private:
     double input_age{std::numeric_limits<double>::infinity()};
     double odom_age{std::numeric_limits<double>::infinity()};
     std::size_t input_points{0U};
+    std::size_t obstacle_points{0U};
+    std::size_t ray_endpoints{0U};
+    std::size_t ray_cleared_cells{0U};
     std::size_t map_points{0U};
     std::size_t odom_buffer_size{0U};
     std::size_t odom_reset_count{0U};
@@ -166,6 +180,14 @@ private:
     map_config_.odom_jump_yaw = declare_parameter<double>("odom_jump_yaw", 0.80);
     map_config_.odom_jump_check_interval_sec = declare_parameter<double>(
       "odom_jump_check_interval_sec", 0.50);
+    map_config_.enable_ray_clearing = declare_parameter<bool>("enable_ray_clearing", true);
+    map_config_.ray_clearing_max_range = declare_parameter<double>(
+      "ray_clearing_max_range", 3.00);
+    map_config_.ray_clearing_endpoint_margin = declare_parameter<double>(
+      "ray_clearing_endpoint_margin", 0.10);
+    map_config_.ray_clearing_min_observations = static_cast<std::size_t>(
+      std::max<std::int64_t>(
+        1, declare_parameter<std::int64_t>("ray_clearing_min_observations", 2)));
     return map_config_;
   }
 
@@ -177,7 +199,7 @@ private:
       throw std::invalid_argument(reason);
     }
     if (base_frame_.empty() || odom_frame_.empty() || odom_child_frame_.empty() ||
-      input_obstacle_topic_.empty() || output_obstacle_topic_.empty() || odom_topic_.empty() ||
+      input_observation_topic_.empty() || output_obstacle_topic_.empty() || odom_topic_.empty() ||
       diagnostics_topic_.empty())
     {
       throw std::invalid_argument("rolling map frame and topic names must not be empty");
@@ -226,22 +248,119 @@ private:
     }
     have_valid_odom_ = true;
     if (!have_input_receipt_) {
-      setStatus("WAIT_OBSTACLE", "waiting for obstacle cloud");
+      setStatus("WAIT_OBSERVATION", "waiting for depth observation cloud");
     }
   }
 
-  // 使用点云时间戳查询里程计位姿，更新地图并发布补偿到该时刻机身坐标的障碍点。
-  void obstacleCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
+  // 解析原子化深度观测；兼容没有射线元数据的旧障碍点云输入。
+  bool parseObservationCloud(
+    const sensor_msgs::msg::PointCloud2 & message,
+    std::vector<RollingObstaclePoint> * obstacles,
+    std::vector<RollingObstaclePoint> * ray_endpoints,
+    RollingObstaclePoint * sensor_origin,
+    std::string * reason) const
+  {
+    if (obstacles == nullptr || ray_endpoints == nullptr || sensor_origin == nullptr) {
+      return false;
+    }
+    const bool has_intensity = cloudHasField(message, "intensity");
+    const bool has_viewpoint_x = cloudHasField(message, "vp_x");
+    const bool has_viewpoint_y = cloudHasField(message, "vp_y");
+    const bool has_viewpoint_z = cloudHasField(message, "vp_z");
+    const bool has_any_metadata =
+      has_intensity || has_viewpoint_x || has_viewpoint_y || has_viewpoint_z;
+    const bool has_all_metadata =
+      has_intensity && has_viewpoint_x && has_viewpoint_y && has_viewpoint_z;
+    if (has_any_metadata && !has_all_metadata) {
+      if (reason != nullptr) {
+        *reason = "depth observation metadata fields are incomplete";
+      }
+      return false;
+    }
+
+    const std::size_t point_count =
+      static_cast<std::size_t>(message.width) * static_cast<std::size_t>(message.height);
+    obstacles->reserve(point_count);
+    if (!has_all_metadata) {
+      sensor_msgs::PointCloud2ConstIterator<float> x_iterator(message, "x");
+      sensor_msgs::PointCloud2ConstIterator<float> y_iterator(message, "y");
+      sensor_msgs::PointCloud2ConstIterator<float> z_iterator(message, "z");
+      for (; x_iterator != x_iterator.end(); ++x_iterator, ++y_iterator, ++z_iterator) {
+        const RollingObstaclePoint point{
+          static_cast<double>(*x_iterator),
+          static_cast<double>(*y_iterator),
+          static_cast<double>(*z_iterator)};
+        if (std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z)) {
+          obstacles->push_back(point);
+        }
+      }
+      return true;
+    }
+
+    ray_endpoints->reserve(point_count);
+    sensor_msgs::PointCloud2ConstIterator<float> x_iterator(message, "x");
+    sensor_msgs::PointCloud2ConstIterator<float> y_iterator(message, "y");
+    sensor_msgs::PointCloud2ConstIterator<float> z_iterator(message, "z");
+    sensor_msgs::PointCloud2ConstIterator<float> intensity_iterator(message, "intensity");
+    sensor_msgs::PointCloud2ConstIterator<float> viewpoint_x_iterator(message, "vp_x");
+    sensor_msgs::PointCloud2ConstIterator<float> viewpoint_y_iterator(message, "vp_y");
+    sensor_msgs::PointCloud2ConstIterator<float> viewpoint_z_iterator(message, "vp_z");
+    bool have_sensor_origin = false;
+    for (; x_iterator != x_iterator.end();
+      ++x_iterator, ++y_iterator, ++z_iterator, ++intensity_iterator,
+      ++viewpoint_x_iterator, ++viewpoint_y_iterator, ++viewpoint_z_iterator)
+    {
+      const RollingObstaclePoint point{
+        static_cast<double>(*x_iterator),
+        static_cast<double>(*y_iterator),
+        static_cast<double>(*z_iterator)};
+      const RollingObstaclePoint point_origin{
+        static_cast<double>(*viewpoint_x_iterator),
+        static_cast<double>(*viewpoint_y_iterator),
+        static_cast<double>(*viewpoint_z_iterator)};
+      const double intensity = static_cast<double>(*intensity_iterator);
+      if (!std::isfinite(point.x) || !std::isfinite(point.y) || !std::isfinite(point.z) ||
+        !std::isfinite(point_origin.x) || !std::isfinite(point_origin.y) ||
+        !std::isfinite(point_origin.z) || !std::isfinite(intensity))
+      {
+        continue;
+      }
+      if (!have_sensor_origin) {
+        *sensor_origin = point_origin;
+        have_sensor_origin = true;
+      } else {
+        if (
+          std::abs(sensor_origin->x - point_origin.x) > 1.0e-4 ||
+          std::abs(sensor_origin->y - point_origin.y) > 1.0e-4 ||
+          std::abs(sensor_origin->z - point_origin.z) > 1.0e-4)
+        {
+          if (reason != nullptr) {
+            *reason = "depth observation contains inconsistent sensor origins";
+          }
+          return false;
+        }
+      }
+      if (intensity >= 0.5) {
+        obstacles->push_back(point);
+      } else {
+        ray_endpoints->push_back(point);
+      }
+    }
+    return true;
+  }
+
+  // 使用观测时间查询里程计位姿，以同帧射线清除历史体素并发布补偿障碍。
+  void observationCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
     last_input_receipt_ = std::chrono::steady_clock::now();
     have_input_receipt_ = true;
     if (message->header.frame_id != base_frame_) {
-      setStatus("CLOUD_FRAME_INVALID", "obstacle cloud frame differs from base_frame");
+      setStatus("CLOUD_FRAME_INVALID", "depth observation frame differs from base_frame");
       return;
     }
     const std::int64_t cloud_stamp_ns = stampNanoseconds(message->header.stamp);
     if (cloud_stamp_ns <= 0 || cloud_stamp_ns <= last_cloud_stamp_ns_) {
-      setStatus("CLOUD_TIME_INVALID", "obstacle cloud timestamp is zero or not increasing");
+      setStatus("CLOUD_TIME_INVALID", "depth observation timestamp is zero or not increasing");
       return;
     }
     if (!have_valid_odom_) {
@@ -255,32 +374,31 @@ private:
       return;
     }
 
-    std::vector<RollingObstaclePoint> input_points;
-    input_points.reserve(
-      static_cast<std::size_t>(message->width) * static_cast<std::size_t>(message->height));
+    std::vector<RollingObstaclePoint> obstacle_points;
+    std::vector<RollingObstaclePoint> ray_endpoints;
+    RollingObstaclePoint sensor_origin;
+    std::string reason;
     try {
-      sensor_msgs::PointCloud2ConstIterator<float> x_iterator(*message, "x");
-      sensor_msgs::PointCloud2ConstIterator<float> y_iterator(*message, "y");
-      sensor_msgs::PointCloud2ConstIterator<float> z_iterator(*message, "z");
-      for (; x_iterator != x_iterator.end(); ++x_iterator, ++y_iterator, ++z_iterator) {
-        const RollingObstaclePoint point{
-          static_cast<double>(*x_iterator),
-          static_cast<double>(*y_iterator),
-          static_cast<double>(*z_iterator)};
-        if (std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z)) {
-          input_points.push_back(point);
-        }
+      if (!parseObservationCloud(
+          *message, &obstacle_points, &ray_endpoints, &sensor_origin, &reason))
+      {
+        setStatus("CLOUD_INVALID", reason);
+        return;
       }
     } catch (const std::runtime_error & exception) {
       setStatus("CLOUD_INVALID", exception.what());
       return;
     }
 
-    obstacle_map_.integrate(input_points, cloud_pose);
+    const std::size_t cleared_cells = obstacle_map_.integrateObservation(
+      obstacle_points, ray_endpoints, sensor_origin, cloud_pose);
     const auto output_points = obstacle_map_.pointsInBase(cloud_pose);
     last_cloud_stamp_ns_ = cloud_stamp_ns;
     publishObstacleCloud(message->header.stamp, output_points);
-    status_.input_points = input_points.size();
+    status_.input_points = obstacle_points.size() + ray_endpoints.size();
+    status_.obstacle_points = obstacle_points.size();
+    status_.ray_endpoints = ray_endpoints.size();
+    status_.ray_cleared_cells = cleared_cells;
     status_.map_points = output_points.size();
     status_.odom_buffer_size = pose_buffer_.size();
     status_.odom_reset_count = odom_reset_count_;
@@ -341,9 +459,9 @@ private:
     } else if (status_.odom_age > odom_timeout_sec_) {
       setStatus("ODOM_TIMEOUT", "odom input timeout");
     } else if (!have_input_receipt_) {
-      setStatus("WAIT_OBSTACLE", "waiting for obstacle cloud");
+      setStatus("WAIT_OBSERVATION", "waiting for depth observation cloud");
     } else if (status_.input_age > input_timeout_sec_) {
-      setStatus("SENSOR_TIMEOUT", "raw obstacle cloud timeout");
+      setStatus("SENSOR_TIMEOUT", "depth observation cloud timeout");
     }
     publishDiagnosticIfDue(false);
   }
@@ -372,6 +490,9 @@ private:
       {"input_age_sec", formatDouble(status_.input_age)},
       {"odom_age_sec", formatDouble(status_.odom_age)},
       {"input_points", std::to_string(status_.input_points)},
+      {"obstacle_points", std::to_string(status_.obstacle_points)},
+      {"ray_endpoints", std::to_string(status_.ray_endpoints)},
+      {"ray_cleared_cells", std::to_string(status_.ray_cleared_cells)},
       {"map_points", std::to_string(status_.map_points)},
       {"odom_buffer_size", std::to_string(status_.odom_buffer_size)},
       {"odom_reset_count", std::to_string(status_.odom_reset_count)}};
@@ -392,7 +513,7 @@ private:
   std::string base_frame_;
   std::string odom_frame_;
   std::string odom_child_frame_;
-  std::string input_obstacle_topic_;
+  std::string input_observation_topic_;
   std::string output_obstacle_topic_;
   std::string odom_topic_;
   std::string diagnostics_topic_;

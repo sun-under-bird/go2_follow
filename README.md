@@ -20,11 +20,14 @@ UWB 串口
   -> uwb_follow_controller_node
   -> /go2_uwb_local_follow/nominal_cmd
                                       \
-矫正双目图像 -> stereo_image_proc/BM -> 障碍点云 -> local_velocity_planner_node
-                                                      -> /cmd_vel
+矫正双目图像 -> stereo_image_proc/BM -> 深度观测（障碍点 + 自由空间射线）
+                                      -> rolling_obstacle_map_node + /odom_leg pose
+                                      -> local_velocity_planner_node -> /cmd_vel
 ```
 
-局部规划器只读取 `/odom_leg` 的线速度和角速度作为轨迹预测初值，不使用里程计位姿。
+局部规划器读取 `/odom_leg` 的线速度和角速度作为轨迹预测初值；独立的滚动障碍地图
+节点使用同一里程计的位置和朝向补偿历史障碍。局部规划和滚动地图均为二维，不需要
+全局地图或全局路径。
 
 ## 外部输入
 
@@ -44,7 +47,7 @@ base_footprint -> camera optical frame 的 TF
 ## 编译
 
 ```bash
-cd /root/go2_follow_worktree
+cd /home/bird/go2_follow_rolling_map
 source /opt/ros/humble/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --packages-up-to go2_uwb_local_follow
@@ -88,12 +91,14 @@ ros2 launch go2_uwb_local_follow local_follow.launch.py \
 - 最大角加速度：`2.0 rad/s²`。
 - 避障优先保持 UWB 名义线速度，只有当前速度层不存在安全转向轨迹时才分级降速。
 - 紧急区使用新点云连续帧确认，单帧近场伪点不会直接锁存紧急停车。
+- 滚动局部地图使用深度射线清除已观测自由空间，并以时间衰减清理未被再次观测的障碍。
 
 详细参数和调节说明位于：
 
 ```text
 src/go2_uwb_local_follow/config/uwb_follow_only.yaml
 src/go2_uwb_local_follow/config/stereo_obstacle_cloud.yaml
+src/go2_uwb_local_follow/config/rolling_obstacle_map.yaml
 src/go2_uwb_local_follow/config/local_velocity_planner.yaml
 ```
 

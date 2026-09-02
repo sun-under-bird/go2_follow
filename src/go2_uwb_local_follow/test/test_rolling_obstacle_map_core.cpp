@@ -157,11 +157,86 @@ TEST(RollingObstacleMap, RefreshesExistingVoxel)
   EXPECT_NEAR(points.front().z, 0.25, 1e-12);
 }
 
+// 验证同一帧足够多的有效深度射线会清除路径上的历史动态障碍。
+TEST(RollingObstacleMap, ClearsHistoricalObstacleWithConfirmedRays)
+{
+  rolling::RollingMapConfig config;
+  config.ray_clearing_min_observations = 2U;
+  rolling::RollingObstacleMap map(config);
+  const rolling::TimedPose2D first_pose{kSecond, 0.0, 0.0, 0.0};
+  const rolling::TimedPose2D second_pose{1200000000LL, 0.0, 0.0, 0.0};
+  map.integrate({{1.0, 0.0, 0.2}}, first_pose);
+
+  const std::size_t cleared = map.integrateObservation(
+    {}, {{2.0, 0.0, 0.0}, {2.0, 0.0, 0.0}}, {0.0, 0.0, 0.3}, second_pose);
+
+  EXPECT_EQ(cleared, 1U);
+  EXPECT_EQ(map.size(), 0U);
+}
+
+// 验证单条孤立射线达不到确认阈值时不会删除历史障碍。
+TEST(RollingObstacleMap, KeepsHistoricalObstacleWithoutEnoughRaySupport)
+{
+  rolling::RollingMapConfig config;
+  config.ray_clearing_min_observations = 2U;
+  rolling::RollingObstacleMap map(config);
+  map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+
+  const std::size_t cleared = map.integrateObservation(
+    {}, {{2.0, 0.0, 0.0}}, {0.0, 0.0, 0.3}, {1200000000LL, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(cleared, 0U);
+  EXPECT_EQ(map.size(), 1U);
+}
+
+// 验证同帧当前障碍会截断二维射线，禁止清除其后方被遮挡的历史体素。
+TEST(RollingObstacleMap, StopsRayAtCurrentObstacle)
+{
+  rolling::RollingMapConfig config;
+  config.ray_clearing_min_observations = 1U;
+  rolling::RollingObstacleMap map(config);
+  map.integrate({{2.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+
+  const std::size_t cleared = map.integrateObservation(
+    {{1.0, 0.0, 0.2}}, {{3.0, 0.0, 0.0}}, {0.0, 0.0, 0.3},
+    {1200000000LL, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(cleared, 0U);
+  EXPECT_EQ(map.size(), 2U);
+}
+
+// 验证射线终点安全余量不会把终点附近的历史障碍误判为空闲。
+TEST(RollingObstacleMap, PreservesObstacleInsideEndpointMargin)
+{
+  rolling::RollingMapConfig config;
+  config.ray_clearing_min_observations = 1U;
+  config.ray_clearing_endpoint_margin = 0.10;
+  rolling::RollingObstacleMap map(config);
+  map.integrate({{1.96, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+
+  const std::size_t cleared = map.integrateObservation(
+    {}, {{2.0, 0.0, 0.0}}, {0.0, 0.0, 0.3}, {1200000000LL, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(cleared, 0U);
+  EXPECT_EQ(map.size(), 1U);
+}
+
 // 验证非法时间衰减参数会在节点启动前被拒绝。
 TEST(RollingMapConfig, RejectsInvalidRetention)
 {
   rolling::RollingMapConfig config;
   config.obstacle_retention_sec = 0.0;
+  std::string reason;
+
+  EXPECT_FALSE(rolling::validateRollingMapConfig(config, &reason));
+  EXPECT_FALSE(reason.empty());
+}
+
+// 验证大于最大射线距离的终点余量会在节点启动前被拒绝。
+TEST(RollingMapConfig, RejectsInvalidRayEndpointMargin)
+{
+  rolling::RollingMapConfig config;
+  config.ray_clearing_endpoint_margin = config.ray_clearing_max_range;
   std::string reason;
 
   EXPECT_FALSE(rolling::validateRollingMapConfig(config, &reason));

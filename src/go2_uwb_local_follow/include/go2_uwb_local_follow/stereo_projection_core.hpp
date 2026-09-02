@@ -48,6 +48,8 @@ struct ProjectionConfig
   double obstacle_y_abs_max{2.00};
   double obstacle_z_min{0.10};
   double obstacle_z_max{0.50};
+  double ray_endpoint_z_min{-0.10};
+  double ray_endpoint_z_max{0.50};
   double voxel_size{0.05};
 };
 
@@ -68,6 +70,9 @@ std::optional<Point3D> projectDisparityPixel(
 
 // 判断机身坐标系三维点是否位于障碍物保留范围内。
 bool keepBasePoint(const Point3D & point, const ProjectionConfig & config);
+
+// 判断有效深度终点是否位于可用于二维自由空间清除的高度和范围内。
+bool keepRayEndpoint(const Point3D & point, const ProjectionConfig & config);
 
 // 先按二维网格统计点支持数，再用三维连通簇过滤不连续伪影。
 std::vector<Point3D> voxelDownsampleNearest(

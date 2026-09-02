@@ -35,6 +35,7 @@ def generate_launch_description() -> LaunchDescription:
     right_camera_info = LaunchConfiguration("right_camera_info")
     disparity_topic = LaunchConfiguration("disparity_topic")
     obstacle_cloud_topic = LaunchConfiguration("obstacle_cloud_topic")
+    ray_observation_topic = LaunchConfiguration("ray_observation_topic")
     base_frame = LaunchConfiguration("base_frame")
     publish_debug_depth = LaunchConfiguration("publish_debug_depth")
 
@@ -65,6 +66,7 @@ def generate_launch_description() -> LaunchDescription:
                 "disparity_topic": disparity_topic,
                 "camera_info_topic": left_camera_info,
                 "obstacle_cloud_topic": obstacle_cloud_topic,
+                "ray_observation_topic": ray_observation_topic,
                 "publish_debug_depth": ParameterValue(
                     publish_debug_depth, value_type=bool
                 ),
@@ -94,6 +96,9 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("disparity_topic", default_value="/stereo/disparity"),
             DeclareLaunchArgument(
                 "obstacle_cloud_topic", default_value="/local_grid_obstacle"
+            ),
+            DeclareLaunchArgument(
+                "ray_observation_topic", default_value="/local_depth_observation"
             ),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
             DeclareLaunchArgument("publish_debug_depth", default_value="false"),
