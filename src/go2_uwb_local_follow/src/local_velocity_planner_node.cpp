@@ -113,9 +113,11 @@ public:
     footprint_config_.safety_margin = declare_parameter<double>("safety_margin", 0.08);
 
     motion_limits_.min_linear_speed = declare_parameter<double>(
-      "min_linear_speed", 0.12);
+      "min_linear_speed", 0.23);
     motion_limits_.max_linear_speed = declare_parameter<double>(
       "max_linear_speed", 0.80);
+    motion_limits_.max_reverse_speed = declare_parameter<double>(
+      "max_reverse_speed", 0.23);
     motion_limits_.min_angular_speed = declare_parameter<double>(
       "min_follow_angular_speed", 0.0);
     motion_limits_.max_angular_speed = declare_parameter<double>(
@@ -156,7 +158,21 @@ public:
     emergency_half_width_ = declare_parameter<double>("emergency_half_width", 0.30);
     emergency_confirm_frames_ = static_cast<int>(std::max<std::int64_t>(
         1, declare_parameter<std::int64_t>("emergency_confirm_frames", 2)));
-    obstacle_x_min_ = declare_parameter<double>("obstacle_x_min", -0.50);
+    emergency_reverse_config_.enabled = declare_parameter<bool>(
+      "enable_emergency_reverse", true);
+    emergency_reverse_config_.speed = declare_parameter<double>(
+      "emergency_reverse_speed", 0.23);
+    emergency_reverse_config_.distance = declare_parameter<double>(
+      "emergency_reverse_distance", 0.20);
+    emergency_reverse_config_.stop_hold_sec = declare_parameter<double>(
+      "emergency_reverse_stop_hold_sec", 0.0);
+    emergency_reverse_config_.start_linear_speed_threshold = declare_parameter<double>(
+      "emergency_reverse_start_linear_speed", 0.04);
+    emergency_reverse_config_.start_angular_speed_threshold = declare_parameter<double>(
+      "emergency_reverse_start_angular_speed", 0.10);
+    emergency_reverse_config_.extra_safety_margin = declare_parameter<double>(
+      "emergency_reverse_extra_margin", 0.05);
+    obstacle_x_min_ = declare_parameter<double>("obstacle_x_min", -0.75);
     obstacle_x_max_ = declare_parameter<double>("obstacle_x_max", 3.00);
     obstacle_y_abs_max_ = declare_parameter<double>("obstacle_y_abs_max", 2.00);
     enable_self_filter_ = declare_parameter<bool>("enable_self_filter", true);
@@ -208,6 +224,16 @@ public:
   }
 
 private:
+  enum class EmergencyRecoveryState
+  {
+    IDLE,
+    BRAKING,
+    REVERSING,
+    COMPLETE,
+    BLOCKED,
+    LIMIT_REACHED
+  };
+
   struct NominalSnapshot
   {
     PlannerVelocity2D velocity;
@@ -254,8 +280,12 @@ private:
     std::size_t marginal_count{0U};
     int avoidance_turn_direction{0};
     double selected_speed_scale{0.0};
+    double emergency_reverse_elapsed{0.0};
+    double emergency_reverse_remaining{0.0};
     bool avoidance_active{false};
+    bool emergency_detected{false};
     bool emergency{false};
+    bool emergency_recovery_active{false};
   };
 
   // 检查话题、时效、运动学、采样权重、足迹和障碍过滤参数。
@@ -273,6 +303,7 @@ private:
       !validateFootprintConfig(footprint_config_, &reason) ||
       !validateMotionLimits(motion_limits_, &reason) ||
       !validateAngularStabilizationConfig(angular_stabilization_config_, &reason) ||
+      !validateEmergencyReverseConfig(emergency_reverse_config_, motion_limits_, &reason) ||
       !validateVelocitySamplingConfig(sampling_config_, &reason))
     {
       throw std::invalid_argument(reason);
@@ -339,7 +370,7 @@ private:
     nominal_snapshot_ = snapshot;
   }
 
-  // 从 /odom_leg 只读取 base_footprint 下的真实速度，不使用 pose 或历史里程计。
+  // 从 /odom_leg 读取 base_footprint 下的真实速度，保留恢复倒退所需的负线速度。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
     OdomSnapshot snapshot;
@@ -363,7 +394,8 @@ private:
     if (std::abs(angular_z) < odom_angular_deadband_) {
       angular_z = 0.0;
     }
-    snapshot.velocity.linear_x = clampValue(linear_x, 0.0, motion_limits_.max_linear_speed);
+    snapshot.velocity.linear_x = clampValue(
+      linear_x, -motion_limits_.max_reverse_speed, motion_limits_.max_linear_speed);
     snapshot.velocity.angular_z = clampValue(
       angular_z, -motion_limits_.max_angular_speed, motion_limits_.max_angular_speed);
     snapshot.valid = true;
@@ -488,6 +520,162 @@ private:
     return emergency_latched_;
   }
 
+  // 清除单次急停恢复状态；关键输入失效后必须重新完成急停确认和停稳阶段。
+  void resetEmergencyRecovery()
+  {
+    emergency_recovery_state_ = EmergencyRecoveryState::IDLE;
+    emergency_brake_start_time_ = std::chrono::steady_clock::time_point{};
+    emergency_reverse_start_time_ = std::chrono::steady_clock::time_point{};
+  }
+
+  // 急停后先确认底盘停稳，再安全后退到触发障碍离开当前急停区域。
+  bool handleEmergencyRecovery(
+    StatusSnapshot & status,
+    const OdomSnapshot & odom,
+    const std::vector<ObstaclePoint2D> & obstacles,
+    const std::chrono::steady_clock::time_point & current)
+  {
+    if (!emergency_reverse_config_.enabled) {
+      resetEmergencyRecovery();
+      return false;
+    }
+
+    if (emergency_recovery_state_ == EmergencyRecoveryState::IDLE) {
+      if (!status.emergency) {
+        return false;
+      }
+      emergency_recovery_state_ = EmergencyRecoveryState::BRAKING;
+      emergency_brake_start_time_ = current;
+      status.emergency_recovery_active = true;
+      status.emergency_reverse_remaining = emergency_reverse_config_.distance;
+      // 急停触发周期必须先明确发出一次零速，下一周期才允许检查停稳并切换方向。
+      const auto braking_path = predictAcceleratingTrajectory(
+        odom.velocity, PlannerVelocity2D{}, trajectory_config_, motion_limits_, true);
+      publishStop(status, "EMERGENCY_BRAKING", braking_path);
+      return true;
+    }
+
+    if (emergency_recovery_state_ == EmergencyRecoveryState::BRAKING) {
+      // 短暂伪障碍在停稳阶段已经解除时，不执行没有必要的盲区倒退。
+      if (!status.emergency) {
+        resetEmergencyRecovery();
+        return false;
+      }
+      if (!status.emergency_detected) {
+        emergency_recovery_state_ = EmergencyRecoveryState::COMPLETE;
+        publishStop(status, "EMERGENCY_ZONE_CLEARED", {});
+        return true;
+      }
+      const double braking_elapsed = std::chrono::duration<double>(
+        current - emergency_brake_start_time_).count();
+      status.emergency_recovery_active = true;
+      status.emergency_reverse_elapsed = braking_elapsed;
+      status.emergency_reverse_remaining = emergency_reverse_config_.distance;
+      const bool hold_finished = braking_elapsed >= emergency_reverse_config_.stop_hold_sec;
+      const bool chassis_stopped =
+        std::abs(odom.velocity.linear_x) <=
+        emergency_reverse_config_.start_linear_speed_threshold &&
+        std::abs(odom.velocity.angular_z) <=
+        emergency_reverse_config_.start_angular_speed_threshold;
+      if (!hold_finished || !chassis_stopped) {
+        const auto braking_path = predictAcceleratingTrajectory(
+          odom.velocity, PlannerVelocity2D{}, trajectory_config_, motion_limits_, true);
+        publishStop(status, "EMERGENCY_BRAKING", braking_path);
+        return true;
+      }
+
+      const auto initial_plan = planEmergencyReverse(
+        obstacles, trajectory_config_, footprint_config_, motion_limits_,
+        emergency_reverse_config_, emergency_reverse_config_.distance);
+      if (!initial_plan.valid) {
+        emergency_recovery_state_ = EmergencyRecoveryState::BLOCKED;
+        status.min_clearance = initial_plan.collision.min_clearance;
+        publishStop(status, "EMERGENCY_REVERSE_BLOCKED", initial_plan.selected_trajectory);
+        return true;
+      }
+      emergency_recovery_state_ = EmergencyRecoveryState::REVERSING;
+      emergency_reverse_start_time_ = current;
+    }
+
+    if (emergency_recovery_state_ == EmergencyRecoveryState::REVERSING) {
+      const double reverse_elapsed = std::chrono::duration<double>(
+        current - emergency_reverse_start_time_).count();
+      const EmergencyReverseProgress progress = evaluateEmergencyReverseProgress(
+        status.emergency_detected, emergency_reverse_config_, reverse_elapsed);
+      status.emergency_recovery_active = true;
+      status.emergency_reverse_elapsed = reverse_elapsed;
+      status.emergency_reverse_remaining = progress.remaining_distance;
+      if (progress.zone_cleared) {
+        emergency_recovery_state_ = EmergencyRecoveryState::COMPLETE;
+        publishStop(status, "EMERGENCY_ZONE_CLEARED", {});
+        return true;
+      }
+      if (progress.distance_limit_reached) {
+        // 区域仍被占用却达到后退上限，按异常阻塞停车，禁止无限退入后方盲区。
+        emergency_recovery_state_ = EmergencyRecoveryState::LIMIT_REACHED;
+        publishStop(status, "EMERGENCY_REVERSE_LIMIT_REACHED", {});
+        return true;
+      }
+
+      const auto reverse_plan = planEmergencyReverse(
+        obstacles, trajectory_config_, footprint_config_, motion_limits_,
+        emergency_reverse_config_, progress.remaining_distance);
+      status.min_clearance = reverse_plan.collision.min_clearance;
+      status.required_clearance = emergency_reverse_config_.extra_safety_margin;
+      if (std::isfinite(reverse_plan.collision.min_clearance)) {
+        status.clearance_ttc = reverse_plan.collision.min_clearance /
+          emergency_reverse_config_.speed;
+      }
+      if (!reverse_plan.valid) {
+        emergency_recovery_state_ = EmergencyRecoveryState::BLOCKED;
+        publishStop(status, "EMERGENCY_REVERSE_BLOCKED", reverse_plan.selected_trajectory);
+        return true;
+      }
+
+      status.avoidance_active = true;
+      status.planned = reverse_plan.selected_velocity;
+      status.final_command = reverse_plan.selected_velocity;
+      // 已经过停稳门槛，恢复阶段直接跨过 Go2 执行死区，且禁止边退边转。
+      status.final_command.angular_z = 0.0;
+      publishDecision(status, "EMERGENCY_REVERSING", reverse_plan.selected_trajectory);
+      return true;
+    }
+
+    if (emergency_recovery_state_ == EmergencyRecoveryState::BLOCKED) {
+      if (!status.emergency) {
+        resetEmergencyRecovery();
+        return false;
+      }
+      publishStop(status, "EMERGENCY_REVERSE_BLOCKED", {});
+      return true;
+    }
+
+    if (emergency_recovery_state_ == EmergencyRecoveryState::LIMIT_REACHED) {
+      if (!status.emergency) {
+        resetEmergencyRecovery();
+        return false;
+      }
+      publishStop(status, "EMERGENCY_REVERSE_LIMIT_REACHED", {});
+      return true;
+    }
+
+    if (emergency_recovery_state_ == EmergencyRecoveryState::COMPLETE) {
+      if (status.emergency_detected) {
+        // 清空帧只是短暂抖动时恢复倒退，但先保留一个零速周期再重新进入恢复。
+        emergency_recovery_state_ = EmergencyRecoveryState::REVERSING;
+        publishStop(status, "EMERGENCY_ZONE_REENTERED", {});
+        return true;
+      }
+      if (!status.emergency) {
+        resetEmergencyRecovery();
+        return false;
+      }
+      publishStop(status, "EMERGENCY_ZONE_CLEARED", {});
+      return true;
+    }
+    return false;
+  }
+
   // 生成仅供候选评分使用的历史速度，让短暂停车后仍优先沿原方向绕障。
   PlannerVelocity2D makeScoringPreviousCommand(
     const PlannerVelocity2D & previous_command,
@@ -548,25 +736,30 @@ private:
     status.avoidance_turn_direction = activeAvoidanceTurnDirection(current);
 
     if (!nominal.valid || status.nominal_age > nominal_timeout_sec_) {
+      resetEmergencyRecovery();
       publishStop(status, "NOMINAL_TIMEOUT", {});
       return;
     }
     if (!obstacle.valid) {
+      resetEmergencyRecovery();
       const std::string state = obstacle.rejection_reason.empty() ?
         "WAIT_OBSTACLE" : "OBSTACLE_INVALID";
       publishStop(status, state, {});
       return;
     }
     if (status.obstacle_age > obstacle_timeout_sec_) {
+      resetEmergencyRecovery();
       publishStop(status, "SENSOR_TIMEOUT", {});
       return;
     }
     if (!odom.valid) {
+      resetEmergencyRecovery();
       const std::string state = odom.rejection_reason.empty() ? "WAIT_ODOM" : "ODOM_INVALID";
       publishStop(status, state, {});
       return;
     }
     if (status.odom_age > odom_timeout_sec_) {
+      resetEmergencyRecovery();
       publishStop(status, "ODOM_TIMEOUT", {});
       return;
     }
@@ -576,10 +769,13 @@ private:
 
     const auto & points = *obstacle.points;
     status.obstacle_count = points.size();
+    status.emergency_detected = hasEmergencyFrontObstacle(
+      points, footprint_config_, emergency_front_distance_, emergency_half_width_);
     status.emergency = confirmEmergencyObstacle(
-      hasEmergencyFrontObstacle(
-        points, footprint_config_, emergency_front_distance_, emergency_half_width_),
-      obstacle.receipt_time);
+      status.emergency_detected, obstacle.receipt_time);
+    if (handleEmergencyRecovery(status, odom, points, current)) {
+      return;
+    }
     const PlannerVelocity2D previous_command = last_command_valid_ ?
       last_command_ : odom.velocity;
     const PlannerVelocity2D scoring_previous_command = makeScoringPreviousCommand(
@@ -665,7 +861,11 @@ private:
 
     geometry_msgs::msg::Twist output_message;
     if (enable_motion_ && !force_stop) {
-      output_message.linear.x = std::max(0.0, status.final_command.linear_x);
+      // 负线速度只可能由经过状态机和后向碰撞检查的急停恢复阶段产生。
+      output_message.linear.x = clampValue(
+        status.final_command.linear_x,
+        -motion_limits_.max_reverse_speed,
+        motion_limits_.max_linear_speed);
       output_message.angular.z = status.final_command.angular_z;
       last_command_ = status.final_command;
       last_command_valid_ = true;
@@ -683,7 +883,7 @@ private:
     publishDiagnosticIfDue();
   }
 
-  // 发布一个带 base_footprint 时间戳的二维速度调试消息。
+  // 发布一个带 base_footprint 时间戳的二维速度调试消息，并保留恢复倒退指令。
   void publishStampedVelocity(
     const rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr & publisher,
     const PlannerVelocity2D & velocity,
@@ -692,7 +892,8 @@ private:
     geometry_msgs::msg::TwistStamped message;
     message.header.stamp = stamp;
     message.header.frame_id = base_frame_;
-    message.twist.linear.x = std::max(0.0, velocity.linear_x);
+    message.twist.linear.x = clampValue(
+      velocity.linear_x, -motion_limits_.max_reverse_speed, motion_limits_.max_linear_speed);
     message.twist.angular.z = velocity.angular_z;
     publisher->publish(message);
   }
@@ -755,7 +956,11 @@ private:
       {"avoidance_turn_direction", std::to_string(status.avoidance_turn_direction)},
       {"avoidance_active", status.avoidance_active ? "true" : "false"},
       {"selected_speed_scale", formatDouble(status.selected_speed_scale)},
+      {"emergency_detected", status.emergency_detected ? "true" : "false"},
       {"emergency", status.emergency ? "true" : "false"},
+      {"emergency_recovery_active", status.emergency_recovery_active ? "true" : "false"},
+      {"emergency_reverse_elapsed_sec", formatDouble(status.emergency_reverse_elapsed)},
+      {"emergency_reverse_remaining_m", formatDouble(status.emergency_reverse_remaining)},
       {"min_clearance", formatDouble(status.min_clearance)},
       {"required_clearance", formatDouble(status.required_clearance)},
       {"clearance_ttc", formatDouble(status.clearance_ttc)},
@@ -812,10 +1017,11 @@ private:
   FootprintConfig footprint_config_;
   MotionLimits motion_limits_;
   VelocitySamplingConfig sampling_config_;
+  EmergencyReverseConfig emergency_reverse_config_;
   double emergency_front_distance_{0.25};
   double emergency_half_width_{0.30};
   int emergency_confirm_frames_{2};
-  double obstacle_x_min_{-0.50};
+  double obstacle_x_min_{-0.75};
   double obstacle_x_max_{3.00};
   double obstacle_y_abs_max_{2.00};
   bool enable_self_filter_{true};
@@ -835,9 +1041,12 @@ private:
   int emergency_hit_count_{0};
   int emergency_clear_count_{0};
   bool emergency_latched_{false};
+  EmergencyRecoveryState emergency_recovery_state_{EmergencyRecoveryState::IDLE};
   bool have_confirm_receipt_{false};
   std::chrono::steady_clock::time_point last_confirm_receipt_{};
   std::chrono::steady_clock::time_point last_avoidance_turn_time_{};
+  std::chrono::steady_clock::time_point emergency_brake_start_time_{};
+  std::chrono::steady_clock::time_point emergency_reverse_start_time_{};
   std::chrono::steady_clock::time_point last_control_time_{};
 
   std::mutex status_mutex_;

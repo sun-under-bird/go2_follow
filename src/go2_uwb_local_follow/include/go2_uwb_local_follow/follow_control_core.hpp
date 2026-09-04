@@ -28,11 +28,11 @@ struct FollowConfig
   double angle_reengage{0.45};
   double linear_kp{0.6};
   double angular_kp{1.0};
-  double min_linear_speed{0.12};
+  double min_linear_speed{0.23};
   double max_linear_speed{0.80};
   double max_angular_speed{2.00};
   double heading_slowdown_start{0.50};
-  double heading_stop_angle{1.05};
+  double heading_stop_angle{1.40};
   double blind_rotation_max_speed{2.00};
   double max_linear_accel{0.80};
   double max_linear_decel{0.80};

@@ -75,10 +75,13 @@ PlannerVelocity2D approachVelocity(
   const MotionLimits & limits,
   double dt)
 {
-  const double linear_rate = target.linear_x >= current.linear_x ?
+  // 前后方向切换时必须先逼近零速，禁止一个积分步内直接穿过零点反向。
+  const bool changing_linear_direction = current.linear_x * target.linear_x < 0.0;
+  const double effective_linear_target = changing_linear_direction ? 0.0 : target.linear_x;
+  const double linear_rate = std::abs(effective_linear_target) >= std::abs(current.linear_x) ?
     limits.max_linear_accel : limits.max_linear_decel;
   return PlannerVelocity2D{
-    approachValue(current.linear_x, target.linear_x, linear_rate, dt),
+    approachValue(current.linear_x, effective_linear_target, linear_rate, dt),
     approachValue(current.angular_z, target.angular_z, limits.max_angular_accel, dt)};
 }
 
@@ -88,7 +91,7 @@ PlannerVelocity2D clampVelocityToLimits(
   const MotionLimits & limits)
 {
   return PlannerVelocity2D{
-    clampValue(velocity.linear_x, 0.0, limits.max_linear_speed),
+    clampValue(velocity.linear_x, -limits.max_reverse_speed, limits.max_linear_speed),
     clampValue(velocity.angular_z, -limits.max_angular_speed, limits.max_angular_speed)};
 }
 
@@ -161,6 +164,7 @@ bool validateMotionLimits(const MotionLimits & limits, std::string * reason)
 {
   const bool finite =
     std::isfinite(limits.min_linear_speed) && std::isfinite(limits.max_linear_speed) &&
+    std::isfinite(limits.max_reverse_speed) &&
     std::isfinite(limits.min_angular_speed) && std::isfinite(limits.max_angular_speed) &&
     std::isfinite(limits.max_linear_accel) && std::isfinite(limits.max_linear_decel) &&
     std::isfinite(limits.max_angular_accel);
@@ -168,7 +172,9 @@ bool validateMotionLimits(const MotionLimits & limits, std::string * reason)
     return rejectWithReason("motion limits contain non-finite values", reason);
   }
   if (limits.min_linear_speed < 0.0 ||
-    limits.min_linear_speed > limits.max_linear_speed || limits.max_linear_speed < 0.0)
+    limits.min_linear_speed > limits.max_linear_speed || limits.max_linear_speed < 0.0 ||
+    limits.max_reverse_speed < 0.0 ||
+    (limits.max_reverse_speed > 0.0 && limits.max_reverse_speed < limits.min_linear_speed))
   {
     return rejectWithReason("linear speed limits are invalid", reason);
   }
@@ -200,6 +206,37 @@ bool validateAngularStabilizationConfig(
     config.reverse_speed_threshold < 0.0)
   {
     return rejectWithReason("angular stabilization parameters must be non-negative", reason);
+  }
+  return true;
+}
+
+// 校验急停倒退参数，确保恢复速度处于底盘可执行范围且所有门槛有限。
+bool validateEmergencyReverseConfig(
+  const EmergencyReverseConfig & config,
+  const MotionLimits & limits,
+  std::string * reason)
+{
+  const bool finite = std::isfinite(config.speed) && std::isfinite(config.distance) &&
+    std::isfinite(config.stop_hold_sec) &&
+    std::isfinite(config.start_linear_speed_threshold) &&
+    std::isfinite(config.start_angular_speed_threshold) &&
+    std::isfinite(config.extra_safety_margin);
+  if (!finite) {
+    return rejectWithReason("emergency reverse config contains non-finite values", reason);
+  }
+  if (config.stop_hold_sec < 0.0 || config.start_linear_speed_threshold < 0.0 ||
+    config.start_angular_speed_threshold < 0.0 || config.extra_safety_margin < 0.0)
+  {
+    return rejectWithReason("emergency reverse thresholds must be non-negative", reason);
+  }
+  if (!config.enabled) {
+    return true;
+  }
+  if (config.speed < limits.min_linear_speed || config.speed > limits.max_reverse_speed ||
+    config.distance <= 0.0)
+  {
+    return rejectWithReason(
+      "emergency reverse speed or distance is outside motion limits", reason);
   }
   return true;
 }
@@ -299,7 +336,8 @@ std::vector<PlannerPose2D> predictAcceleratingTrajectory(
   }
 
   PlannerVelocity2D current{
-    clampValue(initial_velocity.linear_x, 0.0, limits.max_linear_speed),
+    clampValue(
+      initial_velocity.linear_x, -limits.max_reverse_speed, limits.max_linear_speed),
     clampValue(
       initial_velocity.angular_z, -limits.max_angular_speed, limits.max_angular_speed)};
   const PlannerVelocity2D target = makeEffectiveVelocity(target_velocity, limits);
@@ -307,8 +345,8 @@ std::vector<PlannerPose2D> predictAcceleratingTrajectory(
   std::vector<PlannerPose2D> poses{pose};
   const std::size_t nominal_steps = static_cast<std::size_t>(
     std::ceil(config.prediction_time / config.simulation_dt));
-  const double braking_time =
-    limits.max_linear_decel > 0.0 ? limits.max_linear_speed / limits.max_linear_decel : 0.0;
+  const double braking_time = limits.max_linear_decel > 0.0 ?
+    std::max(limits.max_linear_speed, limits.max_reverse_speed) / limits.max_linear_decel : 0.0;
   const double angular_braking_time = limits.max_angular_accel > 0.0 ?
     limits.max_angular_speed / limits.max_angular_accel : 0.0;
   const std::size_t braking_steps = append_braking_tail ?
@@ -409,15 +447,87 @@ bool hasEmergencyFrontObstacle(
     });
 }
 
+// 规划一次受距离限制的直线倒退，前方触发急停的障碍不会阻止机器人远离它。
+EmergencyReversePlanResult planEmergencyReverse(
+  const std::vector<ObstaclePoint2D> & obstacles,
+  const TrajectoryConfig & trajectory_config,
+  const FootprintConfig & footprint_config,
+  const MotionLimits & limits,
+  const EmergencyReverseConfig & reverse_config,
+  double remaining_distance)
+{
+  EmergencyReversePlanResult result;
+  if (!validateTrajectoryConfig(trajectory_config) || !validateFootprintConfig(footprint_config) ||
+    !validateMotionLimits(limits) || !validateEmergencyReverseConfig(reverse_config, limits) ||
+    !std::isfinite(remaining_distance) || remaining_distance <= 0.0)
+  {
+    return result;
+  }
+
+  const double bounded_distance = std::min(remaining_distance, reverse_config.distance);
+  TrajectoryConfig reverse_trajectory_config = trajectory_config;
+  reverse_trajectory_config.prediction_time = bounded_distance / reverse_config.speed;
+  reverse_trajectory_config.simulation_dt = std::min(
+    trajectory_config.simulation_dt, reverse_trajectory_config.prediction_time);
+  result.selected_velocity = PlannerVelocity2D{-reverse_config.speed, 0.0};
+  result.selected_trajectory = predictTrajectory(
+    result.selected_velocity, reverse_trajectory_config);
+
+  FootprintConfig recovery_footprint = footprint_config;
+  recovery_footprint.safety_margin += reverse_config.extra_safety_margin;
+  const double robot_front = footprint_config.robot_length * 0.5 +
+    footprint_config.safety_margin;
+  std::vector<ObstaclePoint2D> reverse_obstacles;
+  reverse_obstacles.reserve(obstacles.size());
+  for (const auto & obstacle : obstacles) {
+    // 直线倒退只会远离原本位于前缘之外的急停障碍，重点检查侧方和后方扫掠区。
+    if (obstacle.x < robot_front) {
+      reverse_obstacles.push_back(obstacle);
+    }
+  }
+  result.collision = checkTrajectoryCollision(
+    result.selected_trajectory, reverse_obstacles, recovery_footprint);
+  result.valid = !result.collision.collision;
+  return result;
+}
+
+// 根据前方急停区域是否仍被占用和最大命令距离，计算本周期恢复进度。
+EmergencyReverseProgress evaluateEmergencyReverseProgress(
+  bool emergency_detected,
+  const EmergencyReverseConfig & reverse_config,
+  double reverse_elapsed_sec)
+{
+  EmergencyReverseProgress progress;
+  progress.zone_cleared = !emergency_detected;
+  if (!std::isfinite(reverse_config.speed) || reverse_config.speed <= 0.0 ||
+    !std::isfinite(reverse_config.distance) || reverse_config.distance <= 0.0 ||
+    !std::isfinite(reverse_elapsed_sec) || reverse_elapsed_sec < 0.0)
+  {
+    // 非法进度输入必须退化为停止，禁止在距离预算未知时继续倒车。
+    progress.distance_limit_reached = true;
+    return progress;
+  }
+
+  progress.commanded_distance = reverse_config.speed * reverse_elapsed_sec;
+  progress.remaining_distance = std::max(
+    0.0, reverse_config.distance - progress.commanded_distance);
+  progress.distance_limit_reached = progress.remaining_distance <= 1e-6;
+  progress.should_reverse = !progress.zone_cleared && !progress.distance_limit_reached;
+  return progress;
+}
+
 // 将候选速度限制到运动范围，并跨过 Go2 无法执行的最小非零速度区间。
 PlannerVelocity2D makeEffectiveVelocity(
   const PlannerVelocity2D & velocity,
   const MotionLimits & limits)
 {
   PlannerVelocity2D effective;
-  effective.linear_x = clampValue(velocity.linear_x, 0.0, limits.max_linear_speed);
-  if (effective.linear_x > 0.0 && effective.linear_x < limits.min_linear_speed) {
-    effective.linear_x = limits.min_linear_speed;
+  effective.linear_x = clampValue(
+    velocity.linear_x, -limits.max_reverse_speed, limits.max_linear_speed);
+  if (std::abs(effective.linear_x) > 0.0 &&
+    std::abs(effective.linear_x) < limits.min_linear_speed)
+  {
+    effective.linear_x = std::copysign(limits.min_linear_speed, effective.linear_x);
   }
   effective.angular_z = clampValue(
     velocity.angular_z, -limits.max_angular_speed, limits.max_angular_speed);
@@ -486,6 +596,8 @@ std::vector<PlannerVelocity2D> sampleCandidateVelocities(
       if (force_linear_stop) {
         velocity.linear_x = 0.0;
       }
+      // 通用跟随/避障采样不得借用恢复行为专用的负速度范围。
+      velocity.linear_x = std::max(0.0, velocity.linear_x);
       velocity.angular_z = clampValue(
         velocity.angular_z, -avoidance_maximum, avoidance_maximum);
       if (std::abs(velocity.angular_z) > 0.0 &&
@@ -870,12 +982,19 @@ PlannerVelocity2D limitCommandVelocity(
   const PlannerVelocity2D target = makeEffectiveVelocity(target_velocity, limits);
   PlannerVelocity2D output = approachVelocity(previous, target, limits, dt);
 
-  if (target.linear_x <= 0.0) {
-    if (output.linear_x < limits.min_linear_speed) {
+  constexpr double linear_tolerance = 1e-9;
+  const bool changing_linear_direction = previous.linear_x * target.linear_x < 0.0;
+  if (changing_linear_direction) {
+    // 方向切换的制动阶段保留原方向，进入执行死区后先明确发布一次零速。
+    if (std::abs(output.linear_x) < limits.min_linear_speed) {
       output.linear_x = 0.0;
     }
-  } else if (output.linear_x < limits.min_linear_speed) {
-    output.linear_x = limits.min_linear_speed;
+  } else if (std::abs(target.linear_x) <= linear_tolerance) {
+    if (std::abs(output.linear_x) < limits.min_linear_speed) {
+      output.linear_x = 0.0;
+    }
+  } else if (std::abs(output.linear_x) < limits.min_linear_speed) {
+    output.linear_x = std::copysign(limits.min_linear_speed, target.linear_x);
   }
 
   if (std::abs(target.angular_z) <= 0.0) {

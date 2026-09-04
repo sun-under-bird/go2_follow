@@ -64,8 +64,10 @@ struct CollisionResult
 
 struct MotionLimits
 {
-  double min_linear_speed{0.12};
+  double min_linear_speed{0.23};
   double max_linear_speed{0.80};
+  // 仅供显式恢复行为使用；普通跟随和避障候选仍只允许非负线速度。
+  double max_reverse_speed{0.23};
   double min_angular_speed{0.0};
   double max_angular_speed{2.00};
   double max_linear_accel{0.80};
@@ -81,6 +83,20 @@ struct AngularStabilizationConfig
   double command_deadband{0.08};
   // 请求反向时，先等待当前实测角速度降到该值以下。
   double reverse_speed_threshold{0.15};
+};
+
+struct EmergencyReverseConfig
+{
+  bool enabled{true};
+  // 急停并确认底盘停稳后使用的恒定直线倒退速度。
+  double speed{0.23};
+  // 退出急停区域前允许使用的最大命令距离，防止感知异常时持续后退。
+  double distance{0.20};
+  double stop_hold_sec{0.0};
+  double start_linear_speed_threshold{0.04};
+  double start_angular_speed_threshold{0.10};
+  // 在原有膨胀足迹之外为倒退轨迹增加的额外安全边界。
+  double extra_safety_margin{0.05};
 };
 
 struct VelocitySamplingConfig
@@ -132,6 +148,23 @@ struct LocalPlanResult
   double selected_speed_scale{0.0};
 };
 
+struct EmergencyReversePlanResult
+{
+  bool valid{false};
+  PlannerVelocity2D selected_velocity;
+  std::vector<PlannerPose2D> selected_trajectory;
+  CollisionResult collision;
+};
+
+struct EmergencyReverseProgress
+{
+  bool should_reverse{false};
+  bool zone_cleared{false};
+  bool distance_limit_reached{false};
+  double commanded_distance{0.0};
+  double remaining_distance{0.0};
+};
+
 // 校验轨迹预测的时域和积分步长。
 bool validateTrajectoryConfig(
   const TrajectoryConfig & config,
@@ -150,6 +183,12 @@ bool validateMotionLimits(
 // 校验角速度反馈阻尼、提前制动死区和安全换向阈值。
 bool validateAngularStabilizationConfig(
   const AngularStabilizationConfig & config,
+  std::string * reason = nullptr);
+
+// 校验急停倒退速度、距离、停稳门槛和额外安全边界。
+bool validateEmergencyReverseConfig(
+  const EmergencyReverseConfig & config,
+  const MotionLimits & limits,
   std::string * reason = nullptr);
 
 // 校验速度采样数量、障碍影响距离和各项代价权重。
@@ -194,6 +233,21 @@ bool hasEmergencyFrontObstacle(
   const FootprintConfig & footprint,
   double emergency_front_distance,
   double emergency_half_width);
+
+// 生成直线倒退轨迹，并只在后向扫掠足迹完整无碰撞时允许执行。
+EmergencyReversePlanResult planEmergencyReverse(
+  const std::vector<ObstaclePoint2D> & obstacles,
+  const TrajectoryConfig & trajectory_config,
+  const FootprintConfig & footprint_config,
+  const MotionLimits & limits,
+  const EmergencyReverseConfig & reverse_config,
+  double remaining_distance);
+
+// 根据当前急停区域和命令距离预算，决定继续后退还是安全停止。
+EmergencyReverseProgress evaluateEmergencyReverseProgress(
+  bool emergency_detected,
+  const EmergencyReverseConfig & reverse_config,
+  double reverse_elapsed_sec);
 
 // 将候选速度限制到运动范围，并跨过 Go2 无法执行的最小非零速度区间。
 PlannerVelocity2D makeEffectiveVelocity(

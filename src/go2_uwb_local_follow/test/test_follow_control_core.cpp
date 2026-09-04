@@ -135,7 +135,7 @@ TEST(TurnHysteresis, KeepsDirectionAcrossRearAngleWrap)
   EXPECT_EQ(follow::updateTurnDirection(3.13, 0.12, 0.30, -1), -1);
 }
 
-// 验证线加速和角加速度都受单周期变化率约束。
+// 验证角速度受单周期变化率约束，非零线速度起步则直接跨过实机死区。
 TEST(VelocityRate, LimitsAccelerationPerControlPeriod)
 {
   follow::FollowConfig config;
@@ -143,8 +143,20 @@ TEST(VelocityRate, LimitsAccelerationPerControlPeriod)
   const follow::Velocity2D target{0.4, 1.0};
   const auto output = follow::limitVelocityRate(previous, target, config, 0.05);
 
-  EXPECT_NEAR(output.linear_x, 0.040, 1e-12);
+  EXPECT_NEAR(output.linear_x, config.min_linear_speed, 1e-12);
   EXPECT_NEAR(output.angular_z, config.max_angular_accel * 0.05, 1e-12);
+}
+
+// 验证方位降速不会重新产生低于实机最小起步速度的非零 x 指令。
+TEST(FollowControl, KeepsHeadingSlowedVelocityOutsideDeadzone)
+{
+  follow::FollowConfig config;
+  const double heading = config.heading_stop_angle - 0.01;
+  const auto result = follow::computeFollowTarget(
+    2.0 * std::cos(heading), 2.0 * std::sin(heading), config);
+
+  EXPECT_FALSE(result.blind_rotation);
+  EXPECT_DOUBLE_EQ(result.target_velocity.linear_x, config.min_linear_speed);
 }
 
 // 验证减速使用独立的更高线减速度参数。

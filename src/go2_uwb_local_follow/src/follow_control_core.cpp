@@ -153,6 +153,12 @@ FollowResult computeFollowTarget(
       result.target_velocity.angular_z,
       -config.blind_rotation_max_speed, config.blind_rotation_max_speed);
   }
+  if (!result.blind_rotation && result.target_velocity.linear_x > 0.0 &&
+    result.target_velocity.linear_x < config.min_linear_speed)
+  {
+    // 方位降速后仍要跨过实机起步死区，非零前进指令不得低于最小线速度。
+    result.target_velocity.linear_x = config.min_linear_speed;
+  }
   return result;
 }
 
@@ -186,7 +192,7 @@ int updateTurnDirection(
   return 0;
 }
 
-// 按线加速、线减速和角加速度限制一个控制周期内的速度变化。
+// 按线加速、线减速和角加速度限制一个控制周期，并跳过实机无效线速度区间。
 Velocity2D limitVelocityRate(
   const Velocity2D & previous,
   const Velocity2D & target,
@@ -202,6 +208,14 @@ Velocity2D limitVelocityRate(
   output.linear_x = clampValue(output.linear_x, 0.0, config.max_linear_speed);
   output.angular_z = clampValue(
     output.angular_z, -config.max_angular_speed, config.max_angular_speed);
+  if (target.linear_x <= 0.0) {
+    if (output.linear_x < config.min_linear_speed) {
+      output.linear_x = 0.0;
+    }
+  } else if (output.linear_x < config.min_linear_speed) {
+    // 起步时直接给出可执行速度，避免连续 MOVE 小指令只造成重心调整。
+    output.linear_x = config.min_linear_speed;
+  }
   return output;
 }
 

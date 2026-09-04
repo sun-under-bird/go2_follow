@@ -22,7 +22,7 @@ local_velocity_planner_node:
     angular_velocity_damping_gain: 0.35  # ↑更早撤销同向转弯/不易过冲；↓更紧跟 UWB/易过冲；步长 0.05 s
     angular_command_deadband: 0.08  # ↑更容易提前停止转向/朝向精度低；↓纠偏更积极/易摆头；步长 0.02 rad/s
     angular_reverse_speed_threshold: 0.15  # ↑更早允许反向/响应快；↓必须更接近停稳/更少左右切换；步长 0.05 rad/s
-    avoidance_direction_hold_sec: 1.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
+    avoidance_direction_hold_sec: 0.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
 
     prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
     simulation_dt: 0.08  # ↑计算快/检查粗；↓检查细/计算多；0.08 s 对应最高速约 4.8 cm/步；步长 0.01 s
@@ -31,15 +31,16 @@ local_velocity_planner_node:
     robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
     safety_margin: 0.02  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
 
-    min_linear_speed: 0.12  # ↑易跨过底盘死区/起步突兀；↓更柔和/可能不迈步；步长 0.02 m/s
+    min_linear_speed: 0.23  # 实机确认 0.12 只调整重心不迈步，所有非零 x 指令至少使用 0.23 m/s
     max_linear_speed: 0.80  # ↑跟随快/制动距离长；↓更稳/可能跟不上；步长 0.05 m/s
+    max_reverse_speed: 0.30  # 仅供急停恢复倒退使用，普通跟随和主动避障仍禁止负线速度
 
 
-    min_follow_angular_speed: 0.0  # 仅用于 UWB 跟随；0 保留连续小角度精细纠偏
-    max_angular_speed: 2.00  # UWB 跟随最大角速度；无障碍时规划器保留该上限
+    min_follow_angular_speed: 0.5  # 仅用于 UWB 跟随；0 保留连续小角度精细纠偏
+    max_angular_speed: 1.50  # UWB 跟随最大角速度；无障碍时规划器保留该上限
     max_linear_accel: 0.50  # ↑提速快/顿挫强；↓提速平滑/响应慢；步长 0.10 m/s²
     max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²
-    max_angular_accel: 2.00  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
+    max_angular_accel: 1.50  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
 
     linear_samples: 10  # 保留给全局候选调试接口；分层规划使用下方速度比例
     angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
@@ -50,9 +51,9 @@ local_velocity_planner_node:
     minimum_safe_clearance: 0.05  # 候选相对膨胀足迹的基础软净空；低于该值视为勉强不碰撞
     minimum_ttc: 0.20  # 按足迹边界速度换算所需净空；↑高速更早降层，↓更偏向保持速度；步长 0.05 s
     weight_follow_linear: 4.0  # ↑更服从 UWB 线速度；↓更允许避障减速；步长 0.5
-    weight_follow_angular: 3.0  # ↑更服从 UWB 角速度，名义为零时更直；↓更易主动绕行；步长 0.5
+    weight_follow_angular: 4.0  # ↑更服从 UWB 角速度，名义为零时更直；↓更易主动绕行；步长 0.5
     weight_smooth_linear: 6.0  # ↑线速度更连续/响应慢；↓响应快/易忽快忽慢；步长 0.5
-    weight_smooth_angular: 8.0  # ↑少换向/响应慢；↓更灵活/易左右摆头；步长 0.5
+    weight_smooth_angular: 5.0  # ↑少换向/响应慢；↓更灵活/易左右摆头；步长 0.5
     weight_obstacle: 2.0  # ↑更早减速、净空大；↓不易被远点拖慢、净空小；步长 0.5
     weight_progress: 1.0  # ↑不愿低于 UWB 名义速度；↓更容易为安全减速；步长 0.10
 
@@ -60,7 +61,15 @@ local_velocity_planner_node:
     emergency_half_width: 0.30  # ↑急停通道更宽；↓只关注更窄正前方；步长 0.05 m
     # 紧急区连续命中该帧数才停车，连续清空同样帧数才解除；严格按新点云帧计数。
     emergency_confirm_frames: 3  # ↑更耐单帧伪点/确认更慢；↓响应更快/易误停；步长 1 帧
-    obstacle_x_min: -0.50  # 保留运动补偿后落到侧后方的历史障碍，用于旋转足迹扫掠检查
+    # 急停确认后立即发零速，确认底盘停稳后直退，直到触发障碍离开急停区域。
+    enable_emergency_reverse: true
+    emergency_reverse_speed: 0.30  # 倒退速度，必须位于底盘线速度死区与 max_reverse_speed 之间
+    emergency_reverse_distance: 0.40  # 急停区域未清空时的最大命令距离，避免感知异常导致无限后退
+    emergency_reverse_stop_hold_sec: 0.0  # 不增加固定等待，但仍须满足下方实测停稳门槛
+    emergency_reverse_start_linear_speed: 0.04  # 实测线速度低于该值才允许由前进切到倒退
+    emergency_reverse_start_angular_speed: 0.10  # 实测角速度低于该值才允许直线倒退
+    emergency_reverse_extra_margin: 0.05  # 倒退碰撞检查在原膨胀足迹外增加的安全边界
+    obstacle_x_min: -0.75  # 保留更长的侧后方历史障碍，覆盖急停倒退的完整扫掠足迹
     obstacle_x_max: 3.00  # ↑保留更远障碍/计算多；↓只看近处/计算少；步长 0.20 m
     obstacle_y_abs_max: 3.00  # ↑保留更宽侧向区域/计算多；↓视野更窄/可能漏侧障；步长 0.20 m
     enable_self_filter: false  # 原始点云已完成环境过滤，禁止删除进入当前足迹的历史真实障碍

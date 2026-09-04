@@ -106,6 +106,75 @@ TEST(EmergencyRegion, DetectsOnlyFrontCorridor)
   EXPECT_FALSE(planner::hasEmergencyFrontObstacle({{-0.50, 0.0}}, footprint, 0.25, 0.30));
 }
 
+// 验证前方急停障碍不会阻止直线远离，且恢复轨迹严格受最大倒退距离限制。
+TEST(EmergencyReverse, AllowsLimitedReverseAwayFromFrontObstacle)
+{
+  const planner::TrajectoryConfig trajectory_config{1.50, 0.05};
+  const planner::FootprintConfig footprint{0.70, 0.38, 0.02};
+  const planner::MotionLimits limits;
+  const planner::EmergencyReverseConfig reverse_config;
+  const auto result = planner::planEmergencyReverse(
+    {{0.40, 0.0}}, trajectory_config, footprint, limits, reverse_config,
+    reverse_config.distance);
+
+  ASSERT_TRUE(result.valid);
+  ASSERT_FALSE(result.selected_trajectory.empty());
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, -reverse_config.speed);
+  EXPECT_NEAR(result.selected_trajectory.back().x, -reverse_config.distance, 1e-9);
+  EXPECT_NEAR(result.selected_trajectory.back().y, 0.0, 1e-12);
+}
+
+// 验证后方障碍进入带额外安全边界的扫掠足迹时禁止急停倒退。
+TEST(EmergencyReverse, RejectsUnsafeRearSweep)
+{
+  const planner::TrajectoryConfig trajectory_config{1.50, 0.05};
+  const planner::FootprintConfig footprint{0.70, 0.38, 0.02};
+  const planner::MotionLimits limits;
+  const planner::EmergencyReverseConfig reverse_config;
+  const auto result = planner::planEmergencyReverse(
+    {{0.40, 0.0}, {-0.55, 0.0}}, trajectory_config, footprint, limits,
+    reverse_config, reverse_config.distance);
+
+  EXPECT_FALSE(result.valid);
+  EXPECT_TRUE(result.collision.collision);
+}
+
+// 验证急停区域仍占用且未达到距离上限时继续后退。
+TEST(EmergencyReverse, ContinuesWhileEmergencyZoneOccupied)
+{
+  const planner::EmergencyReverseConfig config;
+  const auto progress = planner::evaluateEmergencyReverseProgress(true, config, 0.20);
+
+  EXPECT_TRUE(progress.should_reverse);
+  EXPECT_FALSE(progress.zone_cleared);
+  EXPECT_FALSE(progress.distance_limit_reached);
+  EXPECT_NEAR(progress.commanded_distance, config.speed * 0.20, 1e-12);
+}
+
+// 验证障碍退出急停区域后立即结束倒退，不必耗尽距离预算。
+TEST(EmergencyReverse, StopsWhenEmergencyZoneClears)
+{
+  const planner::EmergencyReverseConfig config;
+  const auto progress = planner::evaluateEmergencyReverseProgress(false, config, 0.20);
+
+  EXPECT_FALSE(progress.should_reverse);
+  EXPECT_TRUE(progress.zone_cleared);
+  EXPECT_FALSE(progress.distance_limit_reached);
+}
+
+// 验证急停区域一直不清空时由最大命令距离强制停车。
+TEST(EmergencyReverse, StopsAtDistanceSafetyLimit)
+{
+  const planner::EmergencyReverseConfig config;
+  const double elapsed = config.distance / config.speed;
+  const auto progress = planner::evaluateEmergencyReverseProgress(true, config, elapsed);
+
+  EXPECT_FALSE(progress.should_reverse);
+  EXPECT_FALSE(progress.zone_cleared);
+  EXPECT_TRUE(progress.distance_limit_reached);
+  EXPECT_DOUBLE_EQ(progress.remaining_distance, 0.0);
+}
+
 // 验证非法轨迹积分参数会被拒绝。
 TEST(PlannerConfig, RejectsInvalidTrajectoryStep)
 {
@@ -137,6 +206,17 @@ TEST(VelocitySampling, AppliesEffectiveSpeedThresholds)
 
   EXPECT_DOUBLE_EQ(effective.linear_x, limits.min_linear_speed);
   EXPECT_DOUBLE_EQ(effective.angular_z, -limits.min_angular_speed);
+}
+
+// 验证恢复专用负速度同样跨过执行死区，但不超过最大倒退速度。
+TEST(VelocitySampling, AppliesReverseSpeedLimits)
+{
+  const planner::MotionLimits limits;
+  const auto effective = planner::makeEffectiveVelocity({-0.04, 0.0}, limits);
+  const auto clamped = planner::makeEffectiveVelocity({-0.50, 0.0}, limits);
+
+  EXPECT_DOUBLE_EQ(effective.linear_x, -limits.min_linear_speed);
+  EXPECT_DOUBLE_EQ(clamped.linear_x, -limits.max_reverse_speed);
 }
 
 // 验证默认不设最小角速度，小角速度不会被强制放大。
@@ -237,6 +317,7 @@ TEST(VelocitySampling, IncludesCriticalCandidates)
   EXPECT_TRUE(contains(0.0, limits.min_angular_speed));
   EXPECT_TRUE(contains(0.0, -limits.min_angular_speed));
   for (const auto & candidate : candidates) {
+    EXPECT_GE(candidate.linear_x, 0.0);
     EXPECT_LE(std::abs(candidate.angular_z), sampling.max_avoidance_angular_speed);
   }
 }
@@ -355,7 +436,7 @@ TEST(LocalVelocityPlanner, ReducesSpeedOnlyAfterNominalTierIsBlocked)
   const planner::VelocitySamplingConfig sampling;
   std::vector<planner::ObstaclePoint2D> obstacles;
   for (int index = -15; index <= 15; ++index) {
-    obstacles.push_back({0.70, 0.10 * static_cast<double>(index)});
+    obstacles.push_back({0.78, 0.10 * static_cast<double>(index)});
   }
   const auto result = planner::planLocalVelocity(
     {0.0, 0.0}, {0.0, 0.0}, {0.30, 0.0}, obstacles, trajectory_config,
@@ -390,7 +471,7 @@ TEST(LocalVelocityPlanner, ReducesSpeedForMarginalClearanceTtc)
   ASSERT_TRUE(result.valid);
   EXPECT_TRUE(result.avoidance_active);
   EXPECT_DOUBLE_EQ(result.selected_speed_scale, 0.5);
-  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, 0.15);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, limits.min_linear_speed);
   EXPECT_GT(result.marginal_count, 0U);
   EXPECT_GE(result.min_clearance, result.required_clearance);
   EXPECT_GE(result.clearance_ttc, sampling.minimum_ttc);
@@ -484,6 +565,19 @@ TEST(CommandLimiter, AppliesDeadzoneAndSafeAngularReversal)
   EXPECT_DOUBLE_EQ(reversing.angular_z, 0.0);
 }
 
+// 验证线速度由前进切换到倒退时必须先发布零速，停稳后才允许负速度指令。
+TEST(CommandLimiter, StopsBeforeEmergencyReverse)
+{
+  const planner::MotionLimits limits;
+  const auto braking = planner::limitCommandVelocity(
+    {0.13, 0.0}, {-limits.max_reverse_speed, 0.0}, limits, 0.05);
+  const auto reversing = planner::limitCommandVelocity(
+    {0.0, 0.0}, {-limits.max_reverse_speed, 0.0}, limits, 0.05);
+
+  EXPECT_DOUBLE_EQ(braking.linear_x, 0.0);
+  EXPECT_DOUBLE_EQ(reversing.linear_x, -limits.min_linear_speed);
+}
+
 // 验证非法采样数量和运动学死区参数会被拒绝。
 TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
 {
@@ -498,6 +592,10 @@ TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
   ttc_limits.minimum_ttc = -0.01;
   planner::MotionLimits limits;
   limits.min_angular_speed = limits.max_angular_speed + 0.1;
+  planner::MotionLimits reverse_limits;
+  reverse_limits.max_reverse_speed = reverse_limits.min_linear_speed * 0.5;
+  planner::EmergencyReverseConfig reverse_config;
+  reverse_config.speed = 0.50;
   std::string reason;
 
   EXPECT_FALSE(planner::validateVelocitySamplingConfig(sampling, &reason));
@@ -505,4 +603,7 @@ TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
   EXPECT_FALSE(planner::validateVelocitySamplingConfig(clearance_limits, &reason));
   EXPECT_FALSE(planner::validateVelocitySamplingConfig(ttc_limits, &reason));
   EXPECT_FALSE(planner::validateMotionLimits(limits, &reason));
+  EXPECT_FALSE(planner::validateMotionLimits(reverse_limits, &reason));
+  EXPECT_FALSE(
+    planner::validateEmergencyReverseConfig(reverse_config, planner::MotionLimits{}, &reason));
 }
