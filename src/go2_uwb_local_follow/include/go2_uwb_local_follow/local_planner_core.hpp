@@ -77,9 +77,9 @@ struct MotionLimits
 
 struct AngularStabilizationConfig
 {
-  // 相当于角速度反馈的时间常数：名义角速度减去 gain * 实测角速度。
-  double velocity_damping_gain{0.35};
-  // 阻尼后的角速度低于该值时提前撤销转向，避免再被放大到执行死区。
+  // 基于名义角速度与实测角速度误差进行 P 反馈修正。
+  double velocity_tracking_kp{1.0};
+  // 名义角速度不超过该值时不做反馈，避免 UWB 小角度噪声持续纠偏。
   double command_deadband{0.08};
   // 请求反向时，先等待当前实测角速度降到该值以下。
   double reverse_speed_threshold{0.15};
@@ -180,7 +180,7 @@ bool validateMotionLimits(
   const MotionLimits & limits,
   std::string * reason = nullptr);
 
-// 校验角速度反馈阻尼、提前制动死区和安全换向阈值。
+// 校验角速度 P 反馈增益、命令死区和安全换向阈值。
 bool validateAngularStabilizationConfig(
   const AngularStabilizationConfig & config,
   std::string * reason = nullptr);
@@ -254,11 +254,12 @@ PlannerVelocity2D makeEffectiveVelocity(
   const PlannerVelocity2D & velocity,
   const MotionLimits & limits);
 
-// 使用实测角速度修正 UWB 名义转向；接近目标朝向时提前制动，换向前先经过低速。
-PlannerVelocity2D stabilizeNominalAngularVelocity(
+// 使用实测角速度对 UWB 名义角速度做 P 修正，并保留死区、限幅和安全换向保护。
+PlannerVelocity2D correctNominalAngularVelocity(
   const PlannerVelocity2D & nominal_velocity,
   const PlannerVelocity2D & measured_velocity,
-  const AngularStabilizationConfig & config);
+  const AngularStabilizationConfig & config,
+  const MotionLimits & limits);
 
 // 生成兼容调试使用的全局速度候选集合。
 std::vector<PlannerVelocity2D> sampleCandidateVelocities(

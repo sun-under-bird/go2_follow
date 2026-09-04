@@ -97,8 +97,8 @@ public:
     odom_timeout_sec_ = declare_parameter<double>("odom_timeout_sec", 0.10);
     odom_linear_deadband_ = declare_parameter<double>("odom_linear_deadband", 0.02);
     odom_angular_deadband_ = declare_parameter<double>("odom_angular_deadband", 0.05);
-    angular_stabilization_config_.velocity_damping_gain = declare_parameter<double>(
-      "angular_velocity_damping_gain", 0.35);
+    angular_stabilization_config_.velocity_tracking_kp = declare_parameter<double>(
+      "angular_velocity_tracking_kp", 1.0);
     angular_stabilization_config_.command_deadband = declare_parameter<double>(
       "angular_command_deadband", 0.08);
     angular_stabilization_config_.reverse_speed_threshold = declare_parameter<double>(
@@ -764,8 +764,8 @@ private:
       return;
     }
 
-    status.stabilized_nominal = stabilizeNominalAngularVelocity(
-      nominal.velocity, odom.velocity, angular_stabilization_config_);
+    status.stabilized_nominal = correctNominalAngularVelocity(
+      nominal.velocity, odom.velocity, angular_stabilization_config_, motion_limits_);
 
     const auto & points = *obstacle.points;
     status.obstacle_count = points.size();
@@ -969,8 +969,13 @@ private:
       {"measured_w", formatDouble(status.measured.angular_z)},
       {"nominal_v", formatDouble(status.nominal.linear_x)},
       {"nominal_w", formatDouble(status.nominal.angular_z)},
+      {"angular_velocity_error", formatDouble(
+          status.nominal.angular_z - status.measured.angular_z)},
+      {"angular_velocity_tracking_kp", formatDouble(
+          angular_stabilization_config_.velocity_tracking_kp)},
       {"stabilized_nominal_v", formatDouble(status.stabilized_nominal.linear_x)},
       {"stabilized_nominal_w", formatDouble(status.stabilized_nominal.angular_z)},
+      {"corrected_nominal_w", formatDouble(status.stabilized_nominal.angular_z)},
       {"effective_nominal_v", formatDouble(status.effective_nominal.linear_x)},
       {"effective_nominal_w", formatDouble(status.effective_nominal.angular_z)},
       {"planned_v", formatDouble(status.planned.linear_x)},

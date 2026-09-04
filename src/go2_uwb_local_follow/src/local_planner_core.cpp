@@ -191,18 +191,18 @@ bool validateMotionLimits(const MotionLimits & limits, std::string * reason)
   return true;
 }
 
-// 校验角速度反馈参数，避免无穷大、负阻尼或负换向阈值进入控制链路。
+// 校验角速度反馈参数，避免无穷大、负增益或负换向阈值进入控制链路。
 bool validateAngularStabilizationConfig(
   const AngularStabilizationConfig & config,
   std::string * reason)
 {
-  if (!std::isfinite(config.velocity_damping_gain) ||
+  if (!std::isfinite(config.velocity_tracking_kp) ||
     !std::isfinite(config.command_deadband) ||
     !std::isfinite(config.reverse_speed_threshold))
   {
     return rejectWithReason("angular stabilization config contains non-finite values", reason);
   }
-  if (config.velocity_damping_gain < 0.0 || config.command_deadband < 0.0 ||
+  if (config.velocity_tracking_kp < 0.0 || config.command_deadband < 0.0 ||
     config.reverse_speed_threshold < 0.0)
   {
     return rejectWithReason("angular stabilization parameters must be non-negative", reason);
@@ -539,41 +539,46 @@ PlannerVelocity2D makeEffectiveVelocity(
   return effective;
 }
 
-// 根据真实角速度提前制动，并禁止机器人尚未停稳时立即发布相反方向转向。
-PlannerVelocity2D stabilizeNominalAngularVelocity(
+// 根据名义值与真实角速度误差做 P 修正，并禁止机器人尚未停稳时立即反向。
+PlannerVelocity2D correctNominalAngularVelocity(
   const PlannerVelocity2D & nominal_velocity,
   const PlannerVelocity2D & measured_velocity,
-  const AngularStabilizationConfig & config)
+  const AngularStabilizationConfig & config,
+  const MotionLimits & limits)
 {
-  PlannerVelocity2D stabilized = nominal_velocity;
+  PlannerVelocity2D corrected = nominal_velocity;
   const double desired = nominal_velocity.angular_z;
   const double measured = measured_velocity.angular_z;
   if (!std::isfinite(desired) || !std::isfinite(measured) ||
-    !validateAngularStabilizationConfig(config))
+    !validateAngularStabilizationConfig(config) || !validateMotionLimits(limits))
   {
-    stabilized.angular_z = 0.0;
-    return stabilized;
+    corrected.angular_z = 0.0;
+    return corrected;
   }
 
   if (std::abs(desired) <= config.command_deadband) {
-    stabilized.angular_z = 0.0;
-    return stabilized;
+    corrected.angular_z = 0.0;
+    return corrected;
   }
 
   const bool reversing = desired * measured < 0.0;
   if (reversing && std::abs(measured) > config.reverse_speed_threshold) {
     // 先发零角速度让底盘刹住，防止 +w 直接跳到 -w 形成左右极限环。
-    stabilized.angular_z = 0.0;
-    return stabilized;
+    corrected.angular_z = 0.0;
+    return corrected;
   }
 
-  if (desired * measured > 0.0) {
-    const double damped_magnitude = std::max(
-      0.0, std::abs(desired) - config.velocity_damping_gain * std::abs(measured));
-    stabilized.angular_z = damped_magnitude > config.command_deadband ?
-      std::copysign(damped_magnitude, desired) : 0.0;
+  const double error = desired - measured;
+  corrected.angular_z = clampValue(
+    desired + config.velocity_tracking_kp * error,
+    -limits.max_angular_speed, limits.max_angular_speed);
+
+  const bool correction_reversing = corrected.angular_z * measured < 0.0;
+  if (correction_reversing && std::abs(measured) > config.reverse_speed_threshold) {
+    // 实际角速度过冲时 P 项可能改变符号，仍需先停稳再允许下发反向速度。
+    corrected.angular_z = 0.0;
   }
-  return stabilized;
+  return corrected;
 }
 
 // 生成覆盖全局范围、名义速度邻域和关键停车/原地转向速度的候选集合。

@@ -19,7 +19,7 @@ local_velocity_planner_node:
     odom_timeout_sec: 0.10  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
     odom_linear_deadband: 0.02  # ↑过滤更多线速度噪声/忽略微动；↓更灵敏/易抖；步长 0.01 m/s
     odom_angular_deadband: 0.05  # ↑过滤更多角速度噪声/忽略微转；↓更灵敏/易抖；步长 0.01 rad/s
-    angular_velocity_damping_gain: 0.35  # ↑更早撤销同向转弯/不易过冲；↓更紧跟 UWB/易过冲；步长 0.05 s
+    angular_velocity_tracking_kp: 1.5  # 角速度误差 P 反馈；若实机仍难启动转向，再测试 1.5
     angular_command_deadband: 0.08  # ↑更容易提前停止转向/朝向精度低；↓纠偏更积极/易摆头；步长 0.02 rad/s
     angular_reverse_speed_threshold: 0.15  # ↑更早允许反向/响应快；↓必须更接近停稳/更少左右切换；步长 0.05 rad/s
     avoidance_direction_hold_sec: 0.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
@@ -36,7 +36,7 @@ local_velocity_planner_node:
     max_reverse_speed: 0.30  # 仅供急停恢复倒退使用，普通跟随和主动避障仍禁止负线速度
 
 
-    min_follow_angular_speed: 0.5  # 仅用于 UWB 跟随；0 保留连续小角度精细纠偏
+    min_follow_angular_speed: 0.0  # UWB 跟随不强制抬升非零角速度，由实测角速度 P 反馈修正
     max_angular_speed: 1.50  # UWB 跟随最大角速度；无障碍时规划器保留该上限
     max_linear_accel: 0.50  # ↑提速快/顿挫强；↓提速平滑/响应慢；步长 0.10 m/s²
     max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²

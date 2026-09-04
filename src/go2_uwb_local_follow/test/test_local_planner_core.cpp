@@ -228,38 +228,86 @@ TEST(VelocitySampling, PreservesSmallAngularVelocityByDefault)
   EXPECT_DOUBLE_EQ(effective.angular_z, 0.085);
 }
 
-// 验证同向实测角速度会削弱名义转向，在接近目标方向时提前撤销角速度。
-TEST(AngularStabilization, DampsAndStopsSameDirectionTurn)
+// 验证实际角速度低于名义值时，P 反馈按角速度误差提高下发目标。
+TEST(AngularVelocityTracking, BoostsCommandWhenMeasuredSpeedIsLow)
+{
+  planner::AngularStabilizationConfig config;
+  config.velocity_tracking_kp = 1.5;
+  const planner::MotionLimits limits;
+  const auto corrected = planner::correctNominalAngularVelocity(
+    {0.40, 0.20}, {0.30, 0.0}, config, limits);
+
+  EXPECT_DOUBLE_EQ(corrected.linear_x, 0.40);
+  EXPECT_NEAR(corrected.angular_z, 0.50, 1e-12);
+}
+
+// 验证实际角速度逐渐接近名义值时，P 补偿量自动减小并最终回到名义值。
+TEST(AngularVelocityTracking, ReducesCorrectionAsMeasuredSpeedApproachesDesired)
 {
   const planner::AngularStabilizationConfig config;
-  const auto damped = planner::stabilizeNominalAngularVelocity(
-    {0.40, 0.60}, {0.30, 0.50}, config);
-  const auto stopped = planner::stabilizeNominalAngularVelocity(
-    {0.40, 0.20}, {0.30, 0.50}, config);
+  const planner::MotionLimits limits;
+  const auto slower = planner::correctNominalAngularVelocity(
+    {0.40, 0.20}, {0.30, 0.10}, config, limits);
+  const auto matched = planner::correctNominalAngularVelocity(
+    {0.40, 0.20}, {0.30, 0.20}, config, limits);
 
-  EXPECT_DOUBLE_EQ(damped.linear_x, 0.40);
-  EXPECT_NEAR(damped.angular_z, 0.425, 1e-12);
-  EXPECT_DOUBLE_EQ(stopped.angular_z, 0.0);
+  EXPECT_NEAR(slower.angular_z, 0.30, 1e-12);
+  EXPECT_NEAR(matched.angular_z, 0.20, 1e-12);
+}
+
+// 验证名义角速度位于命令死区时直接输出零，不让实测误差触发持续纠偏。
+TEST(AngularVelocityTracking, KeepsDesiredCommandDeadband)
+{
+  const planner::AngularStabilizationConfig config;
+  const planner::MotionLimits limits;
+  const auto corrected = planner::correctNominalAngularVelocity(
+    {0.40, config.command_deadband}, {0.30, -0.50}, config, limits);
+
+  EXPECT_DOUBLE_EQ(corrected.angular_z, 0.0);
 }
 
 // 验证实际旋转尚未停稳时不立即反向，降到阈值后才允许纠偏。
-TEST(AngularStabilization, WaitsForLowMeasuredSpeedBeforeReversing)
+TEST(AngularVelocityTracking, WaitsForLowMeasuredSpeedBeforeReversing)
 {
   const planner::AngularStabilizationConfig config;
-  const auto braking = planner::stabilizeNominalAngularVelocity(
-    {0.30, -0.50}, {0.30, 0.40}, config);
-  const auto reversing = planner::stabilizeNominalAngularVelocity(
-    {0.30, -0.50}, {0.30, 0.10}, config);
+  const planner::MotionLimits limits;
+  const auto braking = planner::correctNominalAngularVelocity(
+    {0.30, -0.50}, {0.30, 0.40}, config, limits);
+  const auto reversing = planner::correctNominalAngularVelocity(
+    {0.30, -0.50}, {0.30, 0.10}, config, limits);
 
   EXPECT_DOUBLE_EQ(braking.angular_z, 0.0);
-  EXPECT_DOUBLE_EQ(reversing.angular_z, -0.50);
+  EXPECT_DOUBLE_EQ(reversing.angular_z, -1.10);
 }
 
-// 验证负阻尼参数在节点启动前被拒绝。
+// 验证 P 修正可能跨越零点时，仍等待较大的同向实测角速度先停止。
+TEST(AngularVelocityTracking, PreventsCorrectionFromImmediateReversal)
+{
+  const planner::AngularStabilizationConfig config;
+  const planner::MotionLimits limits;
+  const auto corrected = planner::correctNominalAngularVelocity(
+    {0.30, 0.20}, {0.30, 0.50}, config, limits);
+
+  EXPECT_DOUBLE_EQ(corrected.angular_z, 0.0);
+}
+
+// 验证 P 修正后的角速度不会超过系统最大允许角速度。
+TEST(AngularVelocityTracking, ClampsCorrectedCommandToMaximumSpeed)
+{
+  const planner::AngularStabilizationConfig config;
+  planner::MotionLimits limits;
+  limits.max_angular_speed = 1.50;
+  const auto corrected = planner::correctNominalAngularVelocity(
+    {0.30, 1.20}, {0.30, 0.0}, config, limits);
+
+  EXPECT_DOUBLE_EQ(corrected.angular_z, limits.max_angular_speed);
+}
+
+// 验证负 P 反馈增益在节点启动前被拒绝。
 TEST(PlannerConfig, RejectsInvalidAngularStabilization)
 {
   planner::AngularStabilizationConfig config;
-  config.velocity_damping_gain = -0.1;
+  config.velocity_tracking_kp = -0.1;
   std::string reason;
 
   EXPECT_FALSE(planner::validateAngularStabilizationConfig(config, &reason));
