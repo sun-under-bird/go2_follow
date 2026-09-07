@@ -94,6 +94,7 @@ target_link_libraries(uwb_follow_controller_node follow_control_core)
 ament_target_dependencies(uwb_follow_controller_node
   diagnostic_msgs
   geometry_msgs
+  nav_msgs
   rclcpp
   tf2
   tf2_ros

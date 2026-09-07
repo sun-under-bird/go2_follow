@@ -110,6 +110,7 @@ def generate_launch_description() -> LaunchDescription:
             {
                 "base_frame": base_frame,
                 "target_topic": target_topic,
+                "odom_topic": odom_topic,
                 "cmd_vel_topic": "/cmd_vel_follow",
                 # 名义控制只给规划器提供输入，禁止绕过避障直接控制底盘。
                 "enable_motion": False,

@@ -31,6 +31,7 @@
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
@@ -66,6 +67,7 @@ public:
   {
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     target_topic_ = declare_parameter<std::string>("target_topic", "/uwb/target_point");
+    odom_topic_ = declare_parameter<std::string>("odom_topic", "/odom_leg");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_follow");
     nominal_cmd_topic_ = declare_parameter<std::string>(
       "nominal_cmd_topic", "/go2_uwb_local_follow/nominal_cmd");
@@ -75,12 +77,19 @@ public:
     control_frequency_ = declare_parameter<double>("control_frequency", 20.0);
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
     target_timeout_sec_ = declare_parameter<double>("target_timeout_sec", 0.50);
+    odom_timeout_sec_ = declare_parameter<double>("odom_timeout_sec", 0.20);
     transform_timeout_sec_ = declare_parameter<double>("transform_timeout_sec", 0.10);
 
     config_.follow_distance = declare_parameter<double>("follow_distance", 1.0);
     config_.distance_deadband = declare_parameter<double>("distance_deadband", 0.08);
     config_.angle_deadband = declare_parameter<double>("angle_deadband", 0.20);
     config_.angle_reengage = declare_parameter<double>("angle_reengage", 0.45);
+    config_.turn_response_delay = declare_parameter<double>("turn_response_delay", 0.10);
+    config_.angular_braking_accel = declare_parameter<double>("angular_braking_accel", 1.50);
+    config_.angular_brake_release_speed = declare_parameter<double>(
+      "angular_brake_release_speed", 0.06);
+    config_.angular_reverse_speed_threshold = declare_parameter<double>(
+      "angular_reverse_speed_threshold", 0.15);
     config_.linear_kp = declare_parameter<double>("linear_kp", 0.6);
     config_.angular_kp = declare_parameter<double>("angular_kp", 1.0);
     config_.min_linear_speed = declare_parameter<double>("min_linear_speed", 0.23);
@@ -99,6 +108,9 @@ public:
     target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
       target_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
       std::bind(&UwbFollowControllerNode::targetCallback, this, std::placeholders::_1));
+    odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+      odom_topic_, rclcpp::SensorDataQoS(),
+      std::bind(&UwbFollowControllerNode::odomCallback, this, std::placeholders::_1));
     cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
     nominal_cmd_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(nominal_cmd_topic_, 10);
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
@@ -115,8 +127,9 @@ public:
     last_control_time_ = std::chrono::steady_clock::now();
 
     RCLCPP_INFO(
-      get_logger(), "UWB follow controller started: target=%s cmd=%s enable_motion=%s",
-      target_topic_.c_str(), cmd_vel_topic_.c_str(), enable_motion_ ? "true" : "false");
+      get_logger(), "UWB follow controller started: target=%s odom=%s cmd=%s enable_motion=%s",
+      target_topic_.c_str(), odom_topic_.c_str(), cmd_vel_topic_.c_str(),
+      enable_motion_ ? "true" : "false");
   }
 
   // 节点正常销毁前尽力补发一次零速度。
@@ -137,12 +150,19 @@ private:
     bool valid{false};
   };
 
+  struct OdomSnapshot
+  {
+    double angular_z{0.0};
+    std::chrono::steady_clock::time_point receipt_time{};
+    bool valid{false};
+  };
+
   // 检查控制频率、超时和跟随控制参数。
   void validateParameters()
   {
     std::string reason;
-    if (base_frame_.empty()) {
-      throw std::invalid_argument("base_frame must not be empty");
+    if (base_frame_.empty() || odom_topic_.empty()) {
+      throw std::invalid_argument("base_frame and odom_topic must not be empty");
     }
     if (!validateFollowConfig(config_, &reason)) {
       throw std::invalid_argument(reason);
@@ -153,9 +173,10 @@ private:
       throw std::invalid_argument("control and diagnostic frequencies must be positive");
     }
     if (!std::isfinite(target_timeout_sec_) || target_timeout_sec_ <= 0.0 ||
+      !std::isfinite(odom_timeout_sec_) || odom_timeout_sec_ <= 0.0 ||
       !std::isfinite(transform_timeout_sec_) || transform_timeout_sec_ <= 0.0)
     {
-      throw std::invalid_argument("target and transform timeouts must be positive");
+      throw std::invalid_argument("target, odom and transform timeouts must be positive");
     }
   }
 
@@ -215,6 +236,24 @@ private:
     return latest_target_;
   }
 
+  // 从 /odom_leg 保存未经命令死区处理的真实角速度，供动态停止角计算。
+  void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
+  {
+    OdomSnapshot snapshot;
+    snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.angular_z = message->twist.twist.angular.z;
+    snapshot.valid = std::isfinite(snapshot.angular_z);
+    std::lock_guard<std::mutex> lock(odom_mutex_);
+    latest_odom_ = snapshot;
+  }
+
+  // 返回当前最新里程计角速度快照，避免控制周期持锁执行计算。
+  OdomSnapshot odomSnapshot()
+  {
+    std::lock_guard<std::mutex> lock(odom_mutex_);
+    return latest_odom_;
+  }
+
   // 固定频率计算名义速度、执行变化率限制并发布隔离跟随速度。
   void controlTick()
   {
@@ -236,17 +275,32 @@ private:
       return;
     }
 
-    FollowResult result = computeFollowTarget(target.x, target.y, config_);
-    turn_direction_ = updateTurnDirection(
-      result.heading, config_.angle_deadband, config_.angle_reengage, turn_direction_);
-    result.turn_direction = turn_direction_;
-    if (turn_direction_ == 0) {
-      // 进入停止门限后保持零角速度，直到误差越过更大的重启门限。
-      result.target_velocity.angular_z = 0.0;
-    } else {
-      result.target_velocity.angular_z = std::copysign(
-        std::abs(result.target_velocity.angular_z), static_cast<double>(turn_direction_));
+    const OdomSnapshot odom = odomSnapshot();
+    if (!odom.valid) {
+      publishImmediateStop("WAIT_ODOM");
+      return;
     }
+    const double odom_age =
+      std::chrono::duration<double>(current_time - odom.receipt_time).count();
+    if (odom_age > odom_timeout_sec_) {
+      publishImmediateStop("ODOM_TIMEOUT");
+      return;
+    }
+
+    FollowResult result = computeFollowTarget(target.x, target.y, config_);
+    const DynamicAngularBrakeResult brake = applyDynamicAngularBrake(
+      result.heading, result.target_velocity.angular_z, odom.angular_z, config_, turn_direction_,
+      angular_brake_latched_);
+    // 动态刹车直接覆盖 UWB 名义角速度，确保后级 Kp 不会在刹车区继续补偿。
+    turn_direction_ = brake.turn_direction;
+    angular_brake_latched_ = brake.brake_latched;
+    result.turn_direction = brake.turn_direction;
+    result.actual_angular_z = odom.angular_z;
+    result.brake_angle = brake.brake_angle;
+    result.dynamic_stop_angle = brake.dynamic_stop_angle;
+    result.angular_braking = brake.braking;
+    result.angular_brake_latched = brake.brake_latched;
+    result.target_velocity.angular_z = brake.angular_z;
     Velocity2D previous_output;
     {
       // 即使未来切换到多线程执行器，也只在锁内读取跨回调共享的上一周期速度。
@@ -274,6 +328,7 @@ private:
     last_output_ = output;
     last_result_ = result;
     last_target_age_ = target_age;
+    last_odom_age_ = odom_age;
     have_result_ = true;
   }
 
@@ -286,6 +341,7 @@ private:
       std::lock_guard<std::mutex> lock(status_mutex_);
       last_output_ = Velocity2D{};
       turn_direction_ = 0;
+      // 超时期间虽然持续输出零速度，但刹车锁存只能由有效里程计确认停稳后解除。
       have_result_ = false;
       state_ = state;
     }
@@ -325,6 +381,7 @@ private:
     Velocity2D output;
     FollowResult result;
     double target_age = 0.0;
+    double odom_age = 0.0;
     bool have_result = false;
     {
       std::lock_guard<std::mutex> lock(status_mutex_);
@@ -332,6 +389,7 @@ private:
       output = last_output_;
       result = last_result_;
       target_age = last_target_age_;
+      odom_age = last_odom_age_;
       have_result = have_result_;
     }
 
@@ -347,8 +405,15 @@ private:
     status.message = state;
     const std::pair<std::string, std::string> entries[] = {
       {"target_age_sec", formatDouble(target_age)},
+      {"odom_age_sec", formatDouble(odom_age)},
       {"distance", have_result ? formatDouble(result.distance) : "n/a"},
       {"heading", have_result ? formatDouble(result.heading) : "n/a"},
+      {"actual_wz", have_result ? formatDouble(result.actual_angular_z) : "n/a"},
+      {"brake_angle", have_result ? formatDouble(result.brake_angle) : "n/a"},
+      {"dynamic_stop_angle", have_result ? formatDouble(result.dynamic_stop_angle) : "n/a"},
+      {"angular_braking", have_result && result.angular_braking ? "true" : "false"},
+      {"angular_brake_latched",
+        have_result && result.angular_brake_latched ? "true" : "false"},
       {"turn_direction", have_result ? std::to_string(result.turn_direction) : "0"},
       {"heading_scale", have_result ? formatDouble(result.heading_scale) : "n/a"},
       {"nominal_v", have_result ? formatDouble(result.target_velocity.linear_x) : "0.000"},
@@ -367,6 +432,7 @@ private:
 
   std::string base_frame_;
   std::string target_topic_;
+  std::string odom_topic_;
   std::string cmd_vel_topic_;
   std::string nominal_cmd_topic_;
   std::string diagnostics_topic_;
@@ -374,17 +440,23 @@ private:
   double control_frequency_{20.0};
   double diagnostic_frequency_{2.0};
   double target_timeout_sec_{0.50};
+  double odom_timeout_sec_{0.20};
   double transform_timeout_sec_{0.10};
   FollowConfig config_;
   int turn_direction_{0};
+  bool angular_brake_latched_{false};
 
   std::mutex target_mutex_;
   TargetSnapshot latest_target_;
+
+  std::mutex odom_mutex_;
+  OdomSnapshot latest_odom_;
 
   std::mutex status_mutex_;
   Velocity2D last_output_;
   FollowResult last_result_;
   double last_target_age_{0.0};
+  double last_odom_age_{0.0};
   bool have_result_{false};
   std::string state_{"WAIT_TARGET"};
   std::chrono::steady_clock::time_point last_control_time_{};
@@ -392,6 +464,7 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr target_sub_;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
   rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr nominal_cmd_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;

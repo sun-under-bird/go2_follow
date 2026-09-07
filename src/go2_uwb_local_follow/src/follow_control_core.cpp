@@ -63,6 +63,10 @@ bool validateFollowConfig(const FollowConfig & config, std::string * reason)
   const bool finite =
     std::isfinite(config.follow_distance) && std::isfinite(config.distance_deadband) &&
     std::isfinite(config.angle_deadband) && std::isfinite(config.angle_reengage) &&
+    std::isfinite(config.turn_response_delay) &&
+    std::isfinite(config.angular_braking_accel) &&
+    std::isfinite(config.angular_brake_release_speed) &&
+    std::isfinite(config.angular_reverse_speed_threshold) &&
     std::isfinite(config.linear_kp) &&
     std::isfinite(config.angular_kp) && std::isfinite(config.min_linear_speed) &&
     std::isfinite(config.max_linear_speed) &&
@@ -82,6 +86,12 @@ bool validateFollowConfig(const FollowConfig & config, std::string * reason)
   }
   if (config.angle_reengage < config.angle_deadband) {
     return rejectWithReason("angle reengage threshold must not be below deadband", reason);
+  }
+  if (config.turn_response_delay < 0.0 || config.angular_braking_accel <= 0.0 ||
+    config.angular_brake_release_speed < 0.0 ||
+    config.angular_reverse_speed_threshold < config.angular_brake_release_speed)
+  {
+    return rejectWithReason("angular braking parameters are invalid", reason);
   }
   if (config.linear_kp < 0.0 || config.angular_kp < 0.0 || config.min_linear_speed < 0.0 ||
     config.max_linear_speed < 0.0 || config.max_angular_speed < 0.0)
@@ -190,6 +200,71 @@ int updateTurnDirection(
     return -1;
   }
   return 0;
+}
+
+// 根据实测角速度计算动态停止角，并在需要时优先撤销 UWB 名义转向。
+DynamicAngularBrakeResult applyDynamicAngularBrake(
+  double heading,
+  double desired_angular_z,
+  double actual_angular_z,
+  const FollowConfig & config,
+  int previous_direction,
+  bool brake_latched)
+{
+  DynamicAngularBrakeResult result;
+  result.dynamic_stop_angle = config.angle_deadband;
+  if (!std::isfinite(heading) || !std::isfinite(desired_angular_z) ||
+    !std::isfinite(actual_angular_z) || !validateFollowConfig(config))
+  {
+    result.braking = true;
+    result.brake_latched = true;
+    return result;
+  }
+
+  const double actual_speed = std::abs(actual_angular_z);
+  result.brake_angle = actual_speed * config.turn_response_delay +
+    actual_speed * actual_speed / (2.0 * config.angular_braking_accel);
+  result.dynamic_stop_angle = config.angle_deadband + result.brake_angle;
+  if (!std::isfinite(result.dynamic_stop_angle)) {
+    // 异常大的实测值按需要立即刹车处理，禁止向后级输出不可控角速度。
+    result.brake_angle = 0.0;
+    result.dynamic_stop_angle = config.angle_deadband;
+    result.braking = true;
+    result.brake_latched = true;
+    return result;
+  }
+
+  if (brake_latched && actual_speed > config.angular_brake_release_speed) {
+    // 锁存后不随动态停止角缩小而重新加速，必须等真实角速度接近停止。
+    result.braking = true;
+    result.brake_latched = true;
+    return result;
+  }
+
+  // 动态停止角可能大于固定重启角，取两者较大值避免刹车边界附近逐周期启停。
+  const double dynamic_reengage_angle = std::max(
+    config.angle_reengage, result.dynamic_stop_angle);
+  result.turn_direction = updateTurnDirection(
+    heading, result.dynamic_stop_angle, dynamic_reengage_angle, previous_direction);
+
+  const bool reversing = result.turn_direction * actual_angular_z < 0.0;
+  if (reversing && actual_speed > config.angular_reverse_speed_threshold) {
+    // 机器人尚未停稳时保持零命令，实际角速度降到门槛后才允许反向纠偏。
+    result.turn_direction = 0;
+    result.braking = true;
+    result.brake_latched = true;
+    return result;
+  }
+
+  if (result.turn_direction == 0) {
+    result.braking = std::abs(desired_angular_z) > 0.0 || actual_speed > 0.0;
+    result.brake_latched = result.braking && actual_speed > config.angular_brake_release_speed &&
+      (previous_direction != 0 || std::abs(desired_angular_z) > 0.0);
+    return result;
+  }
+  result.angular_z = std::copysign(
+    std::abs(desired_angular_z), static_cast<double>(result.turn_direction));
+  return result;
 }
 
 // 按线加速、线减速和角加速度限制一个控制周期，并跳过实机无效线速度区间。

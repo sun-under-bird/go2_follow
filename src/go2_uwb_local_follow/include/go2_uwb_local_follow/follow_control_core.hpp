@@ -26,6 +26,10 @@ struct FollowConfig
   double distance_deadband{0.08};
   double angle_deadband{0.20};
   double angle_reengage{0.45};
+  double turn_response_delay{0.10};
+  double angular_braking_accel{1.50};
+  double angular_brake_release_speed{0.06};
+  double angular_reverse_speed_threshold{0.15};
   double linear_kp{0.6};
   double angular_kp{1.0};
   double min_linear_speed{0.23};
@@ -51,9 +55,24 @@ struct FollowResult
   double distance{0.0};
   double heading{0.0};
   double heading_scale{1.0};
+  double actual_angular_z{0.0};
+  double brake_angle{0.0};
+  double dynamic_stop_angle{0.0};
   int turn_direction{0};
   bool within_follow_distance{false};
   bool blind_rotation{false};
+  bool angular_braking{false};
+  bool angular_brake_latched{false};
+};
+
+struct DynamicAngularBrakeResult
+{
+  double angular_z{0.0};
+  double brake_angle{0.0};
+  double dynamic_stop_angle{0.0};
+  int turn_direction{0};
+  bool braking{false};
+  bool brake_latched{false};
 };
 
 // 校验跟随控制和速度变化率参数之间的约束关系。
@@ -71,6 +90,15 @@ int updateTurnDirection(
   double stop_angle,
   double reengage_angle,
   int previous_direction);
+
+// 根据实测角速度计算动态停止角，并在需要时优先撤销 UWB 名义转向。
+DynamicAngularBrakeResult applyDynamicAngularBrake(
+  double heading,
+  double desired_angular_z,
+  double actual_angular_z,
+  const FollowConfig & config,
+  int previous_direction,
+  bool brake_latched = false);
 
 // 按线加速、线减速和角加速度限制一个控制周期内的速度变化。
 Velocity2D limitVelocityRate(

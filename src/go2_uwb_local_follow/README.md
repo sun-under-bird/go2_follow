@@ -161,9 +161,13 @@ ros2 topic echo /cmd_vel_avoidance
 
 ## 完整局部速度规划阶段
 
-UWB 名义转向使用角度滞回：目标方位进入 `angle_deadband` 后停止转向，
-只有再次越过更大的 `angle_reengage` 才重新转向。这用于避免底盘最小有效
-角速度较大时，机器人每次穿过目标方向就立即反转。
+UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角：
+`angle_deadband + |actual_wz| * turn_response_delay + actual_wz² /
+(2 * angular_braking_accel)`。实际角速度越高越早撤销名义角速度；进入动态刹车区后
+不会再执行角速度 P 补偿。再次转向仍使用 `angle_reengage` 滞回，并在实际角速度
+高于 `angular_reverse_speed_threshold` 时禁止直接反向，以减少越过目标后的左右摆头。
+动态刹车触发后会锁存零名义角速度，直到实测角速度低于
+`angular_brake_release_speed`，防止停止角随速度下降后过早恢复同方向转向。
 
 `local_velocity_planner_node` 仍只读取 `/odom_leg` 的 `twist.twist.linear.x` 和
 `twist.twist.angular.z` 作为当前真实速度。新增的 `rolling_obstacle_map_node` 独立

@@ -135,6 +135,125 @@ TEST(TurnHysteresis, KeepsDirectionAcrossRearAngleWrap)
   EXPECT_EQ(follow::updateTurnDirection(3.13, 0.12, 0.30, -1), -1);
 }
 
+// 验证动态停止角同时计入控制链路延迟和恒定角减速度制动距离。
+TEST(DynamicAngularBrake, ComputesStopAngleFromMeasuredVelocity)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+  config.turn_response_delay = 0.10;
+  config.angular_braking_accel = 1.50;
+
+  const auto result = follow::applyDynamicAngularBrake(0.30, 0.22, 0.40, config, 1);
+
+  EXPECT_NEAR(result.brake_angle, 0.09333333333333334, 1e-12);
+  EXPECT_NEAR(result.dynamic_stop_angle, 0.17333333333333334, 1e-12);
+  EXPECT_DOUBLE_EQ(result.angular_z, 0.22);
+  EXPECT_FALSE(result.braking);
+}
+
+// 验证左转进入动态停止角后优先撤销名义角速度。
+TEST(DynamicAngularBrake, BrakesLeftTurnBeforeKpFeedback)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+
+  const auto result = follow::applyDynamicAngularBrake(0.17, 0.20, 0.40, config, 1);
+
+  EXPECT_EQ(result.turn_direction, 0);
+  EXPECT_DOUBLE_EQ(result.angular_z, 0.0);
+  EXPECT_TRUE(result.braking);
+  EXPECT_GT(result.dynamic_stop_angle, 0.17);
+}
+
+// 验证右转使用与左转完全对称的动态提前刹车条件。
+TEST(DynamicAngularBrake, BrakesRightTurnSymmetrically)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+
+  const auto result = follow::applyDynamicAngularBrake(-0.17, -0.20, -0.40, config, -1);
+
+  EXPECT_EQ(result.turn_direction, 0);
+  EXPECT_DOUBLE_EQ(result.angular_z, 0.0);
+  EXPECT_TRUE(result.braking);
+}
+
+// 验证实测角速度未停稳时不允许直接下发相反方向的 UWB 名义速度。
+TEST(DynamicAngularBrake, WaitsForMeasuredVelocityBeforeReversing)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+
+  const auto braking = follow::applyDynamicAngularBrake(-0.30, -0.22, 0.20, config, 0);
+  const auto reversing = follow::applyDynamicAngularBrake(-0.30, -0.22, 0.10, config, 0);
+
+  EXPECT_EQ(braking.turn_direction, 0);
+  EXPECT_DOUBLE_EQ(braking.angular_z, 0.0);
+  EXPECT_TRUE(braking.braking);
+  EXPECT_EQ(reversing.turn_direction, -1);
+  EXPECT_DOUBLE_EQ(reversing.angular_z, -0.22);
+}
+
+// 验证动态刹车触发后，即使停止角随速度下降也继续锁住零名义角速度。
+TEST(DynamicAngularBrake, KeepsBrakeLatchedUntilMeasuredSpeedIsLow)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+  config.turn_response_delay = 0.20;
+  config.angular_braking_accel = 0.50;
+  config.angular_brake_release_speed = 0.06;
+
+  const auto triggered = follow::applyDynamicAngularBrake(
+    0.369, 0.289, 0.45, config, 1, false);
+  const auto held = follow::applyDynamicAngularBrake(
+    0.329, 0.249, 0.12, config, 0, triggered.brake_latched);
+  const auto released = follow::applyDynamicAngularBrake(
+    0.300, 0.220, 0.05, config, 0, held.brake_latched);
+
+  EXPECT_TRUE(triggered.brake_latched);
+  EXPECT_DOUBLE_EQ(triggered.angular_z, 0.0);
+  EXPECT_TRUE(held.brake_latched);
+  EXPECT_DOUBLE_EQ(held.angular_z, 0.0);
+  EXPECT_FALSE(released.brake_latched);
+  EXPECT_EQ(released.turn_direction, 1);
+  EXPECT_DOUBLE_EQ(released.angular_z, 0.220);
+}
+
+// 验证实测角速度为零时动态停止角退化为原有基础角度死区。
+TEST(DynamicAngularBrake, UsesBaseDeadbandAtRest)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+
+  const auto result = follow::applyDynamicAngularBrake(0.20, 0.12, 0.0, config, 0);
+
+  EXPECT_DOUBLE_EQ(result.brake_angle, 0.0);
+  EXPECT_DOUBLE_EQ(result.dynamic_stop_angle, config.angle_deadband);
+  EXPECT_EQ(result.turn_direction, 1);
+}
+
+// 验证动态停止仍保留目标位于正后方时的 atan2 跨界转向方向。
+TEST(DynamicAngularBrake, KeepsDirectionAcrossRearAngleWrap)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+
+  const auto left = follow::applyDynamicAngularBrake(-3.13, 0.50, 0.40, config, 1);
+  const auto right = follow::applyDynamicAngularBrake(3.13, -0.50, -0.40, config, -1);
+
+  EXPECT_EQ(left.turn_direction, 1);
+  EXPECT_DOUBLE_EQ(left.angular_z, 0.50);
+  EXPECT_EQ(right.turn_direction, -1);
+  EXPECT_DOUBLE_EQ(right.angular_z, -0.50);
+}
+
 // 验证角速度受单周期变化率约束，非零线速度起步则直接跨过实机死区。
 TEST(VelocityRate, LimitsAccelerationPerControlPeriod)
 {
@@ -198,6 +317,28 @@ TEST(FollowConfig, RejectsInvertedAngularHysteresis)
 {
   follow::FollowConfig config;
   config.angle_reengage = config.angle_deadband - 0.01;
+  std::string reason;
+
+  EXPECT_FALSE(follow::validateFollowConfig(config, &reason));
+  EXPECT_FALSE(reason.empty());
+}
+
+// 验证非正角减速度会使动态刹车公式失效，因此必须拒绝该配置。
+TEST(FollowConfig, RejectsInvalidAngularBrakingAcceleration)
+{
+  follow::FollowConfig config;
+  config.angular_braking_accel = 0.0;
+  std::string reason;
+
+  EXPECT_FALSE(follow::validateFollowConfig(config, &reason));
+  EXPECT_FALSE(reason.empty());
+}
+
+// 验证刹车释放速度不能高于反向保护速度，否则会提前解除停稳锁存。
+TEST(FollowConfig, RejectsBrakeReleaseSpeedAboveReverseThreshold)
+{
+  follow::FollowConfig config;
+  config.angular_brake_release_speed = config.angular_reverse_speed_threshold + 0.01;
   std::string reason;
 
   EXPECT_FALSE(follow::validateFollowConfig(config, &reason));
