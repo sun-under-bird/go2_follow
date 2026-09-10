@@ -1,0 +1,9 @@
+uint8 IDLE=0
+uint8 FOLLOW=1
+uint8 STOP=2
+uint8 ROAM=3
+uint8 mode
+---
+bool accepted
+uint8 current_mode
+string message
