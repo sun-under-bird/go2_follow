@@ -64,7 +64,23 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config docs launch DESTINATION share/${PROJECT_NAME})
+install(FILES README.md DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_lint_auto REQUIRED)
+  find_package(launch_testing_ament_cmake REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+
+  ament_add_gtest(test_behavior_core
+    test/test_behavior_core.cpp
+  )
+  target_link_libraries(test_behavior_core behavior_core)
+  target_include_directories(test_behavior_core PRIVATE include)
+
+  add_launch_test(test/test_behavior_action_launch.py TIMEOUT 60)
+endif()
 
 ament_export_include_directories(include)
 ament_export_libraries(behavior_core)
