@@ -1,0 +1,93 @@
+uwb_behavior_controller_node:
+  ros__parameters:
+    base_frame: base_footprint
+    odom_frame: odom
+    target_topic: /uwb/target_point
+    odom_topic: /odom_leg
+    obstacle_topic: /local_rolling_obstacle
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd
+    planner_cmd_topic: /go2_uwb_behavior/planner_cmd_vel
+    planner_diagnostics_topic: /go2_uwb_local_follow/planner_diagnostics
+    cmd_vel_topic: /cmd_vel
+    diagnostics_topic: /go2/behavior_diagnostics
+    follow_diagnostics_topic: /go2_uwb_local_follow/follow_diagnostics
+    roam_target_topic: /go2/random_roam/target
+    play_center_topic: /go2/random_roam/play_center
+    behavior_service_name: /go2/set_behavior
+    roam_action_name: /go2/random_roam
+
+    default_mode: FOLLOW
+    enable_motion: true
+    control_frequency: 20.0
+    diagnostic_frequency: 2.0
+    feedback_frequency: 5.0
+    target_timeout_sec: 0.50
+    odom_timeout_sec: 0.20
+    obstacle_timeout_sec: 0.70
+    planner_cmd_timeout_sec: 0.20
+    planner_diagnostics_timeout_sec: 0.75
+    transform_timeout_sec: 0.10
+    readiness_timeout_sec: 2.0
+
+    # FOLLOW 参数与现有实机配置保持一致，新启动链继续复用同一控制核心。
+    follow_distance: 1.0
+    distance_deadband: 0.08
+    angle_deadband: 0.08
+    angle_reengage: 0.15
+    turn_response_delay: 0.60
+    angular_braking_accel: 1.0
+    angular_brake_release_speed: 0.06
+    angular_reverse_speed_threshold: 0.15
+    linear_kp: 0.60
+    angular_kp: 1.0
+    min_linear_speed: 0.23
+    max_linear_speed: 0.80
+    max_angular_speed: 2.0
+    heading_slowdown_start: 0.50
+    heading_stop_angle: 1.05
+    blind_rotation_max_speed: 2.0
+    max_linear_accel: 0.80
+    max_linear_decel: 0.80
+    max_angular_accel: 1.0
+
+    # ROAM 只生成短距离、低速名义控制，最终速度仍必须经过原局部规划器。
+    roam_goal_tolerance: 0.30
+    roam_angle_deadband: 0.08
+    roam_angle_reengage: 0.15
+    roam_max_linear_speed: 0.35
+    roam_max_angular_speed: 1.0
+
+    # 实时主人位置用于围栏，迟滞中心只用于采样随机目标。
+    uwb_median_window: 5
+    uwb_filter_alpha: 0.25
+    minimum_owner_samples: 5
+    play_center_deadband: 0.40
+    center_move_confirm_sec: 1.0
+    center_max_speed: 0.30
+
+    owner_keepout_radius: 1.50
+    random_goal_radius_max: 4.50
+    random_step_min: 0.80
+    random_step_max: 1.80
+    goal_obstacle_clearance: 0.70
+    max_sample_attempts: 50
+
+    return_trigger_radius: 5.00
+    return_release_radius: 4.50
+    restrictive_radius: 5.60
+    absolute_radius: 6.00
+    geofence_prediction_sec: 1.0
+    geofence_simulation_dt: 0.05
+    geofence_reject_timeout_sec: 1.0
+
+    default_roam_timeout_sec: 30.0
+    maximum_roam_timeout_sec: 120.0
+    required_progress: 0.15
+    progress_window_sec: 3.0
+    planner_blocked_timeout_sec: 1.0
+    max_retries: 2
+    stop_linear_threshold: 0.04
+    stop_angular_threshold: 0.08
+    stop_confirm_sec: 0.30
+    stop_confirmation_timeout_sec: 2.0
+    robot_clearance_radius: 0.40

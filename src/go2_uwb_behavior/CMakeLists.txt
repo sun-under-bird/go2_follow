@@ -34,12 +34,37 @@ target_include_directories(behavior_core PUBLIC
 )
 target_compile_features(behavior_core PUBLIC cxx_std_17)
 
+add_executable(uwb_behavior_controller_node
+  src/uwb_behavior_controller_node.cpp
+)
+target_include_directories(uwb_behavior_controller_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+target_compile_features(uwb_behavior_controller_node PUBLIC cxx_std_17)
+target_link_libraries(uwb_behavior_controller_node behavior_core)
+ament_target_dependencies(uwb_behavior_controller_node
+  diagnostic_msgs
+  geometry_msgs
+  go2_uwb_local_follow
+  nav_msgs
+  rclcpp
+  rclcpp_action
+  sensor_msgs
+  tf2
+  tf2_ros
+)
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} rosidl_typesupport_cpp)
+target_link_libraries(uwb_behavior_controller_node "${cpp_typesupport_target}")
+
 install(
-  TARGETS behavior_core
+  TARGETS behavior_core uwb_behavior_controller_node
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 install(DIRECTORY include/ DESTINATION include)
+install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 
 ament_export_include_directories(include)
 ament_export_libraries(behavior_core)
