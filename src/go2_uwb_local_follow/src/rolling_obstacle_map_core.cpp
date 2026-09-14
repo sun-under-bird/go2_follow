@@ -95,7 +95,8 @@ bool validateRollingMapConfig(const RollingMapConfig & config, std::string * rea
     return rejectWithReason("rolling map config contains non-finite values", reason);
   }
   if (config.voxel_size <= 0.0 || config.obstacle_retention_sec <= 0.0 ||
-    config.rolling_radius <= 0.0 || config.max_obstacle_points == 0U ||
+    config.obstacle_confirm_frames == 0U || config.rolling_radius <= 0.0 ||
+    config.max_obstacle_points == 0U ||
     config.odom_buffer_duration_sec <= 0.0 || config.max_pose_extrapolation_sec < 0.0 ||
     config.odom_jump_distance <= 0.0 || config.odom_jump_yaw <= 0.0 ||
     config.odom_jump_check_interval_sec <= 0.0 || config.ray_clearing_max_range <= 0.0 ||
@@ -265,6 +266,7 @@ RollingObstacleMap::RollingObstacleMap(const RollingMapConfig & config)
 : config_(config)
 {
   cells_.reserve(config_.max_obstacle_points);
+  pending_cells_.reserve(config_.max_obstacle_points);
 }
 
 // 判断两个二维体素索引是否相同。
@@ -279,6 +281,15 @@ std::size_t RollingObstacleMap::CellKeyHash::operator()(const CellKey & key) con
   const auto first = std::hash<std::int64_t>{}(key.x);
   const auto second = std::hash<std::int64_t>{}(key.y);
   return first ^ (second + 0x9e3779b97f4a7c15ULL + (first << 6U) + (first >> 2U));
+}
+
+// 将 odom 障碍点量化为滚动地图二维体素索引。
+RollingObstacleMap::CellKey RollingObstacleMap::cellKeyForPoint(
+  const RollingObstaclePoint & point) const
+{
+  return CellKey{
+    static_cast<std::int64_t>(std::floor(point.x / config_.voxel_size)),
+    static_cast<std::int64_t>(std::floor(point.y / config_.voxel_size))};
 }
 
 // 把当前帧机身点转换到 odom，刷新对应体素并执行衰减和范围裁剪。
@@ -300,8 +311,8 @@ std::size_t RollingObstacleMap::integrateObservation(
     return 0U;
   }
 
-  std::vector<RollingObstaclePoint> odom_obstacles;
-  odom_obstacles.reserve(base_obstacles.size());
+  std::unordered_map<CellKey, RollingObstaclePoint, CellKeyHash> current_obstacles;
+  current_obstacles.reserve(base_obstacles.size());
   std::unordered_map<CellKey, bool, CellKeyHash> protected_cells;
   protected_cells.reserve(base_obstacles.size());
   for (const auto & base_point : base_obstacles) {
@@ -309,11 +320,18 @@ std::size_t RollingObstacleMap::integrateObservation(
       continue;
     }
     const RollingObstaclePoint odom_point = transformRollingPointToOdom(base_point, pose);
-    const CellKey key{
-      static_cast<std::int64_t>(std::floor(odom_point.x / config_.voxel_size)),
-      static_cast<std::int64_t>(std::floor(odom_point.y / config_.voxel_size))};
-    odom_obstacles.push_back(odom_point);
+    const CellKey key = cellKeyForPoint(odom_point);
+    current_obstacles[key] = odom_point;
     protected_cells.emplace(key, true);
+  }
+
+  // 候选必须在相邻输入帧持续出现；当前帧缺失后从下一次命中重新计数。
+  for (auto iterator = pending_cells_.begin(); iterator != pending_cells_.end(); ) {
+    if (current_obstacles.count(iterator->first) == 0U) {
+      iterator = pending_cells_.erase(iterator);
+    } else {
+      ++iterator;
+    }
   }
 
   std::size_t cleared_cells = 0U;
@@ -331,11 +349,32 @@ std::size_t RollingObstacleMap::integrateObservation(
       odom_ray_endpoints, odom_sensor_origin, protected_cells);
   }
 
-  for (const auto & odom_point : odom_obstacles) {
-    const CellKey key{
-      static_cast<std::int64_t>(std::floor(odom_point.x / config_.voxel_size)),
-      static_cast<std::int64_t>(std::floor(odom_point.y / config_.voxel_size))};
-    cells_[key] = CellValue{odom_point, pose.stamp_ns};
+  for (const auto & item : current_obstacles) {
+    const CellKey & key = item.first;
+    const RollingObstaclePoint & odom_point = item.second;
+    auto confirmed = cells_.find(key);
+    if (confirmed != cells_.end()) {
+      // 已确认障碍无需重新等待两帧，连续观测直接刷新位置和保留时间。
+      confirmed->second = CellValue{odom_point, pose.stamp_ns};
+      pending_cells_.erase(key);
+      continue;
+    }
+    if (config_.obstacle_confirm_frames <= 1U) {
+      cells_[key] = CellValue{odom_point, pose.stamp_ns};
+      continue;
+    }
+
+    auto pending = pending_cells_.find(key);
+    if (pending == pending_cells_.end()) {
+      pending_cells_[key] = PendingCellValue{odom_point, 1U};
+      continue;
+    }
+    pending->second.point = odom_point;
+    ++pending->second.consecutive_hits;
+    if (pending->second.consecutive_hits >= config_.obstacle_confirm_frames) {
+      cells_[key] = CellValue{odom_point, pose.stamp_ns};
+      pending_cells_.erase(pending);
+    }
   }
   prune(pose);
   return cleared_cells;
@@ -368,12 +407,19 @@ std::vector<RollingObstaclePoint> RollingObstacleMap::pointsInBase(
 void RollingObstacleMap::clear()
 {
   cells_.clear();
+  pending_cells_.clear();
 }
 
 // 返回当前保留的障碍体素数量。
 std::size_t RollingObstacleMap::size() const
 {
   return cells_.size();
+}
+
+// 返回尚未达到连续帧确认门槛的候选障碍体素数量。
+std::size_t RollingObstacleMap::pendingSize() const
+{
+  return pending_cells_.size();
 }
 
 // 统计每个二维体素的同帧射线穿越次数，并清除达到确认阈值的历史障碍。
@@ -466,6 +512,15 @@ void RollingObstacleMap::prune(const TimedPose2D & pose)
   const std::int64_t retention_ns = static_cast<std::int64_t>(
     config_.obstacle_retention_sec * kNanosecondsPerSecond);
   const double radius_squared = config_.rolling_radius * config_.rolling_radius;
+  for (auto iterator = pending_cells_.begin(); iterator != pending_cells_.end(); ) {
+    const double dx = iterator->second.point.x - pose.x;
+    const double dy = iterator->second.point.y - pose.y;
+    if (dx * dx + dy * dy > radius_squared) {
+      iterator = pending_cells_.erase(iterator);
+    } else {
+      ++iterator;
+    }
+  }
   for (auto iterator = cells_.begin(); iterator != cells_.end(); ) {
     const double dx = iterator->second.point.x - pose.x;
     const double dy = iterator->second.point.y - pose.y;

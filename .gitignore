@@ -9,5 +9,6 @@ __pycache__/
 .cache/
 .vscode/
 diagnostics/
+test_records/
 *.db3
 *.mcap

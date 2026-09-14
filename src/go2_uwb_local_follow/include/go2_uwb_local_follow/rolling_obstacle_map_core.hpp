@@ -44,6 +44,7 @@ struct RollingMapConfig
 {
   double voxel_size{0.05};
   double obstacle_retention_sec{1.00};
+  std::size_t obstacle_confirm_frames{2U};
   double rolling_radius{3.00};
   std::size_t max_obstacle_points{5000U};
   double odom_buffer_duration_sec{3.00};
@@ -132,6 +133,9 @@ public:
   // 返回当前保留的障碍体素数量。
   std::size_t size() const;
 
+  // 返回尚未达到连续帧确认门槛的候选障碍体素数量。
+  std::size_t pendingSize() const;
+
 private:
   struct CellKey
   {
@@ -154,6 +158,15 @@ private:
     std::int64_t last_seen_ns{0};
   };
 
+  struct PendingCellValue
+  {
+    RollingObstaclePoint point;
+    std::size_t consecutive_hits{0U};
+  };
+
+  // 将 odom 障碍点量化为滚动地图二维体素索引。
+  CellKey cellKeyForPoint(const RollingObstaclePoint & point) const;
+
   // 删除超过保留时间或滚动半径的障碍，并按新鲜度和距离限制总点数。
   void prune(const TimedPose2D & pose);
 
@@ -165,6 +178,7 @@ private:
 
   RollingMapConfig config_;
   std::unordered_map<CellKey, CellValue, CellKeyHash> cells_;
+  std::unordered_map<CellKey, PendingCellValue, CellKeyHash> pending_cells_;
 };
 
 }  // namespace go2_uwb_local_follow

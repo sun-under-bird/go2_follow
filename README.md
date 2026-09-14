@@ -122,6 +122,16 @@ colcon test-result --verbose
 
 实机运行前应确认只有一个节点发布 `/cmd_vel`，并在机器人周围预留安全空间。
 
+需要把实机异常和完整数据移交给测试或研发人员时，使用一键记录脚本：
+
+```bash
+./scripts/record_follow_test.sh --name rear_crossing
+```
+
+脚本支持按键标记异常向前、转向、误停车、反光假障碍、抖动和 UWB 丢数；详细用法见
+[跟随避障实机测试记录说明](docs/follow_avoidance_test_recording.md)，可直接移交测试人员的
+命令清单见 [Go2 跟随避障测试录制命令](docs/follow_test_recording_commands.md)。
+
 ## 目录
 
 ```text

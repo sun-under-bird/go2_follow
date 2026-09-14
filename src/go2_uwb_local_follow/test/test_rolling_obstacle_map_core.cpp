@@ -29,6 +29,14 @@ namespace
 constexpr std::int64_t kSecond = 1000000000LL;
 constexpr double kPi = 3.14159265358979323846;
 
+// 为与连续帧确认无关的既有测试启用单帧写入，保持各测试只验证一个行为。
+rolling::RollingMapConfig immediateConfirmationConfig()
+{
+  rolling::RollingMapConfig config;
+  config.obstacle_confirm_frames = 1U;
+  return config;
+}
+
 }  // namespace
 
 // 验证机身点经过 odom 变换和逆变换后保持原坐标。
@@ -112,10 +120,88 @@ TEST(OdomPoseBuffer, ResetsOnPoseJump)
   EXPECT_EQ(buffer.size(), 1U);
 }
 
+// 验证单帧障碍只进入候选集合，不会立即出现在正式滚动地图中。
+TEST(RollingObstacleMap, RejectsSingleFrameObstacle)
+{
+  rolling::RollingMapConfig config;
+  config.obstacle_confirm_frames = 2U;
+  rolling::RollingObstacleMap map(config);
+
+  map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(map.size(), 0U);
+  EXPECT_EQ(map.pendingSize(), 1U);
+}
+
+// 验证同一 odom 体素连续命中两帧后才转为正式障碍。
+TEST(RollingObstacleMap, ConfirmsObstacleAfterTwoConsecutiveFrames)
+{
+  rolling::RollingMapConfig config;
+  config.voxel_size = 0.10;
+  config.obstacle_confirm_frames = 2U;
+  rolling::RollingObstacleMap map(config);
+
+  map.integrate({{1.01, 0.01, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+  map.integrate({{1.04, 0.02, 0.3}}, {1100000000LL, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(map.pendingSize(), 0U);
+  ASSERT_EQ(map.size(), 1U);
+  const auto points = map.pointsInBase({1100000000LL, 0.0, 0.0, 0.0});
+  ASSERT_EQ(points.size(), 1U);
+  EXPECT_NEAR(points.front().x, 1.04, 1e-12);
+  EXPECT_NEAR(points.front().z, 0.3, 1e-12);
+}
+
+// 验证候选障碍中间缺失一帧后必须重新累计连续命中次数。
+TEST(RollingObstacleMap, ResetsCandidateAfterMissedFrame)
+{
+  rolling::RollingMapConfig config;
+  config.obstacle_confirm_frames = 2U;
+  rolling::RollingObstacleMap map(config);
+
+  map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+  map.integrate({}, {1100000000LL, 0.0, 0.0, 0.0});
+  map.integrate({{1.0, 0.0, 0.2}}, {1200000000LL, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(map.size(), 0U);
+  EXPECT_EQ(map.pendingSize(), 1U);
+}
+
+// 验证同一帧落入同一体素的多个点只算一次命中，不能绕过连续帧门槛。
+TEST(RollingObstacleMap, CountsDuplicateVoxelOnlyOncePerFrame)
+{
+  rolling::RollingMapConfig config;
+  config.voxel_size = 0.10;
+  config.obstacle_confirm_frames = 2U;
+  rolling::RollingObstacleMap map(config);
+
+  map.integrate(
+    {{1.01, 0.01, 0.2}, {1.04, 0.02, 0.3}},
+    {kSecond, 0.0, 0.0, 0.0});
+
+  EXPECT_EQ(map.size(), 0U);
+  EXPECT_EQ(map.pendingSize(), 1U);
+}
+
+// 验证清空滚动地图时正式障碍和未确认候选会一起删除。
+TEST(RollingObstacleMap, ClearsPendingCandidates)
+{
+  rolling::RollingMapConfig config;
+  config.obstacle_confirm_frames = 2U;
+  rolling::RollingObstacleMap map(config);
+  map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+  ASSERT_EQ(map.pendingSize(), 1U);
+
+  map.clear();
+
+  EXPECT_EQ(map.size(), 0U);
+  EXPECT_EQ(map.pendingSize(), 0U);
+}
+
 // 验证机器人移动后历史障碍经过里程计补偿出现在新的当前机身坐标中。
 TEST(RollingObstacleMap, CompensatesRobotMotion)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   rolling::RollingObstacleMap map(config);
   const rolling::TimedPose2D first_pose{kSecond, 0.0, 0.0, 0.0};
   const rolling::TimedPose2D second_pose{1500000000LL, 0.4, 0.0, 0.0};
@@ -131,7 +217,7 @@ TEST(RollingObstacleMap, CompensatesRobotMotion)
 // 验证超过保留时间且没有被新帧刷新的障碍会自动衰减删除。
 TEST(RollingObstacleMap, ExpiresUnobservedObstacles)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   config.obstacle_retention_sec = 0.50;
   rolling::RollingObstacleMap map(config);
   map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
@@ -144,7 +230,7 @@ TEST(RollingObstacleMap, ExpiresUnobservedObstacles)
 // 验证同一 odom 体素的新观测只刷新时间和位置，不会重复累积点。
 TEST(RollingObstacleMap, RefreshesExistingVoxel)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   config.voxel_size = 0.10;
   rolling::RollingObstacleMap map(config);
   map.integrate({{1.01, 0.01, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
@@ -160,7 +246,7 @@ TEST(RollingObstacleMap, RefreshesExistingVoxel)
 // 验证同一帧足够多的有效深度射线会清除路径上的历史动态障碍。
 TEST(RollingObstacleMap, ClearsHistoricalObstacleWithConfirmedRays)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   config.ray_clearing_min_observations = 2U;
   rolling::RollingObstacleMap map(config);
   const rolling::TimedPose2D first_pose{kSecond, 0.0, 0.0, 0.0};
@@ -177,7 +263,7 @@ TEST(RollingObstacleMap, ClearsHistoricalObstacleWithConfirmedRays)
 // 验证单条孤立射线达不到确认阈值时不会删除历史障碍。
 TEST(RollingObstacleMap, KeepsHistoricalObstacleWithoutEnoughRaySupport)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   config.ray_clearing_min_observations = 2U;
   rolling::RollingObstacleMap map(config);
   map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
@@ -192,7 +278,7 @@ TEST(RollingObstacleMap, KeepsHistoricalObstacleWithoutEnoughRaySupport)
 // 验证同帧当前障碍会截断二维射线，禁止清除其后方被遮挡的历史体素。
 TEST(RollingObstacleMap, StopsRayAtCurrentObstacle)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   config.ray_clearing_min_observations = 1U;
   rolling::RollingObstacleMap map(config);
   map.integrate({{2.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
@@ -208,7 +294,7 @@ TEST(RollingObstacleMap, StopsRayAtCurrentObstacle)
 // 验证射线终点安全余量不会把终点附近的历史障碍误判为空闲。
 TEST(RollingObstacleMap, PreservesObstacleInsideEndpointMargin)
 {
-  rolling::RollingMapConfig config;
+  rolling::RollingMapConfig config = immediateConfirmationConfig();
   config.ray_clearing_min_observations = 1U;
   config.ray_clearing_endpoint_margin = 0.10;
   rolling::RollingObstacleMap map(config);
@@ -226,6 +312,17 @@ TEST(RollingMapConfig, RejectsInvalidRetention)
 {
   rolling::RollingMapConfig config;
   config.obstacle_retention_sec = 0.0;
+  std::string reason;
+
+  EXPECT_FALSE(rolling::validateRollingMapConfig(config, &reason));
+  EXPECT_FALSE(reason.empty());
+}
+
+// 验证连续帧确认门槛必须至少为一帧。
+TEST(RollingMapConfig, RejectsZeroObstacleConfirmationFrames)
+{
+  rolling::RollingMapConfig config;
+  config.obstacle_confirm_frames = 0U;
   std::string reason;
 
   EXPECT_FALSE(rolling::validateRollingMapConfig(config, &reason));

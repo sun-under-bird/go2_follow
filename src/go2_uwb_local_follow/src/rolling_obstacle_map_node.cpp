@@ -142,9 +142,11 @@ public:
 
     RCLCPP_INFO(
       get_logger(),
-      "Rolling obstacle map started: input=%s odom=%s output=%s retention=%.2fs radius=%.2fm",
+      "Rolling obstacle map started: input=%s odom=%s output=%s retention=%.2fs "
+      "confirm_frames=%zu radius=%.2fm",
       input_observation_topic_.c_str(), odom_topic_.c_str(), output_obstacle_topic_.c_str(),
-      map_config_.obstacle_retention_sec, map_config_.rolling_radius);
+      map_config_.obstacle_retention_sec, map_config_.obstacle_confirm_frames,
+      map_config_.rolling_radius);
   }
 
 private:
@@ -158,6 +160,7 @@ private:
     std::size_t obstacle_points{0U};
     std::size_t ray_endpoints{0U};
     std::size_t ray_cleared_cells{0U};
+    std::size_t pending_obstacle_points{0U};
     std::size_t map_points{0U};
     std::size_t odom_buffer_size{0U};
     std::size_t odom_reset_count{0U};
@@ -169,6 +172,8 @@ private:
     map_config_.voxel_size = declare_parameter<double>("voxel_size", 0.05);
     map_config_.obstacle_retention_sec = declare_parameter<double>(
       "obstacle_retention_sec", 1.00);
+    map_config_.obstacle_confirm_frames = static_cast<std::size_t>(
+      std::max<std::int64_t>(1, declare_parameter<std::int64_t>("obstacle_confirm_frames", 2)));
     map_config_.rolling_radius = declare_parameter<double>("rolling_radius", 3.00);
     map_config_.max_obstacle_points = static_cast<std::size_t>(std::max<std::int64_t>(
         1, declare_parameter<std::int64_t>("max_obstacle_points", 5000)));
@@ -399,6 +404,7 @@ private:
     status_.obstacle_points = obstacle_points.size();
     status_.ray_endpoints = ray_endpoints.size();
     status_.ray_cleared_cells = cleared_cells;
+    status_.pending_obstacle_points = obstacle_map_.pendingSize();
     status_.map_points = output_points.size();
     status_.odom_buffer_size = pose_buffer_.size();
     status_.odom_reset_count = odom_reset_count_;
@@ -493,6 +499,7 @@ private:
       {"obstacle_points", std::to_string(status_.obstacle_points)},
       {"ray_endpoints", std::to_string(status_.ray_endpoints)},
       {"ray_cleared_cells", std::to_string(status_.ray_cleared_cells)},
+      {"pending_obstacle_points", std::to_string(status_.pending_obstacle_points)},
       {"map_points", std::to_string(status_.map_points)},
       {"odom_buffer_size", std::to_string(status_.odom_buffer_size)},
       {"odom_reset_count", std::to_string(status_.odom_reset_count)}};
