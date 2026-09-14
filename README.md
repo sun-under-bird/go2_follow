@@ -63,8 +63,13 @@ source install/setup.bash
 
 ```bash
 ros2 launch uwb_aoa_pkg uwb_source.launch.py \
-  serial_port:=/dev/ttyUSB0
+  serial_port:=/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AG00S82A-if00-port0 \
+  target_fob_id:=2271560484
 ```
+
+`target_fob_id` 在厂家融合前筛选一对多接收器的数据，防止不同标签污染同一份
+融合状态。值为 `0` 时自动锁定本次启动收到的第一个标签；多标签同时开启时应显式
+填写目标标签 ID。
 
 确认 UWB、双目图像、TF 和 `/odom_leg` 正常后，启动完整跟随避障链路：
 

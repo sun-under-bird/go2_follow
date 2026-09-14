@@ -11,6 +11,7 @@ def generate_launch_description():
     frame_id = LaunchConfiguration("frame_id")
     publish_rate_hz = LaunchConfiguration("publish_rate_hz")
     aoa_frequency_hz = LaunchConfiguration("aoa_frequency_hz")
+    target_fob_id = LaunchConfiguration("target_fob_id")
 
     return LaunchDescription(
         [
@@ -18,6 +19,11 @@ def generate_launch_description():
             DeclareLaunchArgument("frame_id", default_value="uwb_link"),
             DeclareLaunchArgument("publish_rate_hz", default_value="10.0"),
             DeclareLaunchArgument("aoa_frequency_hz", default_value="10"),
+            DeclareLaunchArgument(
+                "target_fob_id",
+                default_value="0",
+                description="目标标签十进制 ID；0 表示自动锁定首个标签",
+            ),
             Node(
                 package="uwb_aoa_pkg",
                 executable="libAoa_robot_example",
@@ -33,6 +39,10 @@ def generate_launch_description():
                         ),
                         "aoa_frequency_hz": ParameterValue(
                             aoa_frequency_hz,
+                            value_type=int,
+                        ),
+                        "target_fob_id": ParameterValue(
+                            target_fob_id,
                             value_type=int,
                         ),
                     }

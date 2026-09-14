@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -36,6 +37,7 @@ public:
     frame_id_ = declare_parameter<std::string>("frame_id", "uwb_link");
     publish_rate_hz_ = declare_parameter<double>("publish_rate_hz", 10.0);
     aoa_frequency_hz_ = declare_parameter<int>("aoa_frequency_hz", 10);
+    const auto configured_fob_id = declare_parameter<std::int64_t>("target_fob_id", 0);
     if (frame_id_.empty()) {
       throw std::invalid_argument("frame_id must not be empty");
     }
@@ -45,13 +47,31 @@ public:
     if (aoa_frequency_hz_ <= 0) {
       throw std::invalid_argument("aoa_frequency_hz must be positive");
     }
+    if (configured_fob_id < 0 ||
+      configured_fob_id > static_cast<std::int64_t>(std::numeric_limits<std::uint32_t>::max()))
+    {
+      throw std::invalid_argument("target_fob_id must be in uint32 range");
+    }
+    configured_fob_id_ = static_cast<std::uint32_t>(configured_fob_id);
+    if (configured_fob_id_ != 0U) {
+      selected_fob_id_ = configured_fob_id_;
+      have_selected_fob_id_ = true;
+    }
     publish_period_ = std::chrono::duration<double>(1.0 / publish_rate_hz_);
 
     publisher_ = create_publisher<msg::LibAoaRobotMsg>("/libAoa_robot_publisher", 10);
     openAndConfigureSerial(device_name);
     running_ = true;
     read_thread_ = std::thread(&LibAoaRobotPublisher::readSerialLoop, this);
-    RCLCPP_INFO(get_logger(), "UWB serial driver started on %s", device_name.c_str());
+    if (have_selected_fob_id_) {
+      RCLCPP_INFO(
+        get_logger(), "UWB serial driver started on %s, target_fob_id=%u",
+        device_name.c_str(), selected_fob_id_);
+    } else {
+      RCLCPP_INFO(
+        get_logger(), "UWB serial driver started on %s, target_fob_id=auto",
+        device_name.c_str());
+    }
   }
 
   // 停止读取线程并关闭串口，避免节点退出后继续占用设备。
@@ -67,6 +87,19 @@ public:
   }
 
 private:
+  // 判断数据是否属于选定标签；参数为 0 时锁定本进程收到的第一个标签。
+  bool acceptsFobId(std::uint32_t fob_id)
+  {
+    if (!have_selected_fob_id_) {
+      selected_fob_id_ = fob_id;
+      have_selected_fob_id_ = true;
+      RCLCPP_INFO(
+        get_logger(), "Auto-locked UWB target fob_id=%u (0x%08X)",
+        selected_fob_id_, selected_fob_id_);
+    }
+    return fob_id == selected_fob_id_;
+  }
+
   // 打开 115200-8N1 串口并切换到原始字节读取模式。
   void openAndConfigureSerial(const std::string & device_name)
   {
@@ -155,6 +188,10 @@ private:
       if (packet_type != NOTIFY_DISTANCE_ANGLE_RSSI_FOBID || packet == nullptr) {
         continue;
       }
+      // 必须在厂家融合前过滤标签，避免不同 fob_id 共用融合状态导致目标跳变。
+      if (!acceptsFobId(packet->fob_id)) {
+        continue;
+      }
 
       algorithm_input.Distance = packet->distance;
       algorithm_input.Azimuth = packet->angle;
@@ -204,6 +241,9 @@ private:
   std::string frame_id_;
   double publish_rate_hz_{10.0};
   int aoa_frequency_hz_{10};
+  std::uint32_t configured_fob_id_{0};
+  std::uint32_t selected_fob_id_{0};
+  bool have_selected_fob_id_{false};
   std::chrono::duration<double> publish_period_{0.1};
   bool have_publish_time_{false};
   std::chrono::steady_clock::time_point last_publish_time_{};
