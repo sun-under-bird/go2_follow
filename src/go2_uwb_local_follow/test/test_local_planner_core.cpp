@@ -683,6 +683,70 @@ TEST(LocalPlanner, ExecutesStopWithoutStaleCommandAcceleration)
       result.selected_trajectory, {{0.55, 0}}, footprint).collision);
 }
 
+// 实测角速度仍为零时，连续控制周期必须累积命令并跨过 Go2 的转向启动死区。
+TEST(LocalPlanner, AccumulatesAngularCommandAcrossChassisDeadzone)
+{
+  const planner::TrajectoryConfig trajectory{1.5, 0.05};
+  const planner::FootprintConfig footprint;
+  planner::MotionLimits limits;
+  limits.min_angular_speed = 0.0;
+  limits.max_angular_accel = 1.5;
+  const planner::VelocitySamplingConfig sampling;
+  planner::PlannerVelocity2D previous_command;
+
+  for (int cycle = 1; cycle <= 6; ++cycle) {
+    // 评分参考可由避障方向保持逻辑修正，但最终爬升只能使用真实上一条下发指令。
+    const auto result = planner::planLocalVelocity(
+      {0.0, 0.0}, previous_command, {0.0, 0.50}, {0.0, 1.50}, {},
+      trajectory, footprint, limits, sampling, false, 0.05);
+    ASSERT_TRUE(result.valid);
+    EXPECT_NEAR(result.executable_velocity.angular_z, 0.075 * cycle, 1.0e-9);
+    previous_command = result.executable_velocity;
+  }
+  EXPECT_GT(previous_command.angular_z, 0.40);
+}
+
+// 实测速度长期低于命令时，线速度仍需跨周期爬升而不能卡在最小速度。
+TEST(LocalPlanner, AccumulatesLinearCommandAcrossChassisDeadzone)
+{
+  const planner::TrajectoryConfig trajectory{1.5, 0.05};
+  const planner::FootprintConfig footprint;
+  planner::MotionLimits limits;
+  limits.min_linear_speed = 0.25;
+  limits.max_reverse_speed = 0.30;
+  limits.max_linear_accel = 0.5;
+  const planner::VelocitySamplingConfig sampling;
+  planner::PlannerVelocity2D previous_command;
+
+  for (int cycle = 1; cycle <= 8; ++cycle) {
+    const auto result = planner::planLocalVelocity(
+      {0.13, 0.0}, previous_command, previous_command, {0.80, 0.0}, {},
+      trajectory, footprint, limits, sampling, false, 0.05);
+    ASSERT_TRUE(result.valid);
+    const double expected = limits.min_linear_speed + 0.025 * (cycle - 1);
+    EXPECT_NEAR(result.executable_velocity.linear_x, expected, 1.0e-9);
+    previous_command = result.executable_velocity;
+  }
+  EXPECT_GT(previous_command.linear_x, 0.40);
+}
+
+// 规划目标降低时必须从实测速度减速，禁止历史高命令继续推动机器人加速。
+TEST(LocalPlanner, UsesMeasuredVelocityForLinearDeceleration)
+{
+  const planner::TrajectoryConfig trajectory{1.5, 0.05};
+  const planner::FootprintConfig footprint;
+  planner::MotionLimits limits;
+  limits.max_linear_decel = 0.7;
+  const planner::VelocitySamplingConfig sampling;
+
+  const auto result = planner::planLocalVelocity(
+    {0.40, 0.0}, {0.80, 0.0}, {0.80, 0.0}, {0.30, 0.0}, {},
+    trajectory, footprint, limits, sampling, false, 0.05);
+
+  ASSERT_TRUE(result.valid);
+  EXPECT_NEAR(result.executable_velocity.linear_x, 0.365, 1.0e-9);
+}
+
 // 倒退命令距离之外的制动尾段仍需检查，不能在停止命令发出位置截断。
 TEST(EmergencyReverse, ChecksBrakingTailBeyondCommandDistance)
 {

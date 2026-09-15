@@ -87,10 +87,10 @@ public:
     config_.distance_deadband = declare_parameter<double>("distance_deadband", 0.08);
     config_.angle_deadband = declare_parameter<double>("angle_deadband", 0.20);
     config_.angle_reengage = declare_parameter<double>("angle_reengage", 0.45);
-    config_.turn_response_delay = declare_parameter<double>("turn_response_delay", 0.10);
+    config_.turn_response_delay = declare_parameter<double>("turn_response_delay", 0.20);
     config_.angular_braking_accel = declare_parameter<double>("angular_braking_accel", 1.50);
     config_.angular_brake_release_speed = declare_parameter<double>(
-      "angular_brake_release_speed", 0.06);
+      "angular_brake_release_speed", 0.08);
     config_.angular_reverse_speed_threshold = declare_parameter<double>(
       "angular_reverse_speed_threshold", 0.15);
     config_.linear_kp = declare_parameter<double>("linear_kp", 0.6);
@@ -99,7 +99,7 @@ public:
     config_.max_linear_speed = declare_parameter<double>("max_linear_speed", 0.80);
     config_.max_angular_speed = declare_parameter<double>("max_angular_speed", 2.00);
     config_.heading_slowdown_start = declare_parameter<double>(
-      "heading_slowdown_start", 0.50);
+      "heading_slowdown_start", 1.39);
     config_.heading_stop_angle = declare_parameter<double>("heading_stop_angle", 1.40);
     config_.heading_alignment_hysteresis = declare_parameter<double>(
       "heading_alignment_hysteresis", 0.15);

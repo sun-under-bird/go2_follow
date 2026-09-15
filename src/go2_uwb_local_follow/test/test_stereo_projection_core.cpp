@@ -48,15 +48,15 @@ TEST(StereoProjection, RejectsInvalidAndOutOfRangeDisparity)
   EXPECT_FALSE(stereo::projectDisparityPixel(0U, 0U, 2.0, 0.05, calibration, config));
 }
 
-// 验证机身高度过滤保留 0.10 m 和 0.50 m 两个边界。
+// 验证机身高度过滤保留 0.08 m 和 0.65 m 两个边界。
 TEST(BasePointFilter, KeepsInclusiveHeightBoundaries)
 {
   stereo::ProjectionConfig config;
 
-  EXPECT_TRUE(stereo::keepBasePoint({1.0, 0.0, 0.10}, config));
-  EXPECT_TRUE(stereo::keepBasePoint({1.0, 0.0, 0.50}, config));
-  EXPECT_FALSE(stereo::keepBasePoint({1.0, 0.0, 0.099}, config));
-  EXPECT_FALSE(stereo::keepBasePoint({1.0, 0.0, 0.501}, config));
+  EXPECT_TRUE(stereo::keepBasePoint({1.0, 0.0, 0.08}, config));
+  EXPECT_TRUE(stereo::keepBasePoint({1.0, 0.0, 0.65}, config));
+  EXPECT_FALSE(stereo::keepBasePoint({1.0, 0.0, 0.079}, config));
+  EXPECT_FALSE(stereo::keepBasePoint({1.0, 0.0, 0.651}, config));
 }
 
 // 验证有效地面深度只作为清除射线终点，而高处点不会参与二维清除。

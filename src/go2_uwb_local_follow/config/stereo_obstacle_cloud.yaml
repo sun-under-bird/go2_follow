@@ -45,9 +45,9 @@ stereo_obstacle_projector_node:
     obstacle_x_min: 0.20  # 保留障碍点的最小前向坐标（m），在 base_frame 下计算
     obstacle_x_max: 3.00  # 保留障碍点的最大前向坐标（m），在 base_frame 下计算
     obstacle_y_abs_max: 2.00  # 保留障碍点的最大横向绝对坐标（m），在 base_frame 下计算
-    # 高度边界在 base_footprint 下计算，0.10 m 和 0.50 m 本身保留。
-    obstacle_z_min: 0.10  # 障碍点相对 base_frame 的最低高度（m），用于排除地面
-    obstacle_z_max: 0.50  # 障碍点相对 base_frame 的最高高度（m）
+    # 高度边界在 base_footprint 下计算，0.08 m 和 0.65 m 本身保留。
+    obstacle_z_min: 0.08  # 障碍点相对 base_frame 的最低高度（m），用于排除地面
+    obstacle_z_max: 0.65  # 障碍点相对 base_frame 的最高高度（m）
     # 地面点不标记为障碍，但有效地面深度可作为二维自由空间射线终点。
     ray_endpoint_z_min: -0.10  # 自由空间射线终点相对 base_frame 的最低高度（m），可包含地面点
     ray_endpoint_z_max: 0.50  # 自由空间射线终点相对 base_frame 的最高高度（m）

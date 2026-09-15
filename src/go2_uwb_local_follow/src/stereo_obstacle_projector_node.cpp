@@ -200,8 +200,8 @@ public:
     config_.obstacle_x_min = declare_parameter<double>("obstacle_x_min", -0.50);
     config_.obstacle_x_max = declare_parameter<double>("obstacle_x_max", 3.00);
     config_.obstacle_y_abs_max = declare_parameter<double>("obstacle_y_abs_max", 2.00);
-    config_.obstacle_z_min = declare_parameter<double>("obstacle_z_min", 0.10);
-    config_.obstacle_z_max = declare_parameter<double>("obstacle_z_max", 0.50);
+    config_.obstacle_z_min = declare_parameter<double>("obstacle_z_min", 0.08);
+    config_.obstacle_z_max = declare_parameter<double>("obstacle_z_max", 0.65);
     config_.ray_endpoint_z_min = declare_parameter<double>("ray_endpoint_z_min", -0.10);
     config_.ray_endpoint_z_max = declare_parameter<double>("ray_endpoint_z_max", 0.50);
     config_.voxel_size = declare_parameter<double>("voxel_size", 0.05);

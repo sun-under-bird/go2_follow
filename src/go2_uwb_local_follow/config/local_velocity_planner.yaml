@@ -18,7 +18,7 @@ local_velocity_planner_node:
     diagnostic_frequency: 2.0  # ↑诊断更密/通信多；↓诊断更稀；步长 1 Hz
     nominal_timeout_sec: 0.20  # ↑容忍 UWB 抖动/丢失停车晚；↓停车快/易误停；步长 0.05 s
     obstacle_timeout_sec: 0.70  # 略大于滚动地图原始点云超时，禁止历史重发布掩盖感知断流
-    odom_timeout_sec: 0.10  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
+    odom_timeout_sec: 0.20  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
     obstacle_slowdown_after_sec: 0.30  # 图像短暂缺帧后逐渐降速，到 obstacle_timeout_sec 停车；新帧自动恢复
     odom_linear_deadband: 0.02  # ↑过滤更多线速度噪声/忽略微动；↓更灵敏/易抖；步长 0.01 m/s
     odom_angular_deadband: 0.05  # ↑过滤更多角速度噪声/忽略微转；↓更灵敏/易抖；步长 0.01 rad/s
@@ -34,7 +34,7 @@ local_velocity_planner_node:
     robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
     safety_margin: 0.05  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
 
-    min_linear_speed: 0.23  # 实机确认 0.12 只调整重心不迈步，所有非零 x 指令至少使用 0.23 m/s
+    min_linear_speed: 0.25  # 实机确认低速只调整重心不迈步，所有非零 x 指令至少使用 0.25 m/s
     max_linear_speed: 0.80  # ↑跟随快/制动距离长；↓更稳/可能跟不上；步长 0.05 m/s
     max_reverse_speed: 0.30  # 仅供急停恢复倒退使用，普通跟随和主动避障仍禁止负线速度
 
@@ -43,7 +43,7 @@ local_velocity_planner_node:
     max_angular_speed: 1.50  # UWB 跟随最大角速度；无障碍时规划器保留该上限
     max_linear_accel: 0.50  # ↑提速快/顿挫强；↓提速平滑/响应慢；步长 0.10 m/s²
     max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²
-    max_angular_accel: 1.50  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
+    max_angular_accel: 2.00  # 提高角速度爬升响应；最大角速度仍受1.50 rad/s上限约束
 
     linear_samples: 10  # 保留给全局候选调试接口；分层规划使用下方速度比例
     angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2

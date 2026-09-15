@@ -32,13 +32,6 @@ double clampValue(double value, double minimum, double maximum)
   return std::max(minimum, std::min(value, maximum));
 }
 
-// 生成首尾一阶导数为零的平滑插值比例。
-double smoothStep(double value)
-{
-  const double ratio = clampValue(value, 0.0, 1.0);
-  return ratio * ratio * (3.0 - 2.0 * ratio);
-}
-
 // 按最大变化率让一个标量平滑逼近目标值。
 double approachValue(double current, double target, double maximum_rate, double dt)
 {
@@ -177,28 +170,13 @@ FollowResult computeFollowTarget(
     config.angular_kp * signed_angle_error,
     -config.max_angular_speed, config.max_angular_speed);
 
-  if (absolute_heading > config.heading_slowdown_start) {
-    // 仅在大角度绕障区改变降速曲线，其余正常跟随继续使用原角度范围。
-    const double slowdown_stop = result.avoidance_heading_relaxed ?
-      config.avoidance_heading_stop_angle : config.heading_stop_angle;
-    const double ratio =
-      (absolute_heading - config.heading_slowdown_start) /
-      (slowdown_stop - config.heading_slowdown_start);
-    result.heading_scale = 1.0 - smoothStep(ratio);
-    result.target_velocity.linear_x *= result.heading_scale;
-  }
-
+  // 停止角以内保持距离控制得到的线速度，实现边走边转；越过门槛才原地对准。
+  result.heading_scale = result.blind_rotation ? 0.0 : 1.0;
   if (result.blind_rotation) {
     result.target_velocity.linear_x = 0.0;
     result.target_velocity.angular_z = clampValue(
       result.target_velocity.angular_z,
       -config.blind_rotation_max_speed, config.blind_rotation_max_speed);
-  }
-  if (!result.blind_rotation && result.target_velocity.linear_x > 0.0 &&
-    result.target_velocity.linear_x < config.min_linear_speed)
-  {
-    // 方位降速后仍要跨过实机起步死区，非零前进指令不得低于最小线速度。
-    result.target_velocity.linear_x = config.min_linear_speed;
   }
   if (result.avoidance_heading_relaxed) {
     result.target_velocity.linear_x = std::min(

@@ -912,7 +912,8 @@ private:
 
     const auto planning_start = std::chrono::steady_clock::now();
     const LocalPlanResult result = planLocalVelocity(
-      odom.velocity, scoring_previous_command, status.stabilized_nominal, points,
+      odom.velocity, previous_command, scoring_previous_command,
+      status.stabilized_nominal, points,
       trajectory_config_, footprint_config_, motion_limits_, sampling_config_,
       status.emergency, control_dt);
     status.planning_time_ms = std::chrono::duration<double, std::milli>(

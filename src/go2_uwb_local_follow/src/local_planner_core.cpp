@@ -349,7 +349,7 @@ std::vector<PlannerPose2D> predictAcceleratingTrajectory(
   // 实测超速也必须完整预测制动距离，不能裁剪成配置的命令上限。
   PlannerVelocity2D current = initial_velocity;
   const PlannerVelocity2D first_command = executableCommand(
-    initial_velocity, target_velocity, limits, control_dt);
+    initial_velocity, initial_velocity, target_velocity, limits, control_dt);
   const PlannerVelocity2D target = makeEffectiveVelocity(target_velocity, limits);
   PlannerPose2D pose;
   std::vector<PlannerPose2D> poses{pose};
@@ -881,10 +881,29 @@ std::vector<LinearSpeedLevel> makeLinearSpeedLevels(
 
 }  // namespace
 
-// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时按比例降速。
+// 兼容原调用方式，未单独提供评分历史时使用真实上一条指令参与评分。
 LocalPlanResult planLocalVelocity(
   const PlannerVelocity2D & measured_velocity,
   const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & nominal_velocity,
+  const std::vector<ObstaclePoint2D> & obstacles,
+  const TrajectoryConfig & trajectory_config,
+  const FootprintConfig & footprint_config,
+  const MotionLimits & limits,
+  const VelocitySamplingConfig & sampling_config,
+  bool force_linear_stop,
+  double control_dt)
+{
+  return planLocalVelocity(
+    measured_velocity, previous_command, previous_command, nominal_velocity, obstacles,
+    trajectory_config, footprint_config, limits, sampling_config, force_linear_stop, control_dt);
+}
+
+// 优先保持 UWB 线速度，并将安全预测、评分历史和命令爬升基准分别处理。
+LocalPlanResult planLocalVelocity(
+  const PlannerVelocity2D & measured_velocity,
+  const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & scoring_previous_command,
   const PlannerVelocity2D & nominal_velocity,
   const std::vector<ObstaclePoint2D> & obstacles,
   const TrajectoryConfig & trajectory_config,
@@ -898,6 +917,8 @@ LocalPlanResult planLocalVelocity(
   const ObstacleIndex obstacle_index(obstacles);
   result.effective_nominal = makeEffectiveVelocity(nominal_velocity, limits);
   const PlannerVelocity2D clamped_previous = clampVelocityToLimits(previous_command, limits);
+  const PlannerVelocity2D clamped_scoring_previous = clampVelocityToLimits(
+    scoring_previous_command, limits);
 
   // 首周期限幅已经包含在名义轨迹中，节点必须原样下发 executable_velocity。
   auto nominal_trajectory = predictAcceleratingTrajectory(
@@ -917,10 +938,10 @@ LocalPlanResult planLocalVelocity(
     result.valid = true;
     result.selected_velocity = result.effective_nominal;
     result.executable_velocity = executableCommand(
-      measured_velocity, result.selected_velocity, limits, control_dt);
+      measured_velocity, clamped_previous, result.selected_velocity, limits, control_dt);
     result.selected_trajectory = std::move(nominal_trajectory);
     result.cost = scoreVelocityCandidate(
-      result.selected_velocity, result.effective_nominal, clamped_previous,
+      result.selected_velocity, result.effective_nominal, clamped_scoring_previous,
       nominal_collision.min_clearance, limits, sampling_config);
     result.min_clearance = nominal_collision.min_clearance;
     result.required_clearance = nominal_safety.required_clearance;
@@ -931,7 +952,7 @@ LocalPlanResult planLocalVelocity(
   }
 
   const auto angular_values = sampleAvoidanceAngularVelocities(
-    result.effective_nominal, clamped_previous, limits, sampling_config);
+    result.effective_nominal, clamped_scoring_previous, limits, sampling_config);
   const auto speed_levels = makeLinearSpeedLevels(
     result.effective_nominal.linear_x, limits, sampling_config, force_linear_stop);
 
@@ -972,7 +993,7 @@ LocalPlanResult planLocalVelocity(
       }
 
       const PlannerCost cost = scoreVelocityCandidate(
-        candidate, result.effective_nominal, clamped_previous,
+        candidate, result.effective_nominal, clamped_scoring_previous,
         collision.min_clearance, limits, sampling_config);
       if (!level_valid || cost.total < level_cost.total) {
         level_valid = true;
@@ -989,7 +1010,7 @@ LocalPlanResult planLocalVelocity(
       result.valid = true;
       result.selected_velocity = level_velocity;
       result.executable_velocity = executableCommand(
-        measured_velocity, result.selected_velocity, limits, control_dt);
+        measured_velocity, clamped_previous, result.selected_velocity, limits, control_dt);
       result.selected_trajectory = std::move(level_trajectory);
       result.cost = level_cost;
       result.min_clearance = level_clearance;
@@ -1002,9 +1023,10 @@ LocalPlanResult planLocalVelocity(
   return result;
 }
 
-// 以实测速度限制非零目标变化，停止请求直接交给经过预测验证的底盘制动过程。
+// 同向加速时沿用历史命令爬升，减速、停车和反向时仍以实测速度为安全基准。
 PlannerVelocity2D executableCommand(
   const PlannerVelocity2D & measured_velocity,
+  const PlannerVelocity2D & previous_command,
   const PlannerVelocity2D & target_velocity,
   const MotionLimits & limits,
   double dt)
@@ -1013,6 +1035,27 @@ PlannerVelocity2D executableCommand(
     return makeEffectiveVelocity(target_velocity, limits);
   }
   PlannerVelocity2D command = limitCommandVelocity(measured_velocity, target_velocity, limits, dt);
+  const PlannerVelocity2D historical_command = limitCommandVelocity(
+    previous_command, target_velocity, limits, dt);
+
+  constexpr double linear_tolerance = 1e-9;
+  const bool measured_direction_safe =
+    measured_velocity.linear_x * target_velocity.linear_x >= 0.0;
+  const bool accelerating_forward =
+    target_velocity.linear_x > previous_command.linear_x + linear_tolerance &&
+    previous_command.linear_x >= 0.0 && measured_direction_safe;
+  const bool accelerating_reverse =
+    target_velocity.linear_x < previous_command.linear_x - linear_tolerance &&
+    previous_command.linear_x <= 0.0 && measured_direction_safe;
+  if (accelerating_forward) {
+    // 前进加速允许历史命令持续抬升；实测速度若更快，则优先采用实测限速结果。
+    command.linear_x = std::max(command.linear_x, historical_command.linear_x);
+  }
+  if (accelerating_reverse) {
+    // 倒退加速与前进对称处理，方向切换仍由实测速度保护。
+    command.linear_x = std::min(command.linear_x, historical_command.linear_x);
+  }
+  command.angular_z = historical_command.angular_z;
   if (std::abs(target_velocity.linear_x) <= 1.0e-9) {
     command.linear_x = 0.0;
   }

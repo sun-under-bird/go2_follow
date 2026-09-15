@@ -131,8 +131,8 @@ TEST(FollowControl, LimitsMaximumLinearSpeed)
   EXPECT_NEAR(result.target_velocity.linear_x, config.max_linear_speed, 1e-12);
 }
 
-// 验证同样距离下目标角度越大，线速度越低且角速度随角度误差增大。
-TEST(FollowControl, AdjustsVelocityByDistanceAndHeading)
+// 验证停止角以内保持距离控制线速度，同时角速度随角度误差增大。
+TEST(FollowControl, KeepsLinearVelocityWhileTurningBelowStopAngle)
 {
   follow::FollowConfig config;
   constexpr double distance = 4.0;
@@ -142,8 +142,8 @@ TEST(FollowControl, AdjustsVelocityByDistanceAndHeading)
     distance * std::cos(heading), distance * std::sin(heading), config);
 
   EXPECT_DOUBLE_EQ(straight.target_velocity.linear_x, config.max_linear_speed);
-  EXPECT_GT(angled.target_velocity.linear_x, 0.0);
-  EXPECT_LT(angled.target_velocity.linear_x, straight.target_velocity.linear_x);
+  EXPECT_DOUBLE_EQ(angled.target_velocity.linear_x, straight.target_velocity.linear_x);
+  EXPECT_DOUBLE_EQ(angled.heading_scale, 1.0);
   EXPECT_GT(angled.target_velocity.angular_z, 0.0);
 }
 
@@ -218,6 +218,20 @@ TEST(DynamicAngularBrake, ComputesStopAngleFromMeasuredVelocity)
   EXPECT_NEAR(result.dynamic_stop_angle, 0.17333333333333334, 1e-12);
   EXPECT_DOUBLE_EQ(result.angular_z, 0.22);
   EXPECT_FALSE(result.braking);
+}
+
+// 验证实机调优后的提前刹车不会在中等角速度下过早撤销大角度转向。
+TEST(DynamicAngularBrake, KeepsTurningOutsideTunedBrakeZone)
+{
+  follow::FollowConfig config;
+  config.angle_deadband = 0.08;
+  config.angle_reengage = 0.15;
+  const auto result = follow::applyDynamicAngularBrake(0.50, 0.42, 0.80, config, 1);
+
+  EXPECT_NEAR(result.dynamic_stop_angle, 0.45333333333333337, 1e-12);
+  EXPECT_DOUBLE_EQ(result.angular_z, 0.42);
+  EXPECT_FALSE(result.braking);
+  EXPECT_FALSE(result.brake_latched);
 }
 
 // 验证左转进入动态停止角后优先撤销名义角速度。
@@ -334,8 +348,8 @@ TEST(VelocityRate, LimitsAccelerationPerControlPeriod)
   EXPECT_NEAR(output.angular_z, config.max_angular_accel * 0.05, 1e-12);
 }
 
-// 验证方位降速不会重新产生低于实机最小起步速度的非零 x 指令。
-TEST(FollowControl, KeepsHeadingSlowedVelocityOutsideDeadzone)
+// 验证接近80度停止角时仍保持距离控制速度，越过停止角才归零。
+TEST(FollowControl, KeepsDistanceSpeedUntilHeadingStop)
 {
   follow::FollowConfig config;
   const double heading = config.heading_stop_angle - 0.01;
@@ -343,7 +357,15 @@ TEST(FollowControl, KeepsHeadingSlowedVelocityOutsideDeadzone)
     2.0 * std::cos(heading), 2.0 * std::sin(heading), config);
 
   EXPECT_FALSE(result.blind_rotation);
-  EXPECT_DOUBLE_EQ(result.target_velocity.linear_x, config.min_linear_speed);
+  EXPECT_GT(result.target_velocity.linear_x, config.min_linear_speed);
+  EXPECT_DOUBLE_EQ(result.heading_scale, 1.0);
+
+  const double stopped_heading = config.heading_stop_angle + 0.01;
+  const auto stopped = follow::computeFollowTarget(
+    2.0 * std::cos(stopped_heading), 2.0 * std::sin(stopped_heading), config);
+  EXPECT_TRUE(stopped.blind_rotation);
+  EXPECT_DOUBLE_EQ(stopped.target_velocity.linear_x, 0.0);
+  EXPECT_DOUBLE_EQ(stopped.heading_scale, 0.0);
 }
 
 // 验证减速使用独立的更高线减速度参数。

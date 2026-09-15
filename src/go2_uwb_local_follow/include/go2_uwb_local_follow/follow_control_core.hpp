@@ -26,16 +26,17 @@ struct FollowConfig
   double distance_deadband{0.08};
   double angle_deadband{0.20};
   double angle_reengage{0.45};
-  double turn_response_delay{0.10};
+  double turn_response_delay{0.20};
   double angular_braking_accel{1.50};
-  double angular_brake_release_speed{0.06};
+  double angular_brake_release_speed{0.08};
   double angular_reverse_speed_threshold{0.15};
   double linear_kp{0.6};
   double angular_kp{1.0};
   double min_linear_speed{0.23};
   double max_linear_speed{0.80};
   double max_angular_speed{2.00};
-  double heading_slowdown_start{0.50};
+  // 兼容旧配置保留；当前停止角以内不再按方位角平滑降低线速度。
+  double heading_slowdown_start{1.39};
   double heading_stop_angle{1.40};
   // 对准后回落到更小偏角才恢复前进，避免角度门限附近反复停走。
   double heading_alignment_hysteresis{0.15};

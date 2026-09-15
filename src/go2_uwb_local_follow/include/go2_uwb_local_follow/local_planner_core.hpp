@@ -294,9 +294,24 @@ LocalPlanResult planLocalVelocity(
   bool force_linear_stop = false,
   double control_dt = 0.0);
 
-// 基于实测速度生成可执行指令，停车分量立即归零，实际减速度由轨迹模型检查。
+// 将候选评分历史与真实上一条指令分开，避免方向偏好污染最终加速度爬升。
+LocalPlanResult planLocalVelocity(
+  const PlannerVelocity2D & measured_velocity,
+  const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & scoring_previous_command,
+  const PlannerVelocity2D & nominal_velocity,
+  const std::vector<ObstaclePoint2D> & obstacles,
+  const TrajectoryConfig & trajectory_config,
+  const FootprintConfig & footprint_config,
+  const MotionLimits & limits,
+  const VelocitySamplingConfig & sampling_config,
+  bool force_linear_stop = false,
+  double control_dt = 0.0);
+
+// 同向加速命令可跨周期累积，减速、停车和反向仍基于实测速度保护。
 PlannerVelocity2D executableCommand(
   const PlannerVelocity2D & measured_velocity,
+  const PlannerVelocity2D & previous_command,
   const PlannerVelocity2D & target_velocity,
   const MotionLimits & limits,
   double dt);

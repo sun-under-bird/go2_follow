@@ -46,8 +46,8 @@ struct ProjectionConfig
   double obstacle_x_min{-0.50};
   double obstacle_x_max{3.00};
   double obstacle_y_abs_max{2.00};
-  double obstacle_z_min{0.10};
-  double obstacle_z_max{0.50};
+  double obstacle_z_min{0.08};
+  double obstacle_z_max{0.65};
   double ray_endpoint_z_min{-0.10};
   double ray_endpoint_z_max{0.50};
   double voxel_size{0.05};

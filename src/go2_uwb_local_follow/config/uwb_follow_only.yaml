@@ -24,7 +24,7 @@ uwb_follow_controller_node:
     diagnostic_frequency: 2.0  # 诊断发布频率（Hz）；仅影响状态输出频率
     target_timeout_sec: 0.50  # UWB 目标有效时限（s）；超时停止使用，收到新鲜有效数据后恢复
     odom_timeout_sec: 0.20  # 里程计有效时限（s）；增大更耐断流，但异常停车响应更慢
-    transform_timeout_sec: 0.10  # 等待 TF 坐标变换的最大时长（s）
+    transform_timeout_sec: 0.20  # 等待 TF 坐标变换的最大时长（s）
 
     follow_distance: 1.0  # 期望跟随距离（m）；进入该距离及距离死区后不再前进
     distance_deadband: 0.08  # 跟随距离外额外的停止死区（m）；增大可减少距离噪声导致的启停
@@ -33,29 +33,29 @@ uwb_follow_controller_node:
     angle_deadband: 0.08  # 静态停止转向的角度死区（rad）；动态制动可使转向更早停止
     angle_reengage: 0.15  # 重新开始纠偏的基础角度门槛（rad），应大于 angle_deadband 以形成滞回
     # 实测角速度越高，按控制链路延迟和制动距离提前撤销 UWB 名义角速度。
-    turn_response_delay: 0.6  # 估计的转向响应延迟（s）；增大将更早撤销转向命令
-    angular_braking_accel: 1.0  # 用于估算转向制动角度的减速度（rad/s²）；减小将更早制动
+    turn_response_delay: 0.20  # 转向响应延迟估计（s）；由0.60降低，避免目标角度还很大时过早撤销转向
+    angular_braking_accel: 1.50  # 转向制动减速度估计（rad/s²）；增大后缩小过度保守的提前刹车角
     # 动态刹车触发后保持零名义角速度，直到 |actual_wz| 降到该值以下。
-    angular_brake_release_speed: 0.06  # 解除转向制动锁存的实测角速度门槛（rad/s）
+    angular_brake_release_speed: 0.08  # 解除转向制动锁存的实测角速度门槛（rad/s），减少停稳等待时间
     angular_reverse_speed_threshold: 0.15  # 允许反向转向的实测角速度门槛（rad/s）；减小可抑制左右切换
     linear_kp: 0.6  # 距离误差到前进速度的比例增益（1/s）；增大可加快跟随响应
     angular_kp: 1.0  # 方位误差到转向速度的比例增益（1/s）；增大纠偏更积极，也更易摆头
     # MCF 跟随速度范围；最小非零速度避免低速前倾但无法迈步。
-    min_linear_speed: 0.23  # 最小非零前进速度（m/s），用于跨过底盘低速不迈步的区间
+    min_linear_speed: 0.25  # 最小非零前进速度（m/s），用于跨过底盘低速不迈步的区间
     max_linear_speed: 0.80  # 前进速度上限（m/s）；增大跟随更快，但制动距离更长
     # UWB 方位误差越大角速度越高，最大限制为 2.0 rad/s。
     max_angular_speed: 2.0  # 转向角速度上限（rad/s）；完整链路还受局部规划器限制
-    # 小于约 28.6° 时保留完整前进速度，优先采用行进中缓弯而不是频繁停走。
-    heading_slowdown_start: 0.50  # 开始随方位偏差降低前进速度的角度（rad）
-    heading_stop_angle: 1.05  # 普通跟随停止前进并进入对准的角度（rad），恢复前进需满足对准滞回
-    heading_alignment_hysteresis: 0.15  # 普通跟随约 60.2° 开始对准，回到约 51.6° 才恢复前进
+    # 80°以内保持距离控制得到的线速度边走边转，超过约80.2°才原地对准。
+    heading_slowdown_start: 1.39  # 兼容旧配置保留；当前不再用它平滑降低线速度
+    heading_stop_angle: 1.40  # 普通跟随停止前进并进入对准的角度（rad）
+    heading_alignment_hysteresis: 0.15  # 进入对准后回到约71.6°以内才恢复前进，避免门槛附近反复切换
     enable_avoidance_heading_relaxation: false  # 纯 UWB 关闭；完整跟随避障启动文件启用
-    avoidance_heading_stop_angle: 1.48  # 安全绕障反馈有效时，临时放宽至约 84.8°；必须小于 90°
-    avoidance_heading_max_linear_speed: 0.50  # 大角度绕障速度上限（m/s），仍须通过下游碰撞检查
+    avoidance_heading_stop_angle: 1.49  # 安全绕障反馈有效时，临时放宽至约 85.4°；必须小于 90°
+    avoidance_heading_max_linear_speed: 0.8  # 大角度绕障速度上限（m/s），仍须通过下游碰撞检查
     avoidance_feedback_topic: /go2_uwb_local_follow/avoidance_feedback  # 规划器已验证的前进绕障反馈话题；新鲜有效反馈才允许放宽对准角度
     # 目标进入侧后方时停止前进，盲转角速度同样限制为 2.0 rad/s。
     blind_rotation_max_speed: 2.0  # 大角度对准时的角速度上限（rad/s）；直连跟随不含障碍检查
     # 最大加速度 0.8 m/s² 时，从静止到 0.8 m/s 理论约需 1 秒。
     max_linear_accel: 0.80  # 直连跟随输出的线加速度上限（m/s²）；完整链路由局部规划器限速
     max_linear_decel: 0.80  # 直连跟随输出的线减速度上限（m/s²）；越小停车越柔和，制动距离越长
-    max_angular_accel: 1.0  # 直连跟随输出的角加速度上限（rad/s²）；越小转向变化越平缓
+    max_angular_accel: 2.0  # 直连跟随输出的角加速度上限（rad/s²）；完整链路仍由局部规划器限幅
