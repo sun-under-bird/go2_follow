@@ -42,13 +42,13 @@ stereo_obstacle_projector_node:
 
     depth_min: 0.10
     depth_max: 3.00
-    obstacle_x_min: 0.20
+    obstacle_x_min: 0.15
     obstacle_x_max: 3.00
     obstacle_y_abs_max: 2.00
     # 高度边界在 base_footprint 下计算，0.10 m 和 0.50 m 本身保留。
-    obstacle_z_min: 0.10
-    obstacle_z_max: 0.50
+    obstacle_z_min: 0.08
+    obstacle_z_max: 0.65
     # 地面点不标记为障碍，但有效地面深度可作为二维自由空间射线终点。
     ray_endpoint_z_min: -0.10
-    ray_endpoint_z_max: 0.50
+    ray_endpoint_z_max: 0.65
     voxel_size: 0.05

@@ -31,7 +31,7 @@ local_velocity_planner_node:
     robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
     safety_margin: 0.02  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
 
-    min_linear_speed: 0.23  # 实机确认 0.12 只调整重心不迈步，所有非零 x 指令至少使用 0.23 m/s
+    min_linear_speed: 0.25  # 实机确认低速只调整重心不迈步，所有非零 x 指令至少使用 0.25 m/s
     max_linear_speed: 0.80  # ↑跟随快/制动距离长；↓更稳/可能跟不上；步长 0.05 m/s
     max_reverse_speed: 0.30  # 仅供急停恢复倒退使用，普通跟随和主动避障仍禁止负线速度
 
@@ -46,7 +46,7 @@ local_velocity_planner_node:
     angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
     min_avoidance_angular_speed: 0.50  # 仅主动避障候选使用；跟随小角速度不受影响；步长 0.05 rad/s
     max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随仍可达到 2.0 rad/s；步长 0.10 rad/s
-    linear_speed_priority_scales: [1.0, 0.85, 0.70, 0.50, 0.0]  # 当前速度层无安全轨迹才进入下一层
+    linear_speed_priority_scales: [1.0, 0.80, 0.65, 0.40, 0.0]  # 当前速度层无安全轨迹才进入下一层
     obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
     minimum_safe_clearance: 0.05  # 候选相对膨胀足迹的基础软净空；低于该值视为勉强不碰撞
     minimum_ttc: 0.20  # 按足迹边界速度换算所需净空；↑高速更早降层，↓更偏向保持速度；步长 0.05 s
