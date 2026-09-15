@@ -36,6 +36,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 
 #include "go2_uwb_local_follow/rolling_obstacle_map_core.hpp"
+#include "go2_uwb_local_follow/observation_utils.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -215,6 +216,11 @@ private:
   // 校验并缓存 /odom_leg 的二维位置和朝向，检测跳变后清空旧障碍地图。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    if (!odom_stamp_tracker_.accept(
+        stampNanoseconds(message->header.stamp), now().nanoseconds(), odom_timeout_sec_))
+    {
+      return;
+    }
     last_odom_receipt_ = std::chrono::steady_clock::now();
     have_odom_receipt_ = true;
     if (message->header.frame_id != odom_frame_ || message->child_frame_id != odom_child_frame_) {
@@ -242,6 +248,7 @@ private:
     }
     if (result == PoseAppendResult::kResetDetected) {
       obstacle_map_.clear();
+      pending_observation_.reset();
       ++odom_reset_count_;
       last_cloud_stamp_ns_ = 0;
       RCLCPP_WARN(get_logger(), "Odom jump or time reset detected; cleared rolling obstacle map");
@@ -250,6 +257,7 @@ private:
     if (!have_input_receipt_) {
       setStatus("WAIT_OBSERVATION", "waiting for depth observation cloud");
     }
+    tryProcessObservation();
   }
 
   // 解析原子化深度观测；兼容没有射线元数据的旧障碍点云输入。
@@ -280,6 +288,17 @@ private:
 
     const std::size_t point_count =
       static_cast<std::size_t>(message.width) * static_cast<std::size_t>(message.height);
+    if (!validFloatCloud(message, {"x", "y", "z"}) ||
+      (has_all_metadata && !validFloatCloud(message, {"intensity", "vp_x", "vp_y", "vp_z"})))
+    {
+      if (reason != nullptr) {
+        *reason = "depth observation layout is invalid";
+      }
+      return false;
+    }
+    if (point_count == 0U) {
+      return true;
+    }
     obstacles->reserve(point_count);
     if (!has_all_metadata) {
       sensor_msgs::PointCloud2ConstIterator<float> x_iterator(message, "x");
@@ -349,11 +368,41 @@ private:
     return true;
   }
 
-  // 使用观测时间查询里程计位姿，以同帧射线清除历史体素并发布补偿障碍。
+  // 缓存最新新鲜观测；里程计稍晚到达时保留该帧并自动重试。
   void observationCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
+    if (!observation_stamp_tracker_.accept(
+        stampNanoseconds(message->header.stamp), now().nanoseconds(), input_timeout_sec_))
+    {
+      return;
+    }
     last_input_receipt_ = std::chrono::steady_clock::now();
     have_input_receipt_ = true;
+    pending_observation_ = message;
+    tryProcessObservation();
+  }
+
+  // 在观测和位姿都新鲜时生成地图；重试不刷新源时间戳或接收看门狗。
+  void tryProcessObservation()
+  {
+    const auto message = pending_observation_;
+    if (!message) {
+      return;
+    }
+    if (sourceAgeSeconds(stampNanoseconds(message->header.stamp), now().nanoseconds()) >
+      input_timeout_sec_)
+    {
+      pending_observation_.reset();
+      setStatus("SENSOR_TIMEOUT", "pending observation expired");
+      return;
+    }
+    if (!have_valid_odom_ || !have_odom_receipt_ ||
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - last_odom_receipt_).count() >
+      odom_timeout_sec_)
+    {
+      setStatus("WAIT_ODOM", "waiting for fresh odom pose");
+      return;
+    }
     if (message->header.frame_id != base_frame_) {
       setStatus("CLOUD_FRAME_INVALID", "depth observation frame differs from base_frame");
       return;
@@ -394,6 +443,7 @@ private:
       obstacle_points, ray_endpoints, sensor_origin, cloud_pose);
     const auto output_points = obstacle_map_.pointsInBase(cloud_pose);
     last_cloud_stamp_ns_ = cloud_stamp_ns;
+    pending_observation_.reset();
     publishObstacleCloud(message->header.stamp, output_points);
     status_.input_points = obstacle_points.size() + ray_endpoints.size();
     status_.obstacle_points = obstacle_points.size();
@@ -419,6 +469,10 @@ private:
     sensor_msgs::PointCloud2Modifier modifier(cloud);
     modifier.setPointCloud2FieldsByString(1, "xyz");
     modifier.resize(points.size());
+    if (points.empty()) {
+      obstacle_pub_->publish(cloud);
+      return;
+    }
     sensor_msgs::PointCloud2Iterator<float> x_iterator(cloud, "x");
     sensor_msgs::PointCloud2Iterator<float> y_iterator(cloud, "y");
     sensor_msgs::PointCloud2Iterator<float> z_iterator(cloud, "z");
@@ -443,6 +497,7 @@ private:
   // 周期检查真实点云和里程计接收是否超时，避免滚动地图掩盖传感器断流。
   void watchdogTick()
   {
+    tryProcessObservation();
     const auto current = std::chrono::steady_clock::now();
     status_.input_age = have_input_receipt_ ?
       std::chrono::duration<double>(current - last_input_receipt_).count() :
@@ -506,6 +561,9 @@ private:
     diagnostics_pub_->publish(array);
   }
 
+  SourceStampTracker odom_stamp_tracker_;
+  SourceStampTracker observation_stamp_tracker_;
+  sensor_msgs::msg::PointCloud2::SharedPtr pending_observation_;
   RollingMapConfig map_config_;
   OdomPoseBuffer pose_buffer_;
   RollingObstacleMap obstacle_map_;

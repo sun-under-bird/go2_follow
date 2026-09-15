@@ -137,6 +137,8 @@ struct LocalPlanResult
   bool avoidance_active{false};
   PlannerVelocity2D effective_nominal;
   PlannerVelocity2D selected_velocity;
+  // 与碰撞预测第一控制周期一致的实际下发速度。
+  PlannerVelocity2D executable_velocity;
   std::vector<PlannerPose2D> selected_trajectory;
   PlannerCost cost;
   double min_clearance{std::numeric_limits<double>::infinity()};
@@ -207,7 +209,8 @@ std::vector<PlannerPose2D> predictAcceleratingTrajectory(
   const PlannerVelocity2D & target_velocity,
   const TrajectoryConfig & config,
   const MotionLimits & limits,
-  bool append_braking_tail = true);
+  bool append_braking_tail = true,
+  double control_dt = 0.0);
 
 // 判断障碍点是否落入指定姿态下旋转后的矩形足迹。
 bool pointInsideFootprint(
@@ -288,7 +291,15 @@ LocalPlanResult planLocalVelocity(
   const FootprintConfig & footprint_config,
   const MotionLimits & limits,
   const VelocitySamplingConfig & sampling_config,
-  bool force_linear_stop = false);
+  bool force_linear_stop = false,
+  double control_dt = 0.0);
+
+// 基于实测速度生成可执行指令，停车分量立即归零，实际减速度由轨迹模型检查。
+PlannerVelocity2D executableCommand(
+  const PlannerVelocity2D & measured_velocity,
+  const PlannerVelocity2D & target_velocity,
+  const MotionLimits & limits,
+  double dt);
 
 // 按控制周期限制最终指令变化，并对非零指令跨过底盘执行死区。
 PlannerVelocity2D limitCommandVelocity(

@@ -1,7 +1,8 @@
 local_velocity_planner_node:
   ros__parameters:
+    odom_frame: odom  # 里程计位姿缓存用于把障碍补偿到控制时刻
     base_frame: base_footprint  # 规划坐标系；应与障碍点云和机器人足迹坐标系一致
-    odom_child_frame: base_footprint  # 里程计速度所属坐标系；只使用 twist，不使用 pose
+    odom_child_frame: base_footprint  # 里程计速度所属坐标系；同时校验 pose 和 twist 所属坐标系
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # UWB 名义速度输入话题
     obstacle_topic: /local_rolling_obstacle  # 里程计补偿和时间衰减后的滚动局部障碍点云
     odom_topic: /odom_leg  # 实际初始速度输入话题
@@ -10,26 +11,28 @@ local_velocity_planner_node:
     cmd_vel_topic: /cmd_vel_planned  # 实机验收时由 launch 覆盖为 /cmd_vel
     selected_path_topic: /go2_uwb_local_follow/selected_path  # 选中轨迹可视化话题
     diagnostics_topic: /go2_uwb_local_follow/planner_diagnostics  # 规划诊断话题
+    avoidance_feedback_topic: /go2_uwb_local_follow/avoidance_feedback  # 仅反馈已验证的前进绕障速度
 
     enable_motion: false  # true 发布运动速度，false 只计算并向底盘发布零速度
     control_frequency: 20.0  # ↑响应快/CPU 高；↓响应慢/CPU 低；BM 点云同频可减少控制排队；步长 5 Hz
-    diagnostic_frequency: 2.0  # ↑诊断更密/通信多；↓诊断更稀；步长 1 Heffectivez
+    diagnostic_frequency: 2.0  # ↑诊断更密/通信多；↓诊断更稀；步长 1 Hz
     nominal_timeout_sec: 0.20  # ↑容忍 UWB 抖动/丢失停车晚；↓停车快/易误停；步长 0.05 s
     obstacle_timeout_sec: 0.70  # 略大于滚动地图原始点云超时，禁止历史重发布掩盖感知断流
     odom_timeout_sec: 0.10  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
+    obstacle_slowdown_after_sec: 0.30  # 图像短暂缺帧后逐渐降速，到 obstacle_timeout_sec 停车；新帧自动恢复
     odom_linear_deadband: 0.02  # ↑过滤更多线速度噪声/忽略微动；↓更灵敏/易抖；步长 0.01 m/s
     odom_angular_deadband: 0.05  # ↑过滤更多角速度噪声/忽略微转；↓更灵敏/易抖；步长 0.01 rad/s
     angular_velocity_tracking_kp: 1.5  # 角速度误差 P 反馈；若实机仍难启动转向，再测试 1.5
     angular_command_deadband: 0.08  # ↑更容易提前停止转向/朝向精度低；↓纠偏更积极/易摆头；步长 0.02 rad/s
     angular_reverse_speed_threshold: 0.15  # ↑更早允许反向/响应快；↓必须更接近停稳/更少左右切换；步长 0.05 rad/s
-    avoidance_direction_hold_sec: 0.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
+    avoidance_direction_hold_sec: 0.0  # 绕障方向偏好的记忆时长（s）；0 不跨周期保持，增大可减少左右换向；步长 0.25 s
 
     prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
-    simulation_dt: 0.08  # ↑计算快/检查粗；↓检查细/计算多；0.08 s 对应最高速约 4.8 cm/步；步长 0.01 s
+    simulation_dt: 0.05  # ↑计算快/检查粗；↓检查细/计算多；0.05 s 对应最高速约 4 cm/步；步长 0.01 s
 
     robot_length: 0.70  # ↑前后硬碰撞足迹更大、更保守；↓更贴近障碍；步长 0.02 m
     robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
-    safety_margin: 0.02  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
+    safety_margin: 0.05  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
 
     min_linear_speed: 0.23  # 实机确认 0.12 只调整重心不迈步，所有非零 x 指令至少使用 0.23 m/s
     max_linear_speed: 0.80  # ↑跟随快/制动距离长；↓更稳/可能跟不上；步长 0.05 m/s
@@ -45,7 +48,7 @@ local_velocity_planner_node:
     linear_samples: 10  # 保留给全局候选调试接口；分层规划使用下方速度比例
     angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
     min_avoidance_angular_speed: 0.50  # 仅主动避障候选使用；跟随小角速度不受影响；步长 0.05 rad/s
-    max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随仍可达到 2.0 rad/s；步长 0.10 rad/s
+    max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随受 max_angular_speed 限制；步长 0.10 rad/s
     linear_speed_priority_scales: [1.0, 0.85, 0.70, 0.50, 0.0]  # 当前速度层无安全轨迹才进入下一层
     obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
     minimum_safe_clearance: 0.05  # 候选相对膨胀足迹的基础软净空；低于该值视为勉强不碰撞
@@ -62,18 +65,18 @@ local_velocity_planner_node:
     # 紧急区连续命中该帧数才停车，连续清空同样帧数才解除；严格按新点云帧计数。
     emergency_confirm_frames: 3  # ↑更耐单帧伪点/确认更慢；↓响应更快/易误停；步长 1 帧
     # 急停确认后立即发零速，确认底盘停稳后直退，直到触发障碍离开急停区域。
-    enable_emergency_reverse: true
+    enable_emergency_reverse: true  # 启用急停并确认停稳后的受限直线倒退恢复
     emergency_reverse_speed: 0.30  # 倒退速度，必须位于底盘线速度死区与 max_reverse_speed 之间
     emergency_reverse_distance: 0.40  # 急停区域未清空时的最大命令距离，避免感知异常导致无限后退
     emergency_reverse_stop_hold_sec: 0.0  # 不增加固定等待，但仍须满足下方实测停稳门槛
     emergency_reverse_start_linear_speed: 0.04  # 实测线速度低于该值才允许由前进切到倒退
     emergency_reverse_start_angular_speed: 0.10  # 实测角速度低于该值才允许直线倒退
     emergency_reverse_extra_margin: 0.05  # 倒退碰撞检查在原膨胀足迹外增加的安全边界
-    obstacle_x_min: -0.75  # 保留更长的侧后方历史障碍，覆盖急停倒退的完整扫掠足迹
+    obstacle_x_min: -0.95  # 保留更长的侧后方历史障碍，覆盖急停倒退的完整扫掠足迹
     obstacle_x_max: 3.00  # ↑保留更远障碍/计算多；↓只看近处/计算少；步长 0.20 m
     obstacle_y_abs_max: 3.00  # ↑保留更宽侧向区域/计算多；↓视野更窄/可能漏侧障；步长 0.20 m
     enable_self_filter: false  # 原始点云已完成环境过滤，禁止删除进入当前足迹的历史真实障碍
     self_filter_x_min: -0.35  # 仅在 enable_self_filter=true 时生效
     self_filter_x_max: 0.35  # ↑向前扩大机身过滤/可能删近障；↓保留更多前点；步长 0.02 m
     self_filter_y_abs: 0.20  # ↑横向机身过滤更宽/可能删近障；↓机身伪点可能增多；步长 0.02 m
-    max_obstacle_points: 5000  # ↑保留点多/规划慢；↓计算快/稠密场景信息少；步长 500
+    max_obstacle_points: 5000  # 输入点数上限（个）；超限整帧拒绝并停车，避免截断障碍导致漏检；步长 500

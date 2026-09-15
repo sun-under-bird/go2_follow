@@ -21,6 +21,74 @@
 
 namespace follow = go2_uwb_local_follow;
 
+// 大角度只有在新鲜安全绕障许可下才能前进，速度受限且目标位于侧后方时仍停车。
+TEST(FollowControl, RelaxesHeadingOnlyForSafeForwardAvoidance)
+{
+  follow::FollowConfig config;
+  config.heading_stop_angle = 1.05;
+  config.enable_avoidance_heading_relaxation = true;
+  for (const double sign : {-1.0, 1.0}) {
+    const double heading = sign * 1.22;
+    const auto normal = follow::computeFollowTarget(
+      3.0 * std::cos(heading), 3.0 * std::sin(heading), config);
+    const auto avoiding = follow::computeFollowTarget(
+      3.0 * std::cos(heading), 3.0 * std::sin(heading), config, true);
+    EXPECT_TRUE(normal.blind_rotation);
+    EXPECT_DOUBLE_EQ(normal.target_velocity.linear_x, 0.0);
+    EXPECT_TRUE(avoiding.avoidance_heading_relaxed);
+    EXPECT_GE(avoiding.target_velocity.linear_x, config.min_linear_speed);
+    EXPECT_LE(avoiding.target_velocity.linear_x, config.avoidance_heading_max_linear_speed);
+    const auto too_far_side = follow::computeFollowTarget(
+      3.0 * std::cos(sign * 1.50), 3.0 * std::sin(sign * 1.50), config, true);
+    EXPECT_TRUE(too_far_side.blind_rotation);
+    EXPECT_DOUBLE_EQ(too_far_side.target_velocity.linear_x, 0.0);
+    const auto near_owner = follow::computeFollowTarget(
+      0.8 * std::cos(heading), 0.8 * std::sin(heading), config, true);
+    EXPECT_TRUE(near_owner.within_follow_distance);
+    EXPECT_DOUBLE_EQ(near_owner.target_velocity.linear_x, 0.0);
+  }
+  config.enable_avoidance_heading_relaxation = false;
+  EXPECT_DOUBLE_EQ(
+    follow::computeFollowTarget(1.0, 2.0, config, true).target_velocity.linear_x, 0.0);
+}
+
+// 进入对准后，小幅跨回停止角不能立即前进，必须回落越过释放角。
+TEST(FollowControl, LatchesHeadingAlignmentAcrossThresholdJitter)
+{
+  follow::FollowConfig config;
+  config.heading_stop_angle = 1.05;
+  bool aligning = false;
+  for (const double heading : {1.06, 1.04, 1.07, 0.95}) {
+    const auto result = follow::computeFollowTarget(
+      3.0 * std::cos(heading), 3.0 * std::sin(heading), config, false, aligning);
+    aligning = result.blind_rotation;
+    EXPECT_TRUE(aligning);
+    EXPECT_DOUBLE_EQ(result.target_velocity.linear_x, 0.0);
+  }
+  const auto released = follow::computeFollowTarget(
+    3.0 * std::cos(0.89), 3.0 * std::sin(0.89), config, false, aligning);
+  EXPECT_FALSE(released.blind_rotation);
+  EXPECT_GT(released.target_velocity.linear_x, 0.0);
+  config.enable_avoidance_heading_relaxation = true;
+  const auto delayed_permission = follow::computeFollowTarget(
+    3.0 * std::cos(1.22), 3.0 * std::sin(1.22), config, true, true);
+  EXPECT_TRUE(delayed_permission.blind_rotation);
+  EXPECT_DOUBLE_EQ(delayed_permission.target_velocity.linear_x, 0.0);
+}
+
+// 拒绝放宽到目标后方或低于底盘执行死区的参数组合。
+TEST(FollowControl, ValidatesAvoidanceHeadingLimits)
+{
+  follow::FollowConfig config;
+  config.enable_avoidance_heading_relaxation = true;
+  EXPECT_TRUE(follow::validateFollowConfig(config));
+  config.avoidance_heading_stop_angle = 1.60;
+  EXPECT_FALSE(follow::validateFollowConfig(config));
+  config.avoidance_heading_stop_angle = 1.48;
+  config.avoidance_heading_max_linear_speed = 0.10;
+  EXPECT_FALSE(follow::validateFollowConfig(config));
+}
+
 // 验证正前方远目标产生非负前进速度且不产生角速度。
 TEST(FollowControl, DrivesTowardStraightTarget)
 {

@@ -48,6 +48,7 @@ def generate_launch_description() -> LaunchDescription:
     odom_topic = LaunchConfiguration("odom_topic")
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     enable_motion = LaunchConfiguration("enable_motion")
+    enable_heading_relaxation = LaunchConfiguration("enable_avoidance_heading_relaxation")
     publish_debug_depth = LaunchConfiguration("publish_debug_depth")
 
     disparity_node = Node(
@@ -114,6 +115,10 @@ def generate_launch_description() -> LaunchDescription:
                 "cmd_vel_topic": "/cmd_vel_follow",
                 # 名义控制只给规划器提供输入，禁止绕过避障直接控制底盘。
                 "enable_motion": False,
+                # 只在完整避障链路中接受规划器反馈，允许大角度低速继续绕障。
+                "enable_avoidance_heading_relaxation": ParameterValue(
+                    enable_heading_relaxation, value_type=bool
+                ),
             },
         ],
     )
@@ -146,6 +151,7 @@ def generate_launch_description() -> LaunchDescription:
             {
                 "base_frame": base_frame,
                 "odom_child_frame": base_frame,
+                "odom_frame": odom_frame,
                 "nominal_cmd_topic": "/go2_uwb_local_follow/nominal_cmd",
                 "obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
@@ -210,6 +216,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
             DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
             DeclareLaunchArgument("enable_motion", default_value="true"),
+            DeclareLaunchArgument("enable_avoidance_heading_relaxation", default_value="true"),
             DeclareLaunchArgument("publish_debug_depth", default_value="false"),
             disparity_node,
             projector_node,

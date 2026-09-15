@@ -20,6 +20,8 @@
 #include <string>
 #include <utility>
 
+#include "go2_uwb_local_follow/obstacle_index.hpp"
+
 namespace go2_uwb_local_follow
 {
 namespace
@@ -139,6 +141,9 @@ bool validateTrajectoryConfig(const TrajectoryConfig & config, std::string * rea
   }
   if (config.simulation_dt > config.prediction_time) {
     return rejectWithReason("simulation dt must not exceed prediction time", reason);
+  }
+  if (config.prediction_time / config.simulation_dt > 10000.0) {
+    return rejectWithReason("trajectory sample count exceeds bounded work limit", reason);
   }
   return true;
 }
@@ -328,37 +333,54 @@ std::vector<PlannerPose2D> predictAcceleratingTrajectory(
   const PlannerVelocity2D & target_velocity,
   const TrajectoryConfig & config,
   const MotionLimits & limits,
-  bool append_braking_tail)
+  bool append_braking_tail,
+  double control_dt)
 {
   std::string reason;
   if (!validateTrajectoryConfig(config, &reason) || !validateMotionLimits(limits, &reason)) {
     return {};
   }
 
-  PlannerVelocity2D current{
-    clampValue(
-      initial_velocity.linear_x, -limits.max_reverse_speed, limits.max_linear_speed),
-    clampValue(
-      initial_velocity.angular_z, -limits.max_angular_speed, limits.max_angular_speed)};
+  if (!std::isfinite(initial_velocity.linear_x) || !std::isfinite(initial_velocity.angular_z) ||
+    !std::isfinite(control_dt) || control_dt < 0.0)
+  {
+    return {};
+  }
+  // 实测超速也必须完整预测制动距离，不能裁剪成配置的命令上限。
+  PlannerVelocity2D current = initial_velocity;
+  const PlannerVelocity2D first_command = executableCommand(
+    initial_velocity, target_velocity, limits, control_dt);
   const PlannerVelocity2D target = makeEffectiveVelocity(target_velocity, limits);
   PlannerPose2D pose;
   std::vector<PlannerPose2D> poses{pose};
   const std::size_t nominal_steps = static_cast<std::size_t>(
     std::ceil(config.prediction_time / config.simulation_dt));
   const double braking_time = limits.max_linear_decel > 0.0 ?
-    std::max(limits.max_linear_speed, limits.max_reverse_speed) / limits.max_linear_decel : 0.0;
+    std::max(
+    {limits.max_linear_speed, limits.max_reverse_speed,
+      std::abs(initial_velocity.linear_x)}) / limits.max_linear_decel : 0.0;
   const double angular_braking_time = limits.max_angular_accel > 0.0 ?
-    limits.max_angular_speed / limits.max_angular_accel : 0.0;
-  const std::size_t braking_steps = append_braking_tail ?
-    static_cast<std::size_t>(
-    std::ceil(std::max(braking_time, angular_braking_time) / config.simulation_dt)) + 1U :
-    0U;
+    std::max(limits.max_angular_speed, std::abs(initial_velocity.angular_z)) /
+    limits.max_angular_accel : 0.0;
+  const double braking_step_count = append_braking_tail ?
+    std::ceil(std::max(braking_time, angular_braking_time) / config.simulation_dt) + 1.0 : 0.0;
+  // 异常但有限的实测速度不能触发巨量分配或整数转换溢出；上层会退化为停车。
+  if (!std::isfinite(braking_step_count) || braking_step_count + nominal_steps > 10000.0) {
+    return {};
+  }
+  const auto braking_steps = static_cast<std::size_t>(braking_step_count);
   poses.reserve(nominal_steps + braking_steps + 1U);
 
   double elapsed = 0.0;
   while (elapsed < config.prediction_time) {
-    const double dt = std::min(config.simulation_dt, config.prediction_time - elapsed);
-    const PlannerVelocity2D next = approachVelocity(current, target, limits, dt);
+    double dt = std::min(config.simulation_dt, config.prediction_time - elapsed);
+    const bool first_period = control_dt > elapsed + 1.0e-9;
+    if (first_period) {
+      dt = std::min(dt, control_dt - elapsed);
+    }
+    // 首周期使用真正下发的限幅指令，随后沿候选目标展开并追加完整制动尾段。
+    const PlannerVelocity2D next = approachVelocity(
+      current, first_period ? first_command : target, limits, dt);
     integrateVelocityStep(pose, current, next, dt);
     poses.push_back(pose);
     current = next;
@@ -414,19 +436,7 @@ CollisionResult checkTrajectoryCollision(
   const std::vector<ObstaclePoint2D> & obstacles,
   const FootprintConfig & footprint)
 {
-  CollisionResult result;
-  for (std::size_t pose_index = 0U; pose_index < poses.size(); ++pose_index) {
-    for (const auto & obstacle : obstacles) {
-      const double clearance = pointToFootprintClearance(poses[pose_index], obstacle, footprint);
-      result.min_clearance = std::min(result.min_clearance, clearance);
-      if (clearance <= 0.0) {
-        result.collision = true;
-        result.collision_pose_index = pose_index;
-        return result;
-      }
-    }
-  }
-  return result;
+  return ObstacleIndex(obstacles).check(poses, footprint);
 }
 
 // 检查障碍是否进入机器人正前方的紧急停车矩形区域。
@@ -470,8 +480,9 @@ EmergencyReversePlanResult planEmergencyReverse(
   reverse_trajectory_config.simulation_dt = std::min(
     trajectory_config.simulation_dt, reverse_trajectory_config.prediction_time);
   result.selected_velocity = PlannerVelocity2D{-reverse_config.speed, 0.0};
-  result.selected_trajectory = predictTrajectory(
-    result.selected_velocity, reverse_trajectory_config);
+  // 倒退尾端也必须覆盖实际停车距离，不能在命令距离结束处截断扫掠足迹。
+  result.selected_trajectory = predictAcceleratingTrajectory(
+    result.selected_velocity, result.selected_velocity, reverse_trajectory_config, limits, true);
 
   FootprintConfig recovery_footprint = footprint_config;
   recovery_footprint.safety_margin += reverse_config.extra_safety_margin;
@@ -484,6 +495,9 @@ EmergencyReversePlanResult planEmergencyReverse(
     if (obstacle.x < robot_front) {
       reverse_obstacles.push_back(obstacle);
     }
+  }
+  if (result.selected_trajectory.empty()) {
+    return result;
   }
   result.collision = checkTrajectoryCollision(
     result.selected_trajectory, reverse_obstacles, recovery_footprint);
@@ -877,17 +891,22 @@ LocalPlanResult planLocalVelocity(
   const FootprintConfig & footprint_config,
   const MotionLimits & limits,
   const VelocitySamplingConfig & sampling_config,
-  bool force_linear_stop)
+  bool force_linear_stop,
+  double control_dt)
 {
   LocalPlanResult result;
+  const ObstacleIndex obstacle_index(obstacles);
   result.effective_nominal = makeEffectiveVelocity(nominal_velocity, limits);
   const PlannerVelocity2D clamped_previous = clampVelocityToLimits(previous_command, limits);
 
-  // 先单独验证 UWB 名义轨迹；净空充足时直接交给最终变化率限制器平滑执行。
+  // 首周期限幅已经包含在名义轨迹中，节点必须原样下发 executable_velocity。
   auto nominal_trajectory = predictAcceleratingTrajectory(
-    measured_velocity, result.effective_nominal, trajectory_config, limits, true);
-  const CollisionResult nominal_collision = checkTrajectoryCollision(
-    nominal_trajectory, obstacles, footprint_config);
+    measured_velocity, result.effective_nominal, trajectory_config, limits, true, control_dt);
+  if (nominal_trajectory.empty()) {
+    return result;
+  }
+  const CollisionResult nominal_collision = obstacle_index.check(
+    nominal_trajectory, footprint_config);
   const CandidateSafetyEvaluation nominal_safety = evaluateCandidateSafety(
     result.effective_nominal, nominal_collision, footprint_config, sampling_config);
   const bool nominal_has_clearance = !std::isfinite(nominal_collision.min_clearance) ||
@@ -897,6 +916,8 @@ LocalPlanResult planLocalVelocity(
   if (!result.avoidance_active) {
     result.valid = true;
     result.selected_velocity = result.effective_nominal;
+    result.executable_velocity = executableCommand(
+      measured_velocity, result.selected_velocity, limits, control_dt);
     result.selected_trajectory = std::move(nominal_trajectory);
     result.cost = scoreVelocityCandidate(
       result.selected_velocity, result.effective_nominal, clamped_previous,
@@ -927,9 +948,12 @@ LocalPlanResult planLocalVelocity(
     for (const double angular_z : angular_values) {
       const PlannerVelocity2D candidate{level.velocity, angular_z};
       auto trajectory = predictAcceleratingTrajectory(
-        measured_velocity, candidate, trajectory_config, limits, true);
-      const CollisionResult collision = checkTrajectoryCollision(
-        trajectory, obstacles, footprint_config);
+        measured_velocity, candidate, trajectory_config, limits, true, control_dt);
+      if (trajectory.empty()) {
+        continue;
+      }
+      const CollisionResult collision = obstacle_index.check(
+        trajectory, footprint_config);
       ++result.evaluated_count;
       if (collision.collision) {
         ++result.collision_count;
@@ -964,6 +988,8 @@ LocalPlanResult planLocalVelocity(
     if (level_valid) {
       result.valid = true;
       result.selected_velocity = level_velocity;
+      result.executable_velocity = executableCommand(
+        measured_velocity, result.selected_velocity, limits, control_dt);
       result.selected_trajectory = std::move(level_trajectory);
       result.cost = level_cost;
       result.min_clearance = level_clearance;
@@ -974,6 +1000,26 @@ LocalPlanResult planLocalVelocity(
     }
   }
   return result;
+}
+
+// 以实测速度限制非零目标变化，停止请求直接交给经过预测验证的底盘制动过程。
+PlannerVelocity2D executableCommand(
+  const PlannerVelocity2D & measured_velocity,
+  const PlannerVelocity2D & target_velocity,
+  const MotionLimits & limits,
+  double dt)
+{
+  if (dt <= 0.0) {
+    return makeEffectiveVelocity(target_velocity, limits);
+  }
+  PlannerVelocity2D command = limitCommandVelocity(measured_velocity, target_velocity, limits, dt);
+  if (std::abs(target_velocity.linear_x) <= 1.0e-9) {
+    command.linear_x = 0.0;
+  }
+  if (std::abs(target_velocity.angular_z) <= 1.0e-9) {
+    command.angular_z = 0.0;
+  }
+  return command;
 }
 
 // 按控制周期限制最终指令变化，并对非零指令跨过底盘执行死区。

@@ -1,37 +1,37 @@
 local_collision_monitor_node:
   ros__parameters:
-    base_frame: base_footprint
-    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd
-    obstacle_topic: /local_grid_obstacle
-    planned_cmd_topic: /go2_uwb_local_follow/collision_checked_cmd
+    base_frame: base_footprint  # 机器人机身坐标系，用于目标、障碍及控制计算
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # 跟随或漫游生成的名义速度话题，供下游规划器避障
+    obstacle_topic: /local_grid_obstacle  # 局部障碍点云输入话题
+    planned_cmd_topic: /go2_uwb_local_follow/collision_checked_cmd  # 碰撞检查后的带时间戳速度输出话题，用于调试观察
     # 当前阶段只做调试验收，默认不连接真实 /cmd_vel。
-    cmd_vel_topic: /cmd_vel_avoidance
-    predicted_path_topic: /go2_uwb_local_follow/evaluated_path
-    diagnostics_topic: /go2_uwb_local_follow/collision_diagnostics
+    cmd_vel_topic: /cmd_vel_avoidance  # 最终底盘速度输出话题；实机连接由启动文件配置
+    predicted_path_topic: /go2_uwb_local_follow/evaluated_path  # 被检查的预测轨迹输出话题，用于可视化
+    diagnostics_topic: /go2_uwb_local_follow/collision_diagnostics  # 当前节点运行状态与异常诊断的输出话题
 
-    enable_motion: false
-    control_frequency: 20.0
-    diagnostic_frequency: 2.0
-    nominal_timeout_sec: 0.20
-    obstacle_timeout_sec: 0.30
+    enable_motion: false  # 运动输出开关；false 时向底盘输出零速度
+    control_frequency: 20.0  # 控制循环频率（Hz）；增大可加快响应，但会增加计算负载
+    diagnostic_frequency: 2.0  # 诊断发布频率（Hz）；仅影响状态输出频率
+    nominal_timeout_sec: 0.20  # 名义速度输入有效时限（s）；超时输出零速度
+    obstacle_timeout_sec: 0.30  # 障碍点云有效时限（s）；超时不允许继续运动
 
-    max_linear_speed: 0.80
-    max_angular_speed: 2.00
-    prediction_time: 1.20
-    simulation_dt: 0.05
+    max_linear_speed: 0.80  # 前进速度上限（m/s）；增大跟随更快，但制动距离更长
+    max_angular_speed: 2.00  # 调试碰撞检查允许的最大转向角速度（rad/s）
+    prediction_time: 1.20  # 碰撞检查的轨迹预测时长（s）；增大可提前发现更远处的碰撞
+    simulation_dt: 0.05  # 轨迹预测采样步长（s）；减小检查更细，但计算量更大
 
     # Go2 采用保守矩形足迹；安全边界在长宽两侧分别膨胀 0.08 m。
-    robot_length: 0.70
-    robot_width: 0.40
-    safety_margin: 0.08
-    emergency_front_distance: 0.25
-    emergency_half_width: 0.30
+    robot_length: 0.70  # 碰撞检查使用的矩形机身长度（m），不含安全余量
+    robot_width: 0.40  # 碰撞检查使用的矩形机身宽度（m），不含安全余量
+    safety_margin: 0.08  # 矩形足迹四周各自增加的安全余量（m）
+    emergency_front_distance: 0.25  # 膨胀足迹前沿之外的急停检测距离（m）；增大更早停车
+    emergency_half_width: 0.30  # 正前方急停检测区域的半宽（m）
 
-    obstacle_x_min: -0.50
-    obstacle_x_max: 3.00
-    obstacle_y_abs_max: 2.00
+    obstacle_x_min: -0.50  # 保留障碍点的最小前向坐标（m），在 base_frame 下计算
+    obstacle_x_max: 3.00  # 保留障碍点的最大前向坐标（m），在 base_frame 下计算
+    obstacle_y_abs_max: 2.00  # 保留障碍点的最大横向绝对坐标（m），在 base_frame 下计算
     # 只去除实体机身内部的双目伪点，不能吞掉安全膨胀区内的真实障碍。
-    self_filter_x_min: -0.35
-    self_filter_x_max: 0.35
-    self_filter_y_abs: 0.20
-    max_obstacle_points: 5000
+    self_filter_x_min: -0.35  # 机身内部伪点过滤区域的最小前向坐标（m）
+    self_filter_x_max: 0.35  # 机身内部伪点过滤区域的最大前向坐标（m）
+    self_filter_y_abs: 0.20  # 机身内部伪点过滤区域的横向半宽（m）
+    max_obstacle_points: 5000  # 最多参与调试碰撞检查的障碍点数（个），达到上限后停止收集

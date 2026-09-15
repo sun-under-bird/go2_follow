@@ -1,54 +1,54 @@
 disparity_node:
   ros__parameters:
-    approximate_sync: false
+    approximate_sync: false  # 左右图像与相机参数的同步方式；false 要求时间戳一致，true 允许近似同步
     # 0 使用 BM：计算负载低、视差输出更快；光滑或低纹理区域的误匹配由后续过滤抑制。
-    stereo_algorithm: 0
-    prefilter_size: 9
-    prefilter_cap: 31
-    correlation_window_size: 15
-    min_disparity: 0
-    disparity_range: 128
-    texture_threshold: 15
-    speckle_size: 150
+    stereo_algorithm: 0  # 双目匹配算法：0 为 BM，1 为 SGBM；SGBM 通常计算量更大
+    prefilter_size: 9  # BM 预滤波窗口边长（像素，奇数），用于局部亮度归一化
+    prefilter_cap: 31  # 预滤波结果的截断幅度（1～63），限制进入匹配计算的像素响应
+    correlation_window_size: 15  # 匹配窗口边长（像素，奇数）；增大更平滑，但边缘和小障碍细节减少
+    min_disparity: 0  # 视差搜索起点（像素），需与双目校正结果匹配
+    disparity_range: 128  # 视差搜索范围（像素，须为 16 的倍数）；增大可覆盖更近物体，但计算更多
+    texture_threshold: 15  # BM 低纹理区域过滤阈值；增大可减少误匹配，也会丢失更多低纹理深度
+    speckle_size: 150  # 散斑过滤的最小连通区域大小（像素数）；增大可去除更多小块视差
     # 收紧连通散斑视差变化，减少稳定的小片错误深度。
-    speckle_range: 1
-    # 启用左右视差一致性检查；0 表示关闭，1 表示最多允许 1 像素差异。
-    disp12_max_diff: 1
-    uniqueness_ratio: 15.0
+    speckle_range: 1  # 散斑连通判定允许的视差差值（像素）；减小更容易切断并移除零散区域
+    # 生效范围依据 Humble 上游实现：https://github.com/ros-perception/image_pipeline/blob/humble/stereo_image_proc/include/stereo_image_proc/stereo_processor.hpp
+    disp12_max_diff: 1  # SGBM 左右视差一致性允许差值（像素）；Humble 当前 BM 模式下此参数不生效
+    uniqueness_ratio: 15.0  # 最佳匹配相对次优匹配的唯一性门槛（%）；增大筛选更严格、有效深度更少
 
 stereo_obstacle_projector_node:
   ros__parameters:
-    base_frame: base_footprint
-    disparity_topic: /stereo/disparity
-    camera_info_topic: /camera/camera/infra1/camera_info
-    obstacle_cloud_topic: /local_grid_obstacle
-    ray_observation_topic: /local_depth_observation
-    diagnostics_topic: /stereo/obstacle_diagnostics
-    depth_debug_topic: /stereo/depth_debug
+    base_frame: base_footprint  # 机器人机身坐标系，用于目标、障碍及控制计算
+    disparity_topic: /stereo/disparity  # 双目匹配生成的视差图输入话题
+    camera_info_topic: /camera/camera/infra1/camera_info  # 左相机内参与坐标系信息输入话题
+    obstacle_cloud_topic: /local_grid_obstacle  # 当前帧过滤后的障碍点云输出话题
+    ray_observation_topic: /local_depth_observation  # 同帧障碍、自由空间射线终点及相机原点的输出话题，供滚动地图更新
+    diagnostics_topic: /stereo/obstacle_diagnostics  # 当前节点运行状态与异常诊断的输出话题
+    depth_debug_topic: /stereo/depth_debug  # 调试深度图输出话题，仅在 publish_debug_depth=true 时发布
 
     # 默认只生成过滤后的点云；需要核对深度时再临时打开完整深度图。
-    publish_debug_depth: false
-    pixel_stride: 2
+    publish_debug_depth: false  # 是否额外发布完整调试深度图；启用会增加计算与通信负载
+    pixel_stride: 2  # 障碍深度采样的行列步长（像素）；增大可降低负载，但小障碍更容易漏采
     # 自由空间射线比障碍采样更稀疏，6 必须是 pixel_stride 的整数倍。
-    ray_pixel_stride: 6
-    min_valid_disparity_samples: 200
-    max_output_points: 20000
-    # 每个 5 cm 二维体素至少需要 6 个当前帧深度点支持。
-    min_points_per_voxel: 8
-    # 障碍簇至少包含 3 个三维 26 邻域连通体素，删除不同高度的小伪影。
-    min_voxels_per_cluster: 4
-    transform_timeout_sec: 0.10
-    input_timeout_sec: 0.60
+    ray_pixel_stride: 6  # 自由空间射线采样的行列步长（像素），必须为 pixel_stride 的整数倍
+    min_valid_disparity_samples: 200  # 每帧稀疏采样后至少需要的有效视差数（个）；不足时拒绝发布该帧观测
+    max_output_points: 20000  # 过滤后最多输出的障碍点数（个），超限保留较近点；不限制射线终点数
+    # 以当前帧支持点数过滤二维体素，抑制零散的错误深度。
+    min_points_per_voxel: 8  # 每个二维体素所需的当前帧深度点数（个）；增大可抑制噪声，也可能过滤小障碍
+    # 按三维 26 邻域连接障碍体素，删除体素数量不足的小簇。
+    min_voxels_per_cluster: 4  # 三维 26 邻域障碍簇所需的最少体素数（个）；增大可去除更多孤立伪影
+    transform_timeout_sec: 0.10  # 等待 TF 坐标变换的最大时长（s）
+    input_timeout_sec: 0.60  # 视差输入断流的诊断时限（s）；超时发出诊断，不凭空生成新观测
 
-    depth_min: 0.10
-    depth_max: 3.00
-    obstacle_x_min: 0.20
-    obstacle_x_max: 3.00
-    obstacle_y_abs_max: 2.00
+    depth_min: 0.10  # 允许反投影的最小相机光轴深度（m）
+    depth_max: 3.00  # 允许反投影的最大相机光轴深度（m）；增大覆盖更远，但深度误差也更明显
+    obstacle_x_min: 0.20  # 保留障碍点的最小前向坐标（m），在 base_frame 下计算
+    obstacle_x_max: 3.00  # 保留障碍点的最大前向坐标（m），在 base_frame 下计算
+    obstacle_y_abs_max: 2.00  # 保留障碍点的最大横向绝对坐标（m），在 base_frame 下计算
     # 高度边界在 base_footprint 下计算，0.10 m 和 0.50 m 本身保留。
-    obstacle_z_min: 0.10
-    obstacle_z_max: 0.50
+    obstacle_z_min: 0.10  # 障碍点相对 base_frame 的最低高度（m），用于排除地面
+    obstacle_z_max: 0.50  # 障碍点相对 base_frame 的最高高度（m）
     # 地面点不标记为障碍，但有效地面深度可作为二维自由空间射线终点。
-    ray_endpoint_z_min: -0.10
-    ray_endpoint_z_max: 0.50
-    voxel_size: 0.05
+    ray_endpoint_z_min: -0.10  # 自由空间射线终点相对 base_frame 的最低高度（m），可包含地面点
+    ray_endpoint_z_max: 0.50  # 自由空间射线终点相对 base_frame 的最高高度（m）
+    voxel_size: 0.05  # 障碍点二维体素边长（m）；增大可压缩点数，但会损失空间细节

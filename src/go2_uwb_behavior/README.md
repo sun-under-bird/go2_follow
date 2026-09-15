@@ -1,6 +1,6 @@
 # Go2 UWB 行为控制
 
-本包在不修改原 `go2_uwb_local_follow` 的前提下，新增统一 FOLLOW、IDLE、STOP
+本包提供统一 FOLLOW、IDLE、STOP
 和单次随机漫游控制，并复用原双目滚动地图与局部速度规划器。
 
 给上层应用开发者的完整调用约定见
@@ -70,10 +70,15 @@ ros2 service call /go2/set_behavior \
 
 ## 状态和安全语义
 
+FOLLOW 已接入规划器实时安全绕障反馈。普通对准阈值约 `60.2°`，进入对准后回落到约 `51.6°`
+才恢复前进；只有新鲜反馈确认正在安全前进绕障时，才临时放宽到约 `84.8°`，大角度名义速度
+限制为 `0.50 m/s`。达到跟随距离、受阻、反馈超过 `0.20 s` 或 STOP 都不会被放宽逻辑解除。
+该功能由 `enable_avoidance_heading_relaxation` 控制，不改变漫游目标策略。
+
 - 默认模式为 FOLLOW；一次 Action 接管控制后进入 ROAM，成功后进入 IDLE。
 - STOP 是锁存模式，STOP 状态下拒绝新漫游；必须先显式切换到 IDLE 或 FOLLOW。
 - FOLLOW、STOP、取消请求都会让活动中的 Action 先发布零速度并等待里程计停车确认。
-- UWB、里程计、滚动障碍点云或规划器速度超时会终止当前漫游。
+- UWB、里程计、滚动障碍点云或规划器速度超时先停车并保留漫游目标；默认 3 秒内恢复且确认停稳后自动继续，持续失效才返回 `INPUT_TIMEOUT`。
 - 目标受阻时最多重新选点两次；主人超过 5 米时先返回，5.6～6 米区间禁止继续外扩。
 - 只有连续 0.30 秒满足线速度小于 0.04 m/s、角速度小于 0.08 rad/s，Action
   才能返回成功。
@@ -107,3 +112,12 @@ colcon test-result --verbose
 2. 将 `random_goal_radius_max` 临时改为 `2.5`，保持 `0.35 m/s` 低速，在架空或安全场地测试。
 3. 验证取消、STOP、FOLLOW 抢占、传感器断流和障碍物阻断均能停车。
 4. 确认 `/cmd_vel` 和 `/go2_uwb_local_follow/nominal_cmd` 各只有一个发布者后，再恢复正式半径参数。
+
+## 短暂断流的自动恢复
+
+`input_recovery_timeout_sec` 默认 `3.0 s`。关键输入超时后进入
+`ROAM_INPUT_PAUSED`，底盘和名义速度均为零；Action Feedback 使用已有的 `STOPPING`
+状态，诊断话题给出暂停原因。恢复全部新鲜输入并确认停稳后继续原目标，暂停期间
+不增加受阻重试次数，但仍计入 Action 总超时。取消、IDLE、FOLLOW 或 STOP 请求可以
+随时抢占暂停任务。长期断流返回 `INPUT_TIMEOUT`；里程计坐标系跳变会立即终止旧
+漫游目标，因为该目标已经不再具有可靠的位置含义。FOLLOW 模式会等待新鲜输入自动恢复。

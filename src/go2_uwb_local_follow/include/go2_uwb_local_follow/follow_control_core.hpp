@@ -37,6 +37,12 @@ struct FollowConfig
   double max_angular_speed{2.00};
   double heading_slowdown_start{0.50};
   double heading_stop_angle{1.40};
+  // 对准后回落到更小偏角才恢复前进，避免角度门限附近反复停走。
+  double heading_alignment_hysteresis{0.15};
+  bool enable_avoidance_heading_relaxation{false};
+  // 仅在规划器反馈安全前进绕障时放宽；始终小于 90 度，禁止向目标反方向前进。
+  double avoidance_heading_stop_angle{1.48};
+  double avoidance_heading_max_linear_speed{0.50};
   double blind_rotation_max_speed{2.00};
   double max_linear_accel{0.80};
   double max_linear_decel{0.80};
@@ -61,6 +67,7 @@ struct FollowResult
   int turn_direction{0};
   bool within_follow_distance{false};
   bool blind_rotation{false};
+  bool avoidance_heading_relaxed{false};
   bool angular_braking{false};
   bool angular_brake_latched{false};
 };
@@ -78,11 +85,13 @@ struct DynamicAngularBrakeResult
 // 校验跟随控制和速度变化率参数之间的约束关系。
 bool validateFollowConfig(const FollowConfig & config, std::string * reason = nullptr);
 
-// 根据当前机器人坐标系目标点计算最小有效速度和转向降速后的名义速度。
+// 结合安全绕障反馈和对准滞回，计算距离及角度约束下的名义速度。
 FollowResult computeFollowTarget(
   double target_x,
   double target_y,
-  const FollowConfig & config);
+  const FollowConfig & config,
+  bool safe_forward_avoidance = false,
+  bool previous_heading_alignment = false);
 
 // 根据停止与重启角度门限更新带滞回的转向方向。
 int updateTurnDirection(

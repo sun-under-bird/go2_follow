@@ -6,7 +6,7 @@ rolling_obstacle_map_node:
     input_observation_topic: /local_depth_observation  # 同帧障碍、有效深度射线和相机原点
     output_obstacle_topic: /local_rolling_obstacle  # 运动补偿和时间衰减后的局部点云
     odom_topic: /odom_leg  # 只使用带时间戳的 pose，不改变规划器原有速度输入
-    diagnostics_topic: /go2_uwb_local_follow/rolling_map_diagnostics
+    diagnostics_topic: /go2_uwb_local_follow/rolling_map_diagnostics  # 当前节点运行状态与异常诊断的输出话题
 
     voxel_size: 0.05  # odom 局部地图二维体素尺寸，应不小于输入点云分辨率
     obstacle_retention_sec: 5.00  # ↑盲区记忆更久/动态障碍拖影；↓清除更快/易短时丢障碍
@@ -18,7 +18,7 @@ rolling_obstacle_map_node:
     ray_clearing_endpoint_margin: 0.10  # 终点前保留安全余量，避免深度噪声清掉真实表面
     ray_clearing_min_observations: 2  # 同一帧至少两条射线穿过体素才确认清除
 
-    odom_buffer_duration_sec: 3.00  # 必须覆盖点云处理延迟和地图保留时间
+    odom_buffer_duration_sec: 3.00  # 里程计位姿缓存时长（s）；需覆盖观测处理延迟与时间配对窗口
     max_pose_extrapolation_sec: 0.05  # 点云略新于最新里程计时允许的短时位姿外推
     odom_jump_distance: 1.00  # 短时间位置跳变量超过该值立即清空历史地图
     odom_jump_yaw: 0.80  # 短时间朝向跳变量超过该值立即清空历史地图
@@ -26,4 +26,4 @@ rolling_obstacle_map_node:
 
     input_timeout_sec: 0.60  # 只诊断真实输入点云；历史地图发布不会掩盖传感器断流
     odom_timeout_sec: 0.15  # /odom_leg 超时后不再生成新的补偿点云
-    diagnostic_frequency: 2.0
+    diagnostic_frequency: 2.0  # 诊断发布频率（Hz）；仅影响状态输出频率

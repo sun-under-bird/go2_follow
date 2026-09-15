@@ -55,6 +55,7 @@ def generate_test_description():
                 "goal_obstacle_clearance": 0.10,
                 "roam_goal_tolerance": 0.10,
                 "readiness_timeout_sec": 3.0,
+                "input_recovery_timeout_sec": 1.0,
                 "stop_confirm_sec": 0.10,
                 "progress_window_sec": 10.0,
             }
@@ -234,6 +235,22 @@ class TestBehaviorAction(unittest.TestCase):
         cancel_response = cancel_result_future.result()
         self.assertEqual(cancel_response.status, GoalStatus.STATUS_CANCELED)
         self.assertEqual(cancel_response.result.code, RandomRoam.Result.CANCELED)
+
+        self.latest_target = None
+        recovery_handle = self._send_goal(12)
+        self.assertTrue(recovery_handle.accepted)
+        recovery_result = recovery_handle.get_result_async()
+        self.assertTrue(self._pump_until(lambda: self.latest_target is not None, 3.0))
+        self.publish_planner_command = False
+        self._pump_until(lambda: False, 0.5)
+        self.assertFalse(recovery_result.done())
+        self.publish_planner_command = True
+        self._pump_until(lambda: False, 0.3)
+        self.assertFalse(recovery_result.done())
+        self.robot_x = self.latest_target.pose.position.x
+        self.robot_y = self.latest_target.pose.position.y
+        self.assertTrue(self._pump_until(recovery_result.done, 3.0))
+        self.assertEqual(recovery_result.result().result.code, RandomRoam.Result.SUCCESS)
 
         self.latest_target = None
         input_timeout_handle = self._send_goal(10)

@@ -47,6 +47,7 @@ def generate_launch_description() -> LaunchDescription:
     planner_cmd_topic = LaunchConfiguration("planner_cmd_topic")
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     enable_motion = LaunchConfiguration("enable_motion")
+    enable_heading_relaxation = LaunchConfiguration("enable_avoidance_heading_relaxation")
 
     stereo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -109,6 +110,9 @@ def generate_launch_description() -> LaunchDescription:
                 "obstacle_topic": rolling_obstacle_topic,
                 "nominal_cmd_topic": nominal_cmd_topic,
                 "planner_cmd_topic": planner_cmd_topic,
+                "enable_avoidance_heading_relaxation": ParameterValue(
+                    enable_heading_relaxation, value_type=bool
+                ),
                 "cmd_vel_topic": cmd_vel_topic,
                 "enable_motion": ParameterValue(enable_motion, value_type=bool),
             },
@@ -157,6 +161,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
             DeclareLaunchArgument("enable_motion", default_value="true"),
+            DeclareLaunchArgument("enable_avoidance_heading_relaxation", default_value="true"),
             stereo_launch,
             adapter_node,
             planner_launch,

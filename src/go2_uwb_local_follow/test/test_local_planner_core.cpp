@@ -120,7 +120,12 @@ TEST(EmergencyReverse, AllowsLimitedReverseAwayFromFrontObstacle)
   ASSERT_TRUE(result.valid);
   ASSERT_FALSE(result.selected_trajectory.empty());
   EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, -reverse_config.speed);
-  EXPECT_NEAR(result.selected_trajectory.back().x, -reverse_config.distance, 1e-9);
+  // 最后一个轨迹点现在包含完整制动距离，而不仅是恒速倒退命令的距离。
+  const double stopping_distance = reverse_config.speed * reverse_config.speed /
+    (2.0 * limits.max_linear_decel);
+  EXPECT_NEAR(
+    result.selected_trajectory.back().x,
+    -reverse_config.distance - stopping_distance, 0.001);
   EXPECT_NEAR(result.selected_trajectory.back().y, 0.0, 1e-12);
 }
 
@@ -654,4 +659,60 @@ TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
   EXPECT_FALSE(planner::validateMotionLimits(reverse_limits, &reason));
   EXPECT_FALSE(
     planner::validateEmergencyReverseConfig(reverse_config, planner::MotionLimits{}, &reason));
+}
+
+// 上一条命令高于实测速度时，停车候选必须直接发布零速，禁止在停车过程中继续加速。
+TEST(LocalPlanner, ExecutesStopWithoutStaleCommandAcceleration)
+{
+  planner::TrajectoryConfig trajectory{1.5, 0.08};
+  planner::FootprintConfig footprint{0.7, 0.38, 0.02};
+  planner::MotionLimits limits;
+  limits.max_linear_accel = 0.5;
+  limits.max_linear_decel = 0.7;
+  limits.max_angular_accel = 1.5;
+  planner::VelocitySamplingConfig sampling;
+  sampling.obstacle_influence_distance = 0.5;
+  const auto result = planner::planLocalVelocity(
+    {0.4, 0}, {0.8, 0}, {0.8, 0}, {{0.55, 0}},
+    trajectory, footprint, limits, sampling, false, 0.05);
+  ASSERT_TRUE(result.valid);
+  EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, 0.0);
+  EXPECT_DOUBLE_EQ(result.executable_velocity.linear_x, 0.0);
+  EXPECT_FALSE(
+    planner::checkTrajectoryCollision(
+      result.selected_trajectory, {{0.55, 0}}, footprint).collision);
+}
+
+// 倒退命令距离之外的制动尾段仍需检查，不能在停止命令发出位置截断。
+TEST(EmergencyReverse, ChecksBrakingTailBeyondCommandDistance)
+{
+  planner::MotionLimits limits;
+  limits.max_reverse_speed = 0.3;
+  limits.max_linear_decel = 0.7;
+  planner::EmergencyReverseConfig reverse;
+  reverse.speed = 0.3;
+  reverse.distance = 0.4;
+  const auto result = planner::planEmergencyReverse(
+    {{-0.85, 0}}, {1.5, 0.05}, {0.7, 0.38, 0.02}, limits, reverse, 0.4);
+  EXPECT_FALSE(result.valid);
+}
+
+// 实测速度超过命令上限时仍保留真实制动距离，避免错误缩短停车预测。
+TEST(TrajectoryPredictor, PreservesMeasuredOverspeedForBraking)
+{
+  planner::MotionLimits limits;
+  limits.max_linear_decel = 0.8;
+  const auto trajectory = planner::predictAcceleratingTrajectory(
+    {1.0, 0}, {0, 0}, {1.5, 0.05}, limits, true);
+  ASSERT_FALSE(trajectory.empty());
+  EXPECT_NEAR(trajectory.back().x, 0.625, 0.001);
+}
+
+// 极端有限速度和过小积分步长必须有界失败，不能导致巨量分配或把空轨迹当成安全。
+TEST(LocalPlanner, RejectsUnboundedPredictionWork)
+{
+  EXPECT_FALSE(planner::validateTrajectoryConfig({1.5, 1.0e-200}));
+  const auto result = planner::planLocalVelocity(
+    {1.0e300, 0.0}, {}, {0.5, 0.0}, {}, {}, {}, {}, {}, false, 0.05);
+  EXPECT_FALSE(result.valid);
 }

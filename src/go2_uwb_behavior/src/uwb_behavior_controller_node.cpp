@@ -48,6 +48,7 @@
 #include "go2_uwb_behavior/behavior_core.hpp"
 #include "go2_uwb_behavior/srv/set_behavior.hpp"
 #include "go2_uwb_local_follow/follow_control_core.hpp"
+#include "go2_uwb_local_follow/observation_utils.hpp"
 
 namespace go2_uwb_behavior
 {
@@ -60,6 +61,10 @@ using GoalHandleRandomRoam = rclcpp_action::ServerGoalHandle<RandomRoam>;
 using SetBehavior = go2_uwb_behavior::srv::SetBehavior;
 using FollowResult = go2_uwb_local_follow::FollowResult;
 using FollowConfig = go2_uwb_local_follow::FollowConfig;
+using go2_uwb_local_follow::sourceStampNanoseconds;
+using go2_uwb_local_follow::sourceAgeSeconds;
+using go2_uwb_local_follow::TimedPose2D;
+using go2_uwb_local_follow::SourceStampTracker;
 
 constexpr double kMinimumAge = 0.0;
 
@@ -93,24 +98,31 @@ public:
   {
     declareParameters();
     validateParameters();
+    pose_buffer_config_.max_pose_extrapolation_sec = odom_timeout_sec_;
+    pose_buffer_ = go2_uwb_local_follow::OdomPoseBuffer(pose_buffer_config_);
     owner_filter_ = std::make_unique<OwnerCenterFilter>(owner_filter_config_);
     progress_monitor_ = std::make_unique<ProgressMonitor>(
       required_progress_, progress_window_sec_);
 
     target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
-      target_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
+      target_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable(),
       std::bind(&UwbBehaviorControllerNode::targetCallback, this, std::placeholders::_1));
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      odom_topic_, rclcpp::SensorDataQoS(),
+      odom_topic_, rclcpp::SensorDataQoS().keep_last(30),
       std::bind(&UwbBehaviorControllerNode::odomCallback, this, std::placeholders::_1));
     obstacle_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      obstacle_topic_, rclcpp::SensorDataQoS(),
+      obstacle_topic_, rclcpp::SensorDataQoS().keep_last(1),
       std::bind(&UwbBehaviorControllerNode::obstacleCallback, this, std::placeholders::_1));
     planner_cmd_sub_ = create_subscription<geometry_msgs::msg::Twist>(
-      planner_cmd_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
+      planner_cmd_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable(),
       std::bind(&UwbBehaviorControllerNode::plannerCommandCallback, this, std::placeholders::_1));
+    avoidance_feedback_sub_ = create_subscription<geometry_msgs::msg::TwistStamped>(
+      avoidance_feedback_topic_, rclcpp::QoS(1).reliable(),
+      std::bind(
+        &UwbBehaviorControllerNode::avoidanceFeedbackCallback, this,
+        std::placeholders::_1));
     planner_diagnostics_sub_ = create_subscription<diagnostic_msgs::msg::DiagnosticArray>(
-      planner_diagnostics_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
+      planner_diagnostics_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable(),
       std::bind(
         &UwbBehaviorControllerNode::plannerDiagnosticsCallback, this,
         std::placeholders::_1));
@@ -191,6 +203,7 @@ private:
     RETURNING,
     ARRIVAL_STOP,
     RETRY_STOP,
+    INPUT_PAUSE,
     FINAL_STOP
   };
 
@@ -214,6 +227,7 @@ private:
   struct OdomSnapshot
   {
     Pose2D pose;
+    std::int64_t stamp_ns{0};
     Velocity2D velocity;
     SteadyTime receipt_time{};
     bool valid{false};
@@ -222,6 +236,8 @@ private:
   struct ObstacleSnapshot
   {
     std::vector<Point2D> points_odom;
+    std::vector<Point2D> points_base;
+    std::int64_t stamp_ns{0};
     SteadyTime receipt_time{};
     bool points_ready_for_roam{false};
     bool valid{false};
@@ -276,6 +292,7 @@ private:
       "planner_diagnostics_timeout_sec", 0.75);
     transform_timeout_sec_ = declare_parameter<double>("transform_timeout_sec", 0.10);
     readiness_timeout_sec_ = declare_parameter<double>("readiness_timeout_sec", 2.0);
+    input_recovery_timeout_sec_ = declare_parameter<double>("input_recovery_timeout_sec", 3.0);
 
     follow_config_.follow_distance = declare_parameter<double>("follow_distance", 1.0);
     follow_config_.distance_deadband = declare_parameter<double>("distance_deadband", 0.08);
@@ -296,6 +313,16 @@ private:
     follow_config_.heading_slowdown_start = declare_parameter<double>(
       "heading_slowdown_start", 0.50);
     follow_config_.heading_stop_angle = declare_parameter<double>("heading_stop_angle", 1.40);
+    follow_config_.heading_alignment_hysteresis = declare_parameter<double>(
+      "heading_alignment_hysteresis", 0.15);
+    follow_config_.enable_avoidance_heading_relaxation = declare_parameter<bool>(
+      "enable_avoidance_heading_relaxation", false);
+    follow_config_.avoidance_heading_stop_angle = declare_parameter<double>(
+      "avoidance_heading_stop_angle", 1.48);
+    follow_config_.avoidance_heading_max_linear_speed = declare_parameter<double>(
+      "avoidance_heading_max_linear_speed", 0.50);
+    avoidance_feedback_topic_ = declare_parameter<std::string>(
+      "avoidance_feedback_topic", "/go2_uwb_local_follow/avoidance_feedback");
     follow_config_.blind_rotation_max_speed = declare_parameter<double>(
       "blind_rotation_max_speed", 2.0);
     follow_config_.max_linear_accel = declare_parameter<double>("max_linear_accel", 0.80);
@@ -303,6 +330,8 @@ private:
     follow_config_.max_angular_accel = declare_parameter<double>("max_angular_accel", 2.0);
 
     roam_control_config_ = follow_config_;
+    // 本次协同仅应用于 FOLLOW，漫游继续使用自己的目标与速度边界。
+    roam_control_config_.enable_avoidance_heading_relaxation = false;
     roam_control_config_.follow_distance = 0.0;
     roam_control_config_.distance_deadband = declare_parameter<double>(
       "roam_goal_tolerance", 0.30);
@@ -382,7 +411,8 @@ private:
     }
     const std::vector<std::string> required_strings = {
       base_frame_, odom_frame_, target_topic_, odom_topic_, obstacle_topic_, nominal_cmd_topic_,
-      planner_cmd_topic_, cmd_vel_topic_, behavior_service_name_, roam_action_name_};
+      planner_cmd_topic_, cmd_vel_topic_, behavior_service_name_, roam_action_name_,
+      avoidance_feedback_topic_};
     if (std::any_of(
         required_strings.begin(), required_strings.end(),
         [](const std::string & value) {return value.empty();}))
@@ -399,7 +429,7 @@ private:
       geofence_reject_timeout_sec_, default_roam_timeout_sec_, maximum_roam_timeout_sec_,
       required_progress_, progress_window_sec_, planner_blocked_timeout_sec_,
       stop_linear_threshold_, stop_angular_threshold_, stop_confirm_sec_,
-      stop_confirmation_timeout_sec_, robot_clearance_radius_};
+      stop_confirmation_timeout_sec_, robot_clearance_radius_, input_recovery_timeout_sec_};
     if (std::any_of(
         std::begin(positive_values), std::end(positive_values),
         [](double value) {return !std::isfinite(value) || value <= 0.0;}))
@@ -420,6 +450,11 @@ private:
   // 接收并转换最新 UWB 目标点，保留与原跟随节点一致的 TF 行为。
   void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr message)
   {
+    if (!target_stamp_tracker_.accept(
+        sourceStampNanoseconds(message->header.stamp), now().nanoseconds(), target_timeout_sec_))
+    {
+      return;
+    }
     if (!std::isfinite(message->point.x) || !std::isfinite(message->point.y) ||
       !std::isfinite(message->point.z) || message->header.frame_id.empty())
     {
@@ -459,79 +494,106 @@ private:
     ++target_snapshot_.version;
   }
 
-  // 保存连续 odom 位姿和实测二维速度，供中心估计与停车确认使用。
+  // 校验里程计坐标系及采集时间，并保存可按时间戳查询的连续位姿缓存。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
-    tf2::Quaternion quaternion(
-      message->pose.pose.orientation.x,
-      message->pose.pose.orientation.y,
-      message->pose.pose.orientation.z,
-      message->pose.pose.orientation.w);
-    if (quaternion.length2() <= std::numeric_limits<double>::epsilon()) {
+    const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!odom_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), odom_timeout_sec_)) {
+      return;
+    }
+    TimedPose2D pose;
+    if (!go2_uwb_local_follow::extractOdomPose(*message, odom_frame_, base_frame_, &pose)) {
       odom_snapshot_.valid = false;
       return;
     }
-    quaternion.normalize();
-    double roll = 0.0;
-    double pitch = 0.0;
-    double yaw = 0.0;
-    tf2::Matrix3x3(quaternion).getRPY(roll, pitch, yaw);
-
-    const double x = message->pose.pose.position.x;
-    const double y = message->pose.pose.position.y;
     const double linear_x = message->twist.twist.linear.x;
     const double linear_y = message->twist.twist.linear.y;
     const double angular_z = message->twist.twist.angular.z;
-    odom_snapshot_.valid = std::isfinite(x) && std::isfinite(y) && std::isfinite(yaw) &&
-      std::isfinite(linear_x) && std::isfinite(linear_y) && std::isfinite(angular_z);
-    odom_snapshot_.pose = Pose2D{x, y, yaw};
-    // 停车确认使用平面线速度模长，防止仍在横移时误判为已经停稳。
+    odom_snapshot_.valid = std::isfinite(linear_x) && std::isfinite(linear_y) &&
+      std::isfinite(angular_z);
+    if (!odom_snapshot_.valid) {
+      return;
+    }
+    if (pose_buffer_.append(pose) == go2_uwb_local_follow::PoseAppendResult::kResetDetected) {
+      owner_filter_->reset();
+      target_snapshot_.valid = false;
+      obstacle_snapshot_.valid = false;
+      // 固定漫游目标属于旧坐标系，不能在定位跳变后盲目恢复原目标。
+      if (roam_goal_handle_) {
+        beginFinalStop(
+          RandomRoam::Result::INPUT_TIMEOUT, "里程计坐标系跳变，原目标已失效",
+          CompletionDisposition::ABORT, Mode::IDLE);
+      }
+    }
+    odom_snapshot_.stamp_ns = stamp_ns;
+    odom_snapshot_.pose = Pose2D{pose.x, pose.y, pose.yaw};
     odom_snapshot_.velocity = Velocity2D{std::hypot(linear_x, linear_y), angular_z};
     odom_snapshot_.receipt_time = std::chrono::steady_clock::now();
   }
 
-  // 将滚动障碍点从当前机身坐标转换到 odom 并缓存用于目标净空检查。
+  // 保存新鲜点云；暂缺对应里程计时延后转换，避免回调到达顺序造成永久丢帧。
   void obstacleCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
-    const auto current = std::chrono::steady_clock::now();
-    obstacle_snapshot_.receipt_time = current;
+    const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!obstacle_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), obstacle_timeout_sec_)) {
+      return;
+    }
+    obstacle_snapshot_.stamp_ns = stamp_ns;
+    obstacle_snapshot_.receipt_time = std::chrono::steady_clock::now();
     obstacle_snapshot_.points_odom.clear();
+    obstacle_snapshot_.points_base.clear();
     obstacle_snapshot_.points_ready_for_roam = false;
-    if (!odom_snapshot_.valid ||
-      elapsedSince(odom_snapshot_.receipt_time, current) > odom_timeout_sec_ ||
-      message->header.frame_id != base_frame_)
-    {
-      obstacle_snapshot_.valid = false;
+    const std::size_t count = static_cast<std::size_t>(message->width) * message->height;
+    obstacle_snapshot_.valid = message->header.frame_id == base_frame_ && count <= 5000U &&
+      go2_uwb_local_follow::validFloatCloud(*message, {"x", "y"});
+    if (!obstacle_snapshot_.valid || current_mode_ != Mode::ROAM) {
       return;
     }
-
-    if (current_mode_ != Mode::ROAM) {
-      // FOLLOW/IDLE 只维护点云时效，避免空闲时重复转换整幅滚动地图。
-      obstacle_snapshot_.valid = true;
-      return;
-    }
-
-    try {
+    if (count > 0U) {
+      obstacle_snapshot_.points_base.reserve(count);
       sensor_msgs::PointCloud2ConstIterator<float> x_iterator(*message, "x");
       sensor_msgs::PointCloud2ConstIterator<float> y_iterator(*message, "y");
-      obstacle_snapshot_.points_odom.reserve(
-        std::min<std::size_t>(message->width * message->height, 5000U));
       for (; x_iterator != x_iterator.end(); ++x_iterator, ++y_iterator) {
-        const double x = static_cast<double>(*x_iterator);
-        const double y = static_cast<double>(*y_iterator);
-        if (!std::isfinite(x) || !std::isfinite(y)) {
-          continue;
+        if (std::isfinite(*x_iterator) && std::isfinite(*y_iterator)) {
+          obstacle_snapshot_.points_base.push_back({*x_iterator, *y_iterator});
         }
-        obstacle_snapshot_.points_odom.push_back(
-          transformBasePointToOdom(Point2D{x, y}, odom_snapshot_.pose));
       }
-      obstacle_snapshot_.points_ready_for_roam = true;
-      obstacle_snapshot_.valid = true;
-    } catch (const std::exception & exception) {
-      obstacle_snapshot_.valid = false;
-      RCLCPP_WARN_THROTTLE(
-        get_logger(), *get_clock(), 2000, "Reject invalid obstacle cloud: %s", exception.what());
+      if (obstacle_snapshot_.points_base.empty()) {
+        obstacle_snapshot_.valid = false;
+        return;
+      }
     }
+    refreshObstacleCoordinates();
+  }
+
+  // 必须使用点云采集时刻的位姿转换到 odom，不能用接收时的最新位姿替代。
+  void refreshObstacleCoordinates()
+  {
+    if (current_mode_ != Mode::ROAM || !obstacle_snapshot_.valid ||
+      obstacle_snapshot_.points_ready_for_roam ||
+      obstacle_snapshot_.receipt_time < roam_started_time_)
+    {
+      return;
+    }
+    TimedPose2D cloud_pose;
+    if (!pose_buffer_.lookup(obstacle_snapshot_.stamp_ns, &cloud_pose)) {
+      return;
+    }
+    const Pose2D pose{cloud_pose.x, cloud_pose.y, cloud_pose.yaw};
+    for (const auto & point : obstacle_snapshot_.points_base) {
+      obstacle_snapshot_.points_odom.push_back(transformBasePointToOdom(point, pose));
+    }
+    obstacle_snapshot_.points_ready_for_roam = true;
+  }
+
+  // 只用新鲜且坐标系正确的安全前进绕障反馈授权 FOLLOW 放宽角度。
+  void avoidanceFeedbackCallback(const geometry_msgs::msg::TwistStamped::SharedPtr message)
+  {
+    const bool safe_forward = message->header.frame_id == base_frame_ &&
+      std::isfinite(message->twist.linear.x) && message->twist.linear.x > 0.0 &&
+      std::isfinite(message->twist.angular.z);
+    avoidance_feedback_.update(
+      sourceStampNanoseconds(message->header.stamp), now().nanoseconds(), safe_forward);
   }
 
   // 保存局部规划器已经完成避障和限幅的最终内部速度。
@@ -653,6 +715,7 @@ private:
     last_control_time_ = current;
     const double dt = std::clamp(measured_dt, 0.0, 2.0 / control_frequency_);
 
+    refreshObstacleCoordinates();
     updateOwnerFilter(current);
     Velocity2D nominal;
     nominal_allows_motion_ = false;
@@ -671,10 +734,10 @@ private:
     publishDiagnosticsIfDue(current);
   }
 
-  // 使用每个新 UWB 样本和当前 odom 位姿更新实时主人位置及迟滞中心。
+  // 用每个新 UWB 样本采集时刻的 odom 位姿更新主人位置，避免转动时滤波中心漂移。
   void updateOwnerFilter(const SteadyTime & current)
   {
-    if (!target_snapshot_.valid || !odom_snapshot_.valid ||
+    if (!targetFresh(current) || !odomFresh(current) ||
       target_snapshot_.version == processed_target_version_)
     {
       return;
@@ -686,8 +749,12 @@ private:
         std::chrono::duration<double>(
           target_snapshot_.receipt_time - last_owner_filter_time_).count());
     }
+    TimedPose2D source_pose;
+    if (!pose_buffer_.lookup(sourceStampNanoseconds(target_snapshot_.source_stamp), &source_pose)) {
+      return;
+    }
     const Point2D owner_odom = transformBasePointToOdom(
-      target_snapshot_.point_base, odom_snapshot_.pose);
+      target_snapshot_.point_base, {source_pose.x, source_pose.y, source_pose.yaw});
     if (owner_filter_->update(owner_odom, dt)) {
       processed_target_version_ = target_snapshot_.version;
       last_owner_filter_time_ = target_snapshot_.receipt_time;
@@ -714,10 +781,13 @@ private:
 
     last_follow_result_ = computeControlledTarget(
       target_snapshot_.point_base, follow_config_, follow_turn_direction_,
-      follow_brake_latched_);
+      follow_brake_latched_, &follow_heading_alignment_latched_,
+      avoidance_feedback_.active(now().nanoseconds()));
     follow_result_valid_ = true;
     nominal_allows_motion_ = true;
-    if (last_follow_result_.blind_rotation) {
+    if (last_follow_result_.avoidance_heading_relaxed) {
+      state_ = "FOLLOW_AVOIDANCE_HEADING_RELAXED";
+    } else if (last_follow_result_.blind_rotation) {
       state_ = "FOLLOW_BLIND_ROTATE";
     } else if (last_follow_result_.within_follow_distance) {
       state_ = "FOLLOW_HOLD_DISTANCE";
@@ -738,7 +808,27 @@ private:
         CompletionDisposition::ABORT, Mode::IDLE);
     }
 
+    if (roam_phase_ != RoamPhase::PREPARING_STOP && roam_phase_ != RoamPhase::FINAL_STOP &&
+      roam_phase_ != RoamPhase::INPUT_PAUSE && !movingInputsHealthy(current))
+    {
+      beginInputTimeoutStop("关键输入短暂中断，等待自动恢复");
+    }
     switch (roam_phase_) {
+      case RoamPhase::INPUT_PAUSE:
+        state_ = "ROAM_INPUT_PAUSED";
+        if (elapsedSince(phase_started_time_, current) > input_recovery_timeout_sec_) {
+          beginFinalStop(
+            RandomRoam::Result::INPUT_TIMEOUT, "关键输入在恢复窗口内未恢复",
+            CompletionDisposition::ABORT, Mode::IDLE);
+        } else if (movingInputsHealthy(current) && updateStopped(dt, current)) {
+          progress_monitor_->reset(
+            resume_roam_phase_ == RoamPhase::RETURNING ?
+            currentOwnerDistance() : last_goal_distance_);
+          planner_command_after_ = current;
+          setRoamPhase(resume_roam_phase_, current);
+        }
+        return Velocity2D{};
+
       case RoamPhase::PREPARING_STOP:
         state_ = "ROAM_PREPARING";
         if (elapsedSince(phase_started_time_, current) > readiness_timeout_sec_ &&
@@ -874,15 +964,21 @@ private:
     return fromFollowVelocity(result.target_velocity);
   }
 
-  // 统一调用原跟随核心和动态角速度刹车，并更新各模式独立锁存状态。
+  // 统一计算跟随与动态角速度刹车；FOLLOW 可按新鲜安全绕障反馈放宽角度。
   FollowResult computeControlledTarget(
     const Point2D & target_base,
     const FollowConfig & config,
     int & turn_direction,
-    bool & brake_latched)
+    bool & brake_latched,
+    bool * heading_alignment_latched = nullptr,
+    bool safe_forward_avoidance = false)
   {
     FollowResult result = go2_uwb_local_follow::computeFollowTarget(
-      target_base.x, target_base.y, config);
+      target_base.x, target_base.y, config, safe_forward_avoidance,
+      heading_alignment_latched != nullptr && *heading_alignment_latched);
+    if (heading_alignment_latched != nullptr) {
+      *heading_alignment_latched = result.blind_rotation;
+    }
     const auto brake = go2_uwb_local_follow::applyDynamicAngularBrake(
       result.heading, result.target_velocity.angular_z, odom_snapshot_.velocity.angular_z,
       config, turn_direction, brake_latched);
@@ -941,7 +1037,8 @@ private:
       (current_mode_ == Mode::ROAM &&
       (roam_phase_ == RoamPhase::NAVIGATING || roam_phase_ == RoamPhase::RETURNING));
     if (!enable_motion_ || !active_motion_phase || !nominal_allows_motion_ ||
-      !obstacleFresh(current) || !plannerCommandFresh(current))
+      !obstacleFresh(current) || !plannerCommandFresh(current) ||
+      planner_command_snapshot_.receipt_time < planner_command_after_)
     {
       geofence_reject_elapsed_sec_ = 0.0;
       return Velocity2D{};
@@ -969,12 +1066,16 @@ private:
     return Velocity2D{};
   }
 
-  // 将漫游失败原因转换为停车后统一返回的输入超时结果。
+  // 输入中断时先停车保留当前任务，恢复窗口内重新就绪后自动继续原目标。
   void beginInputTimeoutStop(const std::string & message)
   {
-    beginFinalStop(
-      RandomRoam::Result::INPUT_TIMEOUT, message,
-      CompletionDisposition::ABORT, Mode::IDLE);
+    if (roam_phase_ == RoamPhase::INPUT_PAUSE || roam_phase_ == RoamPhase::FINAL_STOP) {
+      return;
+    }
+    resume_roam_phase_ = roam_phase_;
+    setRoamPhase(RoamPhase::INPUT_PAUSE, std::chrono::steady_clock::now());
+    nominal_allows_motion_ = false;
+    RCLCPP_WARN(get_logger(), "%s", message.c_str());
   }
 
   // 进入最终停车阶段并保存完成方式、结果及停车后的目标模式。
@@ -1068,6 +1169,7 @@ private:
   void setMode(Mode mode)
   {
     current_mode_ = mode;
+    planner_command_after_ = std::chrono::steady_clock::now();
     roam_phase_ = RoamPhase::INACTIVE;
     roam_goal_valid_ = false;
     resetFollowAngularState();
@@ -1080,6 +1182,8 @@ private:
   // 清空 FOLLOW 独立的转向方向与动态刹车锁存。
   void resetFollowAngularState()
   {
+    follow_heading_alignment_latched_ = false;
+    avoidance_feedback_.reset();
     follow_turn_direction_ = 0;
     follow_brake_latched_ = false;
   }
@@ -1110,21 +1214,28 @@ private:
   bool targetFresh(const SteadyTime & current) const
   {
     return target_snapshot_.valid &&
-           elapsedSince(target_snapshot_.receipt_time, current) <= target_timeout_sec_;
+           elapsedSince(target_snapshot_.receipt_time, current) <= target_timeout_sec_ &&
+           sourceAgeSeconds(
+      sourceStampNanoseconds(target_snapshot_.source_stamp),
+      now().nanoseconds()) <= target_timeout_sec_;
   }
 
   // 返回 odom 位姿和速度是否在允许时限内。
   bool odomFresh(const SteadyTime & current) const
   {
     return odom_snapshot_.valid &&
-           elapsedSince(odom_snapshot_.receipt_time, current) <= odom_timeout_sec_;
+           elapsedSince(odom_snapshot_.receipt_time, current) <= odom_timeout_sec_ &&
+           sourceAgeSeconds(odom_snapshot_.stamp_ns, now().nanoseconds()) <= odom_timeout_sec_;
   }
 
   // 返回滚动障碍点云是否在允许时限内。
   bool obstacleFresh(const SteadyTime & current) const
   {
     return obstacle_snapshot_.valid &&
-           elapsedSince(obstacle_snapshot_.receipt_time, current) <= obstacle_timeout_sec_;
+           elapsedSince(obstacle_snapshot_.receipt_time, current) <= obstacle_timeout_sec_ &&
+           sourceAgeSeconds(
+      obstacle_snapshot_.stamp_ns,
+      now().nanoseconds()) <= obstacle_timeout_sec_;
   }
 
   // 返回规划器内部速度是否在允许时限内。
@@ -1343,6 +1454,10 @@ private:
       {"odom_age_sec", snapshotAge(odom_snapshot_.valid, odom_snapshot_.receipt_time, current)},
       {"distance", follow_result_valid_ ? formatDouble(last_follow_result_.distance) : "n/a"},
       {"heading", follow_result_valid_ ? formatDouble(last_follow_result_.heading) : "n/a"},
+      {"avoidance_heading_relaxed",
+        follow_result_valid_ && last_follow_result_.avoidance_heading_relaxed ? "true" : "false"},
+      {"heading_alignment",
+        follow_result_valid_ && last_follow_result_.blind_rotation ? "true" : "false"},
       {"nominal_v", follow_result_valid_ ?
         formatDouble(last_follow_result_.target_velocity.linear_x) : "0.000"},
       {"nominal_w", follow_result_valid_ ?
@@ -1385,6 +1500,18 @@ private:
     }
   }
 
+  go2_uwb_local_follow::RollingMapConfig pose_buffer_config_;
+  go2_uwb_local_follow::AvoidanceFeedbackTracker avoidance_feedback_;
+  bool follow_heading_alignment_latched_{false};
+  std::string avoidance_feedback_topic_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr avoidance_feedback_sub_;
+  go2_uwb_local_follow::OdomPoseBuffer pose_buffer_{pose_buffer_config_};
+  SourceStampTracker target_stamp_tracker_;
+  SourceStampTracker odom_stamp_tracker_;
+  SourceStampTracker obstacle_stamp_tracker_;
+  SteadyTime planner_command_after_{};
+  RoamPhase resume_roam_phase_{RoamPhase::NAVIGATING};
+  double input_recovery_timeout_sec_{3.0};
   std::string base_frame_;
   std::string odom_frame_;
   std::string target_topic_;

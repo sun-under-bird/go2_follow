@@ -73,6 +73,9 @@ bool validateFollowConfig(const FollowConfig & config, std::string * reason)
     std::isfinite(config.max_angular_speed) &&
     std::isfinite(config.heading_slowdown_start) &&
     std::isfinite(config.heading_stop_angle) &&
+    std::isfinite(config.heading_alignment_hysteresis) &&
+    std::isfinite(config.avoidance_heading_stop_angle) &&
+    std::isfinite(config.avoidance_heading_max_linear_speed) &&
     std::isfinite(config.blind_rotation_max_speed) &&
     std::isfinite(config.max_linear_accel) && std::isfinite(config.max_linear_decel) &&
     std::isfinite(config.max_angular_accel);
@@ -111,6 +114,19 @@ bool validateFollowConfig(const FollowConfig & config, std::string * reason)
   {
     return rejectWithReason("blind rotation speed must be within angular speed limit", reason);
   }
+  if (config.heading_alignment_hysteresis < 0.0 ||
+    config.heading_alignment_hysteresis >= config.heading_stop_angle)
+  {
+    return rejectWithReason("heading hysteresis must be within the stop angle", reason);
+  }
+  if (config.enable_avoidance_heading_relaxation &&
+    (config.avoidance_heading_stop_angle <= config.heading_stop_angle ||
+    config.avoidance_heading_stop_angle >= 1.5707963267948966 ||
+    config.avoidance_heading_max_linear_speed < config.min_linear_speed ||
+    config.avoidance_heading_max_linear_speed > config.max_linear_speed))
+  {
+    return rejectWithReason("avoidance heading angle or forward speed limit is invalid", reason);
+  }
   if (config.max_linear_accel <= 0.0 || config.max_linear_decel <= 0.0 ||
     config.max_angular_accel <= 0.0)
   {
@@ -119,11 +135,13 @@ bool validateFollowConfig(const FollowConfig & config, std::string * reason)
   return true;
 }
 
-// 根据当前机器人坐标系目标点计算最小有效速度和转向降速后的名义速度。
+// 在持续安全绕障时临时放宽角度限制，距离停车与对准滞回始终生效。
 FollowResult computeFollowTarget(
   double target_x,
   double target_y,
-  const FollowConfig & config)
+  const FollowConfig & config,
+  bool safe_forward_avoidance,
+  bool previous_heading_alignment)
 {
   FollowResult result;
   result.distance = std::hypot(target_x, target_y);
@@ -142,6 +160,17 @@ FollowResult computeFollowTarget(
   }
 
   const double absolute_heading = std::abs(result.heading);
+  // 一旦已经进入对准，延后到达的旧绕障许可也不能提前解除停车滞回。
+  const bool allow_relaxation = config.enable_avoidance_heading_relaxation &&
+    safe_forward_avoidance && !previous_heading_alignment;
+  const double stop_angle = allow_relaxation ?
+    config.avoidance_heading_stop_angle : config.heading_stop_angle;
+  result.blind_rotation = absolute_heading >= stop_angle ||
+    (previous_heading_alignment &&
+    absolute_heading > stop_angle - config.heading_alignment_hysteresis);
+  result.avoidance_heading_relaxed = allow_relaxation && !result.blind_rotation &&
+    !result.within_follow_distance &&
+    absolute_heading >= config.heading_stop_angle - config.heading_alignment_hysteresis;
   const double signed_angle_error = std::copysign(
     std::max(0.0, absolute_heading - config.angle_deadband), result.heading);
   result.target_velocity.angular_z = clampValue(
@@ -149,14 +178,16 @@ FollowResult computeFollowTarget(
     -config.max_angular_speed, config.max_angular_speed);
 
   if (absolute_heading > config.heading_slowdown_start) {
+    // 仅在大角度绕障区改变降速曲线，其余正常跟随继续使用原角度范围。
+    const double slowdown_stop = result.avoidance_heading_relaxed ?
+      config.avoidance_heading_stop_angle : config.heading_stop_angle;
     const double ratio =
       (absolute_heading - config.heading_slowdown_start) /
-      (config.heading_stop_angle - config.heading_slowdown_start);
+      (slowdown_stop - config.heading_slowdown_start);
     result.heading_scale = 1.0 - smoothStep(ratio);
     result.target_velocity.linear_x *= result.heading_scale;
   }
 
-  result.blind_rotation = absolute_heading >= config.heading_stop_angle;
   if (result.blind_rotation) {
     result.target_velocity.linear_x = 0.0;
     result.target_velocity.angular_z = clampValue(
@@ -168,6 +199,10 @@ FollowResult computeFollowTarget(
   {
     // 方位降速后仍要跨过实机起步死区，非零前进指令不得低于最小线速度。
     result.target_velocity.linear_x = config.min_linear_speed;
+  }
+  if (result.avoidance_heading_relaxed) {
+    result.target_velocity.linear_x = std::min(
+      result.target_velocity.linear_x, config.avoidance_heading_max_linear_speed);
   }
   return result;
 }

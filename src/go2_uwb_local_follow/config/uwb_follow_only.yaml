@@ -1,56 +1,61 @@
 uwb_target_adapter_node:
   ros__parameters:
-    raw_topic: /libAoa_robot_publisher
-    target_topic: /uwb/target_point
-    target_frame: base_footprint
+    raw_topic: /libAoa_robot_publisher  # 原始 UWB 测距与方位数据输入话题
+    target_topic: /uwb/target_point  # 转换到机器人坐标系的 UWB 目标点话题
+    target_frame: base_footprint  # 输出目标点所属坐标系；安装偏移均相对此坐标系定义
     # 厂家 x 向前、y 向左；安装原点偏差确认后在这里标定。
-    sensor_offset_x: 0.0
-    sensor_offset_y: 0.0
-    sensor_yaw: 0.0
-    diagnostics_topic: /uwb/target_adapter_diagnostics
-    diagnostic_frequency: 2.0
+    sensor_offset_x: 0.0  # UWB 安装位置的前向偏移（m），向前为正
+    sensor_offset_y: 0.0  # UWB 安装位置的横向偏移（m），向左为正
+    sensor_yaw: 0.0  # UWB 安装偏航角（rad）；先旋转测量点，再叠加安装位置偏移
+    diagnostics_topic: /uwb/target_adapter_diagnostics  # 当前节点运行状态与异常诊断的输出话题
+    diagnostic_frequency: 2.0  # 诊断发布频率（Hz）；仅影响状态输出频率
 
 uwb_follow_controller_node:
   ros__parameters:
-    base_frame: base_footprint
-    target_topic: /uwb/target_point
-    odom_topic: /odom_leg
+    base_frame: base_footprint  # 机器人机身坐标系，用于目标、障碍及控制计算
+    target_topic: /uwb/target_point  # 转换到机器人坐标系的 UWB 目标点话题
+    odom_topic: /odom_leg  # 机器人实际位姿与速度的里程计输入话题
     # 第一阶段默认隔离输出，实机验收时显式改为 /cmd_vel。
-    cmd_vel_topic: /cmd_vel_follow
-    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd
-    diagnostics_topic: /go2_uwb_local_follow/follow_diagnostics
-    enable_motion: true
-    control_frequency: 20.0
-    diagnostic_frequency: 2.0
-    target_timeout_sec: 0.50
-    odom_timeout_sec: 0.20
-    transform_timeout_sec: 0.10
+    cmd_vel_topic: /cmd_vel_follow  # 最终底盘速度输出话题；实机连接由启动文件配置
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # 跟随或漫游生成的名义速度话题，供下游规划器避障
+    diagnostics_topic: /go2_uwb_local_follow/follow_diagnostics  # 当前节点运行状态与异常诊断的输出话题
+    enable_motion: true  # 运动输出开关；false 时向底盘输出零速度
+    control_frequency: 20.0  # 控制循环频率（Hz）；增大可加快响应，但会增加计算负载
+    diagnostic_frequency: 2.0  # 诊断发布频率（Hz）；仅影响状态输出频率
+    target_timeout_sec: 0.50  # UWB 目标有效时限（s）；超时停止使用，收到新鲜有效数据后恢复
+    odom_timeout_sec: 0.20  # 里程计有效时限（s）；增大更耐断流，但异常停车响应更慢
+    transform_timeout_sec: 0.10  # 等待 TF 坐标变换的最大时长（s）
 
-    follow_distance: 1.0
-    distance_deadband: 0.08
+    follow_distance: 1.0  # 期望跟随距离（m）；进入该距离及距离死区后不再前进
+    distance_deadband: 0.08  # 跟随距离外额外的停止死区（m）；增大可减少距离噪声导致的启停
     # 进入 0.08 rad（约 4.6°）停止转向；超过 0.15 rad（约 8.6°）立即重新纠偏。
     # 调小可提高朝向精度但更易受 UWB 噪声影响；两者保留约 4° 滞回以抑制左右摆头。
-    angle_deadband: 0.08
-    angle_reengage: 0.15
+    angle_deadband: 0.08  # 静态停止转向的角度死区（rad）；动态制动可使转向更早停止
+    angle_reengage: 0.15  # 重新开始纠偏的基础角度门槛（rad），应大于 angle_deadband 以形成滞回
     # 实测角速度越高，按控制链路延迟和制动距离提前撤销 UWB 名义角速度。
-    turn_response_delay: 0.6
-    angular_braking_accel: 1.0
+    turn_response_delay: 0.6  # 估计的转向响应延迟（s）；增大将更早撤销转向命令
+    angular_braking_accel: 1.0  # 用于估算转向制动角度的减速度（rad/s²）；减小将更早制动
     # 动态刹车触发后保持零名义角速度，直到 |actual_wz| 降到该值以下。
-    angular_brake_release_speed: 0.06
-    angular_reverse_speed_threshold: 0.15
-    linear_kp: 0.6
-    angular_kp: 1.0
+    angular_brake_release_speed: 0.06  # 解除转向制动锁存的实测角速度门槛（rad/s）
+    angular_reverse_speed_threshold: 0.15  # 允许反向转向的实测角速度门槛（rad/s）；减小可抑制左右切换
+    linear_kp: 0.6  # 距离误差到前进速度的比例增益（1/s）；增大可加快跟随响应
+    angular_kp: 1.0  # 方位误差到转向速度的比例增益（1/s）；增大纠偏更积极，也更易摆头
     # MCF 跟随速度范围；最小非零速度避免低速前倾但无法迈步。
-    min_linear_speed: 0.23
-    max_linear_speed: 0.80
+    min_linear_speed: 0.23  # 最小非零前进速度（m/s），用于跨过底盘低速不迈步的区间
+    max_linear_speed: 0.80  # 前进速度上限（m/s）；增大跟随更快，但制动距离更长
     # UWB 方位误差越大角速度越高，最大限制为 2.0 rad/s。
-    max_angular_speed: 2.0
+    max_angular_speed: 2.0  # 转向角速度上限（rad/s）；完整链路还受局部规划器限制
     # 小于约 28.6° 时保留完整前进速度，优先采用行进中缓弯而不是频繁停走。
-    heading_slowdown_start: 0.50
-    heading_stop_angle: 1.05
+    heading_slowdown_start: 0.50  # 开始随方位偏差降低前进速度的角度（rad）
+    heading_stop_angle: 1.05  # 普通跟随停止前进并进入对准的角度（rad），恢复前进需满足对准滞回
+    heading_alignment_hysteresis: 0.15  # 普通跟随约 60.2° 开始对准，回到约 51.6° 才恢复前进
+    enable_avoidance_heading_relaxation: false  # 纯 UWB 关闭；完整跟随避障启动文件启用
+    avoidance_heading_stop_angle: 1.48  # 安全绕障反馈有效时，临时放宽至约 84.8°；必须小于 90°
+    avoidance_heading_max_linear_speed: 0.50  # 大角度绕障速度上限（m/s），仍须通过下游碰撞检查
+    avoidance_feedback_topic: /go2_uwb_local_follow/avoidance_feedback  # 规划器已验证的前进绕障反馈话题；新鲜有效反馈才允许放宽对准角度
     # 目标进入侧后方时停止前进，盲转角速度同样限制为 2.0 rad/s。
-    blind_rotation_max_speed: 2.0
+    blind_rotation_max_speed: 2.0  # 大角度对准时的角速度上限（rad/s）；直连跟随不含障碍检查
     # 最大加速度 0.8 m/s² 时，从静止到 0.8 m/s 理论约需 1 秒。
-    max_linear_accel: 0.80
-    max_linear_decel: 0.80
-    max_angular_accel: 1.0
+    max_linear_accel: 0.80  # 直连跟随输出的线加速度上限（m/s²）；完整链路由局部规划器限速
+    max_linear_decel: 0.80  # 直连跟随输出的线减速度上限（m/s²）；越小停车越柔和，制动距离越长
+    max_angular_accel: 1.0  # 直连跟随输出的角加速度上限（rad/s²）；越小转向变化越平缓

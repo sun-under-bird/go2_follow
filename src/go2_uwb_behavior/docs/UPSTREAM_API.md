@@ -327,3 +327,11 @@ ros2 topic info /go2_uwb_local_follow/nominal_cmd --verbose
 
 接口验证完成后，先把 `random_goal_radius_max` 改为 `2.5` 米，在封闭安全场地低速验证，
 确认到达、取消、STOP、FOLLOW 抢占、输入断流和障碍阻断都能停车，再恢复正式参数。
+
+## 输入短暂失效时的兼容语义
+
+输入超时后 Action 先暂停，诊断为 `ROAM_INPUT_PAUSED`，Feedback 仍使用原有
+`STOPPING` 数值，不新增接口字段。默认恢复窗口为 3 秒，可通过
+`input_recovery_timeout_sec` 配置；窗口内全部输入恢复并确认停稳后继续原目标。
+超过恢复窗口才返回 `INPUT_TIMEOUT`，Action 总超时不会因为暂停而延长。取消和
+模式切换仍可随时抢占；显式 STOP 不会被数据恢复自动解除。

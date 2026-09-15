@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
 project(go2_uwb_behavior)
 
+# 单配置构建默认保留调试符号并启用优化；显式 Debug 等选择仍然有效。
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -80,6 +85,7 @@ if(BUILD_TESTING)
   target_include_directories(test_behavior_core PRIVATE include)
 
   add_launch_test(test/test_behavior_action_launch.py TIMEOUT 60)
+  add_launch_test(test/test_heading_avoidance_launch.py TIMEOUT 45)
 endif()
 
 ament_export_include_directories(include)

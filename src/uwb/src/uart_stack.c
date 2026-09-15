@@ -36,183 +36,116 @@ static int uwb_log_printf(const char *format, ...)
 #define UWB_LOG uwb_log_printf
 // #define UWB_LOG(...)
 
-//uart receive
-typedef enum
-{
-	waitForFirstStart = 0x00,
-	waitForSecondStart,
-	waitForSeq,
-	waitForLen,
-	waitForData,
-	waitForCrc,
-	waitForOver
-
-} dataRxState;
-
-static uint8_t receive_tlv_seq = 0;
-static uint8_t radar_rx_Buf[100] = {0x00};
-static uint8_t rx_packet_ok = 0x00;
+// 接收状态独立保存，串口重连和半帧超时均可显式复位。
+typedef enum {waitForFirstStart, waitForSecondStart, waitForSeq, waitForLen,
+  waitForData, waitForCrc} dataRxState;
+static dataRxState rx_state = waitForFirstStart;
+static uint8_t radar_rx_Buf[100];
+static uint8_t rx_packet_ok = 0;
 static uint16_t receive_tlv_len = 0;
-static uint16_t new_crc_data = 0x0000;
+static uint16_t receive_count = 0;
+static uint8_t length_count = 0;
+static uint8_t crc_count = 0;
+static uint64_t last_byte_ms = 0;
+static int have_byte_time = 0;
 
-static uint16_t math_crc16(uint16_t last_crc_result, const void *data, uint16_t len)
+// 清除所有半帧状态，保证设备重连后不会拼接断线前的数据。
+void uart_reset_receiver(void)
 {
-	static const uint16_t crc_tab[16] =
-		{
-			0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
-			0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF};
-
-	uint8_t temporary_variable = 0;
-	uint16_t crc_result = 0;
-	const uint8_t *ptr = (const uint8_t *)data;
-
-	while (len--)
-	{
-		temporary_variable = (uint8_t)(last_crc_result >> 12);
-		last_crc_result <<= 4;
-		last_crc_result ^= crc_tab[temporary_variable ^ ((*ptr) >> 4)];
-		temporary_variable = last_crc_result >> 12;
-		last_crc_result <<= 4;
-		last_crc_result ^= crc_tab[temporary_variable ^ ((*ptr) & 0x0F)];
-
-		crc_result = last_crc_result;
-		ptr++;
-	}
-	return crc_result;
+  rx_state = waitForFirstStart;
+  rx_packet_ok = 0;
+  receive_tlv_len = 0;
+  receive_count = 0;
+  length_count = 0;
+  crc_count = 0;
+  have_byte_time = 0;
 }
 
-// Calc the CRC for the parameters
-static int8_t calc_crc(uint8_t *data, uint16_t datat_len, uint8_t *crc_high, uint8_t *crc_low)
+// 计算协议使用的 CRC-CCITT，支持任意合法载荷长度。
+static uint16_t math_crc16(uint16_t crc, const void *data, uint16_t len)
 {
-	//static uint8_t tail_crc_data[2] = {0x00, 0x00};
-
-	new_crc_data = math_crc16(0x0000, data, datat_len);
-
-	// tail_crc_data[0] = (uint8_t)((new_crc_data) & 0x00FF);
-	// tail_crc_data[1] = (uint8_t)((new_crc_data) >> 8);
-
-	*crc_low = (uint8_t)((new_crc_data) & 0x00FF);
-	*crc_high = (uint8_t)((new_crc_data) >> 8);
-
-	return 0;
+  const uint8_t *bytes = (const uint8_t *)data;
+  for (uint16_t i = 0; i < len; ++i) {
+    crc ^= (uint16_t)bytes[i] << 8;
+    for (int bit = 0; bit < 8; ++bit) {
+      crc = (crc & 0x8000U) ? (uint16_t)((crc << 1) ^ 0x1021U) : (uint16_t)(crc << 1);
+    }
+  }
+  return crc;
 }
 
-// 逐字节解析串口帧，并在长度异常时复位状态机以防止缓冲区越界。
-int8_t uart_receive_byte(uint8_t input_data)
+// 按高低字节分离协议 CRC，供接收检查和发送打包复用。
+static int8_t calc_crc(uint8_t *data, uint16_t len, uint8_t *high, uint8_t *low)
 {
-	static dataRxState rxState = waitForFirstStart;
-	static uint8_t rec_tlvlen_count, rec_crc_count, rec_count = 0;
-	static uint8_t rec_tlvlen_buf[2] = {0x00, 0x00};
-	static uint16_t cal_rec_crc_data, rec_crc_result = 0x0000;
-
-	static uint8_t cal_rec_crc_data_high, cal_rec_crc_data_low = 0x00;
-
-	switch (rxState)
-	{
-	case waitForFirstStart:
-	{
-		rxState = (input_data == PACKET_HEAD0) ? waitForSecondStart : waitForFirstStart;
-		break;
-	}
-
-	case waitForSecondStart:
-	{
-		rxState = (input_data == PACKET_HEAD1) ? waitForSeq : waitForFirstStart;
-		break;
-	}
-
-	case waitForSeq:
-	{
-		receive_tlv_seq = input_data;
-		rxState = waitForLen;
-		break;
-	}
-
-	case waitForLen:
-	{
-		rec_tlvlen_count++;
-		if (rec_tlvlen_count >= 2)
-		{
-			rec_tlvlen_buf[1] = input_data;
-
-			receive_tlv_len = (uint16_t)(rec_tlvlen_buf[1] << 8) + (uint16_t)(rec_tlvlen_buf[0] << 0);
-			if (receive_tlv_len > sizeof(radar_rx_Buf) - 2U)
-			{
-				receive_tlv_len = 0;
-				rec_tlvlen_count = 0;
-				rec_count = 0;
-				rec_crc_count = 0;
-				rx_packet_ok = 0;
-				rxState = waitForFirstStart;
-				break;
-			}
-
-			rec_tlvlen_count = 0;
-			rxState = waitForData;
-		}
-		rec_tlvlen_buf[0] = input_data;
-		break;
-	}
-
-	case waitForData:
-	{
-		if (rec_count < receive_tlv_len && rec_count < sizeof(radar_rx_Buf))
-		{
-			radar_rx_Buf[rec_count] = input_data;
-			rec_count++;
-			if (rec_count >= receive_tlv_len)
-			{
-				rxState = waitForCrc;
-			}
-		}
-		break;
-	}
-
-	case waitForCrc:
-	{
-		if (receive_tlv_len + rec_crc_count >= sizeof(radar_rx_Buf))
-		{
-			rec_count = 0;
-			rec_crc_count = 0;
-			rx_packet_ok = 0;
-			rxState = waitForFirstStart;
-			break;
-		}
-		radar_rx_Buf[receive_tlv_len + rec_crc_count] = input_data;
-
-		rec_crc_count++;
-
-		if (rec_crc_count >= 2)
-		{
-			rec_crc_result = (uint16_t)(radar_rx_Buf[receive_tlv_len] << 8) +
-							 (uint16_t)(radar_rx_Buf[receive_tlv_len + 1]);
-
-			calc_crc(&radar_rx_Buf[0], receive_tlv_len, &cal_rec_crc_data_high, &cal_rec_crc_data_low);
-
-			cal_rec_crc_data = (uint16_t)(cal_rec_crc_data_high << 8) + (uint16_t)(cal_rec_crc_data_low);
-
-			if (cal_rec_crc_data == rec_crc_result)
-			{
-				rx_packet_ok = 0x01;
-			}
-			rec_count = 0;
-			rec_crc_count = 0;
-			rxState = waitForFirstStart;
-		}
-		break;
-	}
-
-	case waitForOver:
-	{
-		// rxState = waitForFirstStart;
-		break;
-	}
-	}
-
-	return rx_packet_ok;
-	// return 1;
+  const uint16_t crc = math_crc16(0, data, len);
+  *high = (uint8_t)(crc >> 8);
+  *low = (uint8_t)crc;
+  return 0;
 }
 
+// 使用可注入的单调时间解析字节，超过 200 ms 的半帧立即丢弃并重新寻帧。
+int8_t uart_receive_byte_at(uint8_t byte, uint64_t now_ms)
+{
+  if (have_byte_time && (now_ms < last_byte_ms || now_ms - last_byte_ms > 200U)) {
+    uart_reset_receiver();
+  }
+  last_byte_ms = now_ms;
+  have_byte_time = 1;
+  rx_packet_ok = 0;
+  switch (rx_state) {
+    case waitForFirstStart:
+      rx_state = byte == PACKET_HEAD0 ? waitForSecondStart : waitForFirstStart;
+      break;
+    case waitForSecondStart:
+      // 连续 0x55 保留最后一个头字节，避免一个噪声字节吞掉完整帧头。
+      rx_state = byte == PACKET_HEAD1 ? waitForSeq :
+        (byte == PACKET_HEAD0 ? waitForSecondStart : waitForFirstStart);
+      break;
+    case waitForSeq:
+      receive_tlv_len = 0;
+      length_count = 0;
+      rx_state = waitForLen;
+      break;
+    case waitForLen:
+      receive_tlv_len |= (uint16_t)byte << (8U * length_count++);
+      if (length_count == 2U) {
+        if (receive_tlv_len < 2U || receive_tlv_len > sizeof(radar_rx_Buf) - 2U) {
+          uart_reset_receiver();
+          break;
+        }
+        receive_count = 0;
+        crc_count = 0;
+        rx_state = waitForData;
+      }
+      break;
+    case waitForData:
+      radar_rx_Buf[receive_count++] = byte;
+      if (receive_count == receive_tlv_len) {
+        rx_state = waitForCrc;
+      }
+      break;
+    case waitForCrc:
+      radar_rx_Buf[receive_tlv_len + crc_count++] = byte;
+      if (crc_count == 2U) {
+        const uint16_t received_crc = ((uint16_t)radar_rx_Buf[receive_tlv_len] << 8) |
+          radar_rx_Buf[receive_tlv_len + 1U];
+        rx_packet_ok = math_crc16(0, radar_rx_Buf, receive_tlv_len) == received_crc;
+        rx_state = waitForFirstStart;
+      }
+      break;
+  }
+  return rx_packet_ok;
+}
+
+// 用系统单调时钟驱动字节解析，不受 ROS 或墙上时钟跳变影响。
+int8_t uart_receive_byte(uint8_t byte)
+{
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return uart_receive_byte_at(byte, (uint64_t)now.tv_sec * 1000U + now.tv_nsec / 1000000U);
+}
+
+// 在本地缓冲区内打包协议帧；为帧头、TLV 和 CRC 预留完整空间。
 void uart_protocol_transmit(uint8_t cmd, uint8_t* data, uint16_t len)
 {
 	static uint8_t seq = 0;
@@ -220,13 +153,13 @@ void uart_protocol_transmit(uint8_t cmd, uint8_t* data, uint16_t len)
 	uint8_t crc_high, crc_low = 0;
 	uint8_t uart_data[255] = {0x55, 0xAA, 0x00, 0x04, 0x00, 0x00, 0x02, 0x41, 0x00, 0x00, 0x00};
 
-	if(len>255) return;
+	if(len > sizeof(uart_data) - 9U || (len > 0U && data == NULL)) return;
 
 	seq++;
 	
 	uart_data[2] = seq;
 	uart_data[3] = tlv_total_len&0xff;
-	uart_data[4] = (tlv_total_len>>7)&0xff;
+	uart_data[4] = (tlv_total_len>>8)&0xff;
 	uart_data[5] = cmd;
 	uart_data[6] = len;
 	memcpy(&uart_data[7], data, len);
@@ -240,50 +173,26 @@ void uart_protocol_transmit(uint8_t cmd, uint8_t* data, uint16_t len)
 	// phscaLinFlex_UartSendBytes(AskWritePulseWidthToFlash_array, 11);
 }
 
-// when uart receive a complete packet, call the function
+// 验证完整载荷尺寸后才向上层暴露厂家结构，防止短帧复用缓冲区中的旧坐标。
 int8_t uart_protocol_packet_process(void **buffer)
 {
-	uint8_t cmd = radar_rx_Buf[0];	//type
-
-	uint8_t ret = 1;
-
-	if (rx_packet_ok != 0x01)
-	{
-		return 0;
-		
-	}else if (rx_packet_ok == 0x01)
-	{
-		switch (cmd)
-		{
-			case DEVICE_RESPONSE:
-			{
-				break;
-			}
-			case NOTIFY_DISTANCE_ANGLE_RSSI:
-			{
-				uwb_aoa_pkg_t *uwb_aoa_pkg = (uwb_aoa_pkg_t *)&radar_rx_Buf[2];
-				
-				UWB_LOG("[UWB UART]: dis: %.3f, agl: %.3f, rl: %.3d, \r\n", uwb_aoa_pkg->distance, uwb_aoa_pkg->angle, uwb_aoa_pkg->rssi_len);
-
-				break;
-			}
-
-			case NOTIFY_DISTANCE_ANGLE_RSSI_FOBID:
-			{
-				uwb_aoa_fob_pkg_t *uwb_aoa_fob_pkg = (uwb_aoa_fob_pkg_t *)&radar_rx_Buf[2];
-				*buffer = uwb_aoa_fob_pkg;
-
-				UWB_LOG("[UWB]: dis: %.3f, agl: %.3f, pitch: %.3f\r\n", uwb_aoa_fob_pkg->distance, uwb_aoa_fob_pkg->angle, uwb_aoa_fob_pkg->pitch);
-				ret = NOTIFY_DISTANCE_ANGLE_RSSI_FOBID;
-				break;
-			}
-
-			default:
-			break;
-		}
-		receive_tlv_seq = 0;
-		rx_packet_ok = 0;
-	}
-
-	return ret;
+  if (buffer == NULL || !rx_packet_ok) {
+    return 0;
+  }
+  *buffer = NULL;
+  rx_packet_ok = 0;
+  if (receive_tlv_len < 2U || radar_rx_Buf[1] > receive_tlv_len - 2U) {
+    return 0;
+  }
+  if (radar_rx_Buf[0] == NOTIFY_DISTANCE_ANGLE_RSSI_FOBID &&
+    receive_tlv_len >= 2U + sizeof(uwb_aoa_fob_pkg_t) &&
+    radar_rx_Buf[1] >= sizeof(uwb_aoa_fob_pkg_t))
+  {
+    uwb_aoa_fob_pkg_t *packet = (uwb_aoa_fob_pkg_t *)&radar_rx_Buf[2];
+    *buffer = packet;
+    UWB_LOG("[UWB]: dis: %.3f, agl: %.3f, pitch: %.3f\n",
+      packet->distance, packet->angle, packet->pitch);
+    return (int8_t)NOTIFY_DISTANCE_ANGLE_RSSI_FOBID;
+  }
+  return 0;
 }

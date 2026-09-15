@@ -40,6 +40,7 @@
 #include "tf2_ros/transform_listener.h"
 
 #include "go2_uwb_local_follow/follow_control_core.hpp"
+#include "go2_uwb_local_follow/input_timing.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -73,6 +74,8 @@ public:
       "nominal_cmd_topic", "/go2_uwb_local_follow/nominal_cmd");
     diagnostics_topic_ = declare_parameter<std::string>(
       "diagnostics_topic", "/go2_uwb_local_follow/follow_diagnostics");
+    avoidance_feedback_topic_ = declare_parameter<std::string>(
+      "avoidance_feedback_topic", "/go2_uwb_local_follow/avoidance_feedback");
     enable_motion_ = declare_parameter<bool>("enable_motion", true);
     control_frequency_ = declare_parameter<double>("control_frequency", 20.0);
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
@@ -98,6 +101,14 @@ public:
     config_.heading_slowdown_start = declare_parameter<double>(
       "heading_slowdown_start", 0.50);
     config_.heading_stop_angle = declare_parameter<double>("heading_stop_angle", 1.40);
+    config_.heading_alignment_hysteresis = declare_parameter<double>(
+      "heading_alignment_hysteresis", 0.15);
+    config_.enable_avoidance_heading_relaxation = declare_parameter<bool>(
+      "enable_avoidance_heading_relaxation", false);
+    config_.avoidance_heading_stop_angle = declare_parameter<double>(
+      "avoidance_heading_stop_angle", 1.48);
+    config_.avoidance_heading_max_linear_speed = declare_parameter<double>(
+      "avoidance_heading_max_linear_speed", 0.50);
     config_.blind_rotation_max_speed = declare_parameter<double>(
       "blind_rotation_max_speed", 2.00);
     config_.max_linear_accel = declare_parameter<double>("max_linear_accel", 0.80);
@@ -106,11 +117,14 @@ public:
     validateParameters();
 
     target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
-      target_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
+      target_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable(),
       std::bind(&UwbFollowControllerNode::targetCallback, this, std::placeholders::_1));
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       odom_topic_, rclcpp::SensorDataQoS(),
       std::bind(&UwbFollowControllerNode::odomCallback, this, std::placeholders::_1));
+    avoidance_feedback_sub_ = create_subscription<geometry_msgs::msg::TwistStamped>(
+      avoidance_feedback_topic_, rclcpp::QoS(1).reliable(),
+      std::bind(&UwbFollowControllerNode::avoidanceFeedbackCallback, this, std::placeholders::_1));
     cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
     nominal_cmd_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(nominal_cmd_topic_, 10);
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
@@ -153,6 +167,7 @@ private:
   struct OdomSnapshot
   {
     double angular_z{0.0};
+    std::int64_t stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
@@ -161,7 +176,7 @@ private:
   void validateParameters()
   {
     std::string reason;
-    if (base_frame_.empty() || odom_topic_.empty()) {
+    if (base_frame_.empty() || odom_topic_.empty() || avoidance_feedback_topic_.empty()) {
       throw std::invalid_argument("base_frame and odom_topic must not be empty");
     }
     if (!validateFollowConfig(config_, &reason)) {
@@ -183,6 +198,11 @@ private:
   // 将目标点按其自身时间戳转换到 base_footprint；回调只覆盖最新目标快照。
   void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr message)
   {
+    if (!target_stamp_tracker_.accept(
+        sourceStampNanoseconds(message->header.stamp), now().nanoseconds(), target_timeout_sec_))
+    {
+      return;
+    }
     if (!std::isfinite(message->point.x) || !std::isfinite(message->point.y) ||
       !std::isfinite(message->point.z) || message->header.frame_id.empty())
     {
@@ -239,10 +259,16 @@ private:
   // 从 /odom_leg 保存未经命令死区处理的真实角速度，供动态停止角计算。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!odom_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), odom_timeout_sec_)) {
+      return;
+    }
     OdomSnapshot snapshot;
+    snapshot.stamp_ns = stamp_ns;
     snapshot.receipt_time = std::chrono::steady_clock::now();
     snapshot.angular_z = message->twist.twist.angular.z;
-    snapshot.valid = std::isfinite(snapshot.angular_z);
+    snapshot.valid = message->child_frame_id == base_frame_ &&
+      std::isfinite(snapshot.angular_z);
     std::lock_guard<std::mutex> lock(odom_mutex_);
     latest_odom_ = snapshot;
   }
@@ -252,6 +278,16 @@ private:
   {
     std::lock_guard<std::mutex> lock(odom_mutex_);
     return latest_odom_;
+  }
+
+  // 接收规划器已验证的前进绕障指令，按源时间戳和接收时间限制许可有效期。
+  void avoidanceFeedbackCallback(const geometry_msgs::msg::TwistStamped::SharedPtr message)
+  {
+    const bool safe_forward = message->header.frame_id == base_frame_ &&
+      std::isfinite(message->twist.linear.x) && message->twist.linear.x > 0.0 &&
+      std::isfinite(message->twist.angular.z);
+    avoidance_feedback_.update(
+      sourceStampNanoseconds(message->header.stamp), now().nanoseconds(), safe_forward);
   }
 
   // 固定频率计算名义速度、执行变化率限制并发布隔离跟随速度。
@@ -268,8 +304,9 @@ private:
       publishImmediateStop("WAIT_TARGET");
       return;
     }
-    const double target_age =
-      std::chrono::duration<double>(current_time - target.receipt_time).count();
+    const double target_age = std::max(
+      std::chrono::duration<double>(current_time - target.receipt_time).count(),
+      sourceAgeSeconds(sourceStampNanoseconds(target.source_stamp), now().nanoseconds()));
     if (target_age > target_timeout_sec_) {
       publishImmediateStop("TARGET_LOST");
       return;
@@ -280,14 +317,18 @@ private:
       publishImmediateStop("WAIT_ODOM");
       return;
     }
-    const double odom_age =
-      std::chrono::duration<double>(current_time - odom.receipt_time).count();
+    const double odom_age = std::max(
+      std::chrono::duration<double>(current_time - odom.receipt_time).count(),
+      sourceAgeSeconds(odom.stamp_ns, now().nanoseconds()));
     if (odom_age > odom_timeout_sec_) {
       publishImmediateStop("ODOM_TIMEOUT");
       return;
     }
 
-    FollowResult result = computeFollowTarget(target.x, target.y, config_);
+    FollowResult result = computeFollowTarget(
+      target.x, target.y, config_, avoidance_feedback_.active(now().nanoseconds()),
+      heading_alignment_latched_);
+    heading_alignment_latched_ = result.blind_rotation;
     const DynamicAngularBrakeResult brake = applyDynamicAngularBrake(
       result.heading, result.target_velocity.angular_z, odom.angular_z, config_, turn_direction_,
       angular_brake_latched_);
@@ -315,6 +356,8 @@ private:
     if (!enable_motion_) {
       output = Velocity2D{};
       setState("OUTPUT_DISABLED");
+    } else if (result.avoidance_heading_relaxed) {
+      setState("AVOIDANCE_HEADING_RELAXED");
     } else if (result.blind_rotation) {
       setState("BLIND_ROTATE");
     } else if (result.within_follow_distance) {
@@ -335,6 +378,8 @@ private:
   // 超时或无目标时绕过普通平滑，立即发布零速度并清除历史输出。
   void publishImmediateStop(const std::string & state)
   {
+    heading_alignment_latched_ = false;
+    avoidance_feedback_.reset();
     publishVelocity(Velocity2D{});
     publishNominal(Velocity2D{});
     {
@@ -397,7 +442,7 @@ private:
     array.header.stamp = now();
     diagnostic_msgs::msg::DiagnosticStatus status;
     status.level = state == "FOLLOWING" || state == "HOLD_DISTANCE" ||
-      state == "BLIND_ROTATE" ?
+      state == "BLIND_ROTATE" || state == "AVOIDANCE_HEADING_RELAXED" ?
       diagnostic_msgs::msg::DiagnosticStatus::OK :
       diagnostic_msgs::msg::DiagnosticStatus::WARN;
     status.name = get_fully_qualified_name() + std::string(": UWB follow controller");
@@ -416,6 +461,10 @@ private:
         have_result && result.angular_brake_latched ? "true" : "false"},
       {"turn_direction", have_result ? std::to_string(result.turn_direction) : "0"},
       {"heading_scale", have_result ? formatDouble(result.heading_scale) : "n/a"},
+      {"avoidance_heading_relaxed",
+        have_result && result.avoidance_heading_relaxed ? "true" : "false"},
+      {"heading_alignment",
+        have_result && result.blind_rotation ? "true" : "false"},
       {"nominal_v", have_result ? formatDouble(result.target_velocity.linear_x) : "0.000"},
       {"nominal_w", have_result ? formatDouble(result.target_velocity.angular_z) : "0.000"},
       {"output_v", formatDouble(output.linear_x)},
@@ -430,6 +479,12 @@ private:
     diagnostics_pub_->publish(array);
   }
 
+  SourceStampTracker target_stamp_tracker_;
+  SourceStampTracker odom_stamp_tracker_;
+  AvoidanceFeedbackTracker avoidance_feedback_;
+  bool heading_alignment_latched_{false};
+  std::string avoidance_feedback_topic_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistStamped>::SharedPtr avoidance_feedback_sub_;
   std::string base_frame_;
   std::string target_topic_;
   std::string odom_topic_;

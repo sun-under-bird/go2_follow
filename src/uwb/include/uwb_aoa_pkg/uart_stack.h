@@ -80,6 +80,11 @@ typedef struct
 }__attribute__((packed)) uwb_aoa_fob_pkg_t;
 // } uwb_aoa_fob_pkg_t;//TODO, no align
 
+// 复位接收状态，供串口重连和确定性测试使用。
+void uart_reset_receiver(void);
+// 以毫秒单调时间处理字节，自动丢弃超时半帧。
+int8_t uart_receive_byte_at(uint8_t input_data, uint64_t now_ms);
+
 void uart_protocol_transmit(uint8_t cmd, uint8_t* data, uint16_t len);
 int8_t uart_receive_byte(uint8_t input_data);
 int8_t uart_protocol_packet_process(void **buffer);

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.8)
 project(go2_uwb_local_follow)
 
+# 单配置构建默认保留调试符号并启用优化；显式 Debug 等选择仍然有效。
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+endif()
+
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -36,6 +41,7 @@ target_compile_features(follow_control_core PUBLIC cxx_std_17)
 
 add_library(local_planner_core
   src/local_planner_core.cpp
+  src/obstacle_index.cpp
 )
 target_include_directories(local_planner_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -123,7 +129,7 @@ target_include_directories(local_velocity_planner_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_compile_features(local_velocity_planner_node PUBLIC cxx_std_17)
-target_link_libraries(local_velocity_planner_node local_planner_core)
+target_link_libraries(local_velocity_planner_node local_planner_core rolling_obstacle_map_core)
 ament_target_dependencies(local_velocity_planner_node
   diagnostic_msgs
   geometry_msgs
@@ -170,7 +176,18 @@ install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
+  find_package(launch_testing_ament_cmake REQUIRED)
+  add_launch_test(test/test_planner_recovery_launch.py TIMEOUT 45)
   ament_lint_auto_find_test_dependencies()
+
+  add_executable(benchmark_local_planner test/benchmark_local_planner.cpp)
+  target_link_libraries(benchmark_local_planner local_planner_core)
+
+  ament_add_gtest(test_input_timing test/test_input_timing.cpp)
+  target_include_directories(test_input_timing PRIVATE include)
+  ament_add_gtest(test_obstacle_index test/test_obstacle_index.cpp)
+  target_link_libraries(test_obstacle_index local_planner_core)
+  target_include_directories(test_obstacle_index PRIVATE include)
 
   ament_add_gtest(test_stereo_projection_core
     test/test_stereo_projection_core.cpp
@@ -197,6 +214,7 @@ if(BUILD_TESTING)
   target_include_directories(test_rolling_obstacle_map_core PRIVATE include)
 endif()
 
+ament_export_dependencies(nav_msgs sensor_msgs)
 ament_export_include_directories(include)
 ament_export_libraries(
   stereo_projection_core
