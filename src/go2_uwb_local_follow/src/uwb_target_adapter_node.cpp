@@ -28,6 +28,7 @@
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "uwb_aoa_pkg/msg/lib_aoa_robot_msg.hpp"
+#include "go2_uwb_local_follow/input_timing.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -41,7 +42,6 @@ std::string formatDouble(double value, int precision = 3)
   stream << std::fixed << std::setprecision(precision) << value;
   return stream.str();
 }
-
 }  // namespace
 
 class UwbTargetAdapterNode : public rclcpp::Node
@@ -94,9 +94,14 @@ private:
     }
   }
 
-  // 接收厂家 x/y，每帧立即赋接收时间戳并转换到配置的机身二维坐标。
+  // 接收厂家 x/y，保留采集时间戳并转换到配置的机身二维坐标。
   void rawTargetCallback(const uwb_aoa_pkg::msg::LibAoaRobotMsg::SharedPtr message)
   {
+    if (!source_stamp_tracker_.accept(
+        sourceStampNanoseconds(message->header.stamp), now().nanoseconds(), 0.50))
+    {
+      return;
+    }
     if (!std::isfinite(message->x) || !std::isfinite(message->y)) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 2000, "Reject non-finite UWB x/y sample");
@@ -112,8 +117,8 @@ private:
     const double target_y = sensor_offset_y_ + sine * message->x + cosine * message->y;
 
     geometry_msgs::msg::PointStamped target;
-    // 统一使用本节点接收时刻，避免驱动时钟与控制节点时钟不一致造成目标误判过期。
-    target.header.stamp = now();
+    // 保留驱动采集时间，禁止把积压的串口消息重新盖章为新目标。
+    target.header.stamp = message->header.stamp;
     target.header.frame_id = target_frame_;
     target.point.x = target_x;
     target.point.y = target_y;
@@ -166,6 +171,7 @@ private:
     diagnostics_pub_->publish(array);
   }
 
+  SourceStampTracker source_stamp_tracker_;
   std::string raw_topic_;
   std::string target_topic_;
   std::string target_frame_;

@@ -40,6 +40,7 @@
 #include "tf2_ros/transform_listener.h"
 
 #include "go2_uwb_local_follow/follow_control_core.hpp"
+#include "go2_uwb_local_follow/input_timing.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -145,7 +146,7 @@ private:
   {
     double x{0.0};
     double y{0.0};
-    builtin_interfaces::msg::Time source_stamp;
+    std::int64_t stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
@@ -153,6 +154,7 @@ private:
   struct OdomSnapshot
   {
     double angular_z{0.0};
+    std::int64_t stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
@@ -219,10 +221,18 @@ private:
       }
     }
 
+    const std::int64_t stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    const std::int64_t now_ns = now().nanoseconds();
+    if (!target_stamp_tracker_.accept(stamp_ns, now_ns, target_timeout_sec_)) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000, "Reject duplicate or stale target point");
+      return;
+    }
+
     TargetSnapshot snapshot;
     snapshot.x = target.x();
     snapshot.y = target.y();
-    snapshot.source_stamp = message->header.stamp;
+    snapshot.stamp_ns = stamp_ns;
     snapshot.receipt_time = std::chrono::steady_clock::now();
     snapshot.valid = std::isfinite(snapshot.x) && std::isfinite(snapshot.y);
     std::lock_guard<std::mutex> lock(target_mutex_);
@@ -239,8 +249,15 @@ private:
   // 从 /odom_leg 保存未经命令死区处理的真实角速度，供动态停止角计算。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    const std::int64_t stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!odom_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), odom_timeout_sec_)) {
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000, "Reject duplicate or stale odometry");
+      return;
+    }
     OdomSnapshot snapshot;
     snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.stamp_ns = stamp_ns;
     snapshot.angular_z = message->twist.twist.angular.z;
     snapshot.valid = std::isfinite(snapshot.angular_z);
     std::lock_guard<std::mutex> lock(odom_mutex_);
@@ -258,6 +275,7 @@ private:
   void controlTick()
   {
     const auto current_time = std::chrono::steady_clock::now();
+    const std::int64_t current_ros_ns = now().nanoseconds();
     const double measured_dt =
       std::chrono::duration<double>(current_time - last_control_time_).count();
     last_control_time_ = current_time;
@@ -268,8 +286,10 @@ private:
       publishImmediateStop("WAIT_TARGET");
       return;
     }
-    const double target_age =
-      std::chrono::duration<double>(current_time - target.receipt_time).count();
+    // 接收年龄防止断流，源年龄防止重复或积压消息伪装成新数据。
+    const double target_age = std::max(
+      std::chrono::duration<double>(current_time - target.receipt_time).count(),
+      sourceAgeSeconds(target.stamp_ns, current_ros_ns));
     if (target_age > target_timeout_sec_) {
       publishImmediateStop("TARGET_LOST");
       return;
@@ -280,8 +300,9 @@ private:
       publishImmediateStop("WAIT_ODOM");
       return;
     }
-    const double odom_age =
-      std::chrono::duration<double>(current_time - odom.receipt_time).count();
+    const double odom_age = std::max(
+      std::chrono::duration<double>(current_time - odom.receipt_time).count(),
+      sourceAgeSeconds(odom.stamp_ns, current_ros_ns));
     if (odom_age > odom_timeout_sec_) {
       publishImmediateStop("ODOM_TIMEOUT");
       return;
@@ -448,9 +469,11 @@ private:
 
   std::mutex target_mutex_;
   TargetSnapshot latest_target_;
+  SourceStampTracker target_stamp_tracker_;
 
   std::mutex odom_mutex_;
   OdomSnapshot latest_odom_;
+  SourceStampTracker odom_stamp_tracker_;
 
   std::mutex status_mutex_;
   Velocity2D last_output_;

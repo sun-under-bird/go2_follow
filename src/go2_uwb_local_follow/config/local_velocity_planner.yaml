@@ -1,11 +1,12 @@
 local_velocity_planner_node:
   ros__parameters:
+    odom_frame: odom  # 里程计位姿缓存用于把障碍补偿到当前控制时刻
     base_frame: base_footprint  # 规划坐标系；应与障碍点云和机器人足迹坐标系一致
-    odom_child_frame: base_footprint  # 里程计速度所属坐标系；只使用 twist，不使用 pose
+    odom_child_frame: base_footprint  # 里程计表示的机身坐标系，同时校验 pose 与 twist
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # UWB 名义速度输入话题
     obstacle_topic: /local_rolling_obstacle  # 里程计补偿和时间衰减后的滚动局部障碍点云
     odom_topic: /odom_leg  # 实际初始速度输入话题
-    planned_cmd_topic: /go2_uwb_local_follow/planned_cmd  # 采样器选中的目标速度
+    planned_cmd_topic: /go2_uwb_local_follow/planned_cmd  # MPPI 最优序列的首个目标速度
     final_cmd_topic: /go2_uwb_local_follow/final_cmd  # 加速度限幅后的最终速度
     cmd_vel_topic: /cmd_vel_planned  # 实机验收时由 launch 覆盖为 /cmd_vel
     selected_path_topic: /go2_uwb_local_follow/selected_path  # 选中轨迹可视化话题
@@ -17,6 +18,7 @@ local_velocity_planner_node:
     nominal_timeout_sec: 0.20  # ↑容忍 UWB 抖动/丢失停车晚；↓停车快/易误停；步长 0.05 s
     obstacle_timeout_sec: 0.70  # 略大于滚动地图原始点云超时，禁止历史重发布掩盖感知断流
     odom_timeout_sec: 0.10  # ↑容忍里程计断流/故障响应晚；↓更敏感/易误停；步长 0.02 s
+    obstacle_slowdown_after_sec: 0.30  # 点云短暂缺帧后逐渐降速，到 obstacle_timeout_sec 下发零速
     odom_linear_deadband: 0.02  # ↑过滤更多线速度噪声/忽略微动；↓更灵敏/易抖；步长 0.01 m/s
     odom_angular_deadband: 0.05  # ↑过滤更多角速度噪声/忽略微转；↓更灵敏/易抖；步长 0.01 rad/s
     angular_velocity_tracking_kp: 1.5  # 角速度误差 P 反馈；若实机仍难启动转向，再测试 1.5
@@ -25,7 +27,7 @@ local_velocity_planner_node:
     avoidance_direction_hold_sec: 0.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
 
     prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
-    simulation_dt: 0.08  # ↑计算快/检查粗；↓检查细/计算多；0.08 s 对应最高速约 4.8 cm/步；步长 0.01 s
+    simulation_dt: 0.05  # 与 20 Hz 控制周期一致，MPPI 每周期将最优序列前移一个时间步
 
     robot_length: 0.70  # ↑前后硬碰撞足迹更大、更保守；↓更贴近障碍；步长 0.02 m
     robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
@@ -42,14 +44,18 @@ local_velocity_planner_node:
     max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²
     max_angular_accel: 1.50  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
 
-    linear_samples: 10  # 保留给全局候选调试接口；分层规划使用下方速度比例
-    angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
-    min_avoidance_angular_speed: 0.50  # 仅主动避障候选使用；跟随小角速度不受影响；步长 0.05 rad/s
-    max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随仍可达到 2.0 rad/s；步长 0.10 rad/s
-    linear_speed_priority_scales: [1.0, 0.80, 0.65, 0.40, 0.0]  # 当前速度层无安全轨迹才进入下一层
-    obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
+    mppi_batch_size: 48  # 每轮随机控制序列数量；5000 点压力测试为 20 Hz 留出抖动余量
+    mppi_iteration_count: 2  # 每周期 MPPI 加权更新次数；↑收敛充分/计算量线性增加
+    mppi_temperature: 0.05  # 匹配当前平均代价尺度；↓更集中选择低代价序列
+    mppi_linear_noise_std: 0.18  # 线速度序列高斯扰动标准差，普通规划仍禁止负速度
+    mppi_angular_noise_std: 0.45  # 角速度序列高斯扰动标准差
+    mppi_noise_correlation: 0.85  # 相邻时刻噪声相关性，避免控制序列高频左右抖动
+    mppi_random_seed: 7  # 固定种子保证回归与影子测试可复现
+    min_avoidance_angular_speed: 0.50  # 确定性左右转弯种子的最小角速度
+    max_avoidance_angular_speed: 1.50  # MPPI 普通规划角速度上限；紧急恢复仍只直退
+    obstacle_influence_distance: 0.55  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
     minimum_safe_clearance: 0.05  # 候选相对膨胀足迹的基础软净空；低于该值视为勉强不碰撞
-    minimum_ttc: 0.20  # 按足迹边界速度换算所需净空；↑高速更早降层，↓更偏向保持速度；步长 0.05 s
+    minimum_ttc: 0.30  # 按足迹边界速度换算所需净空；↑高速更早降层，↓更偏向保持速度；步长 0.05 s
     weight_follow_linear: 4.0  # ↑更服从 UWB 线速度；↓更允许避障减速；步长 0.5
     weight_follow_angular: 4.0  # ↑更服从 UWB 角速度，名义为零时更直；↓更易主动绕行；步长 0.5
     weight_smooth_linear: 6.0  # ↑线速度更连续/响应慢；↓响应快/易忽快忽慢；步长 0.5

@@ -137,6 +137,8 @@ struct LocalPlanResult
   bool avoidance_active{false};
   PlannerVelocity2D effective_nominal;
   PlannerVelocity2D selected_velocity;
+  // MPPI 返回的完整时变控制序列；旧的单速度规划接口可以保持为空。
+  std::vector<PlannerVelocity2D> selected_controls;
   std::vector<PlannerPose2D> selected_trajectory;
   PlannerCost cost;
   double min_clearance{std::numeric_limits<double>::infinity()};

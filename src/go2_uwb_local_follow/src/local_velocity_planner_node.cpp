@@ -39,6 +39,8 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 
 #include "go2_uwb_local_follow/local_planner_core.hpp"
+#include "go2_uwb_local_follow/mppi_planner_core.hpp"
+#include "go2_uwb_local_follow/observation_utils.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -67,10 +69,11 @@ double clampValue(double value, double minimum, double maximum)
 class LocalVelocityPlannerNode : public rclcpp::Node
 {
 public:
-  // 初始化名义速度、实测速度、障碍点云、速度采样和隔离输出接口。
+  // 初始化名义速度、实测速度、障碍点云、MPPI 优化器和隔离输出接口。
   explicit LocalVelocityPlannerNode(const rclcpp::NodeOptions & options = rclcpp::NodeOptions())
   : Node("local_velocity_planner_node", options)
   {
+    odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     odom_child_frame_ = declare_parameter<std::string>(
       "odom_child_frame", "base_footprint");
@@ -93,8 +96,10 @@ public:
     control_frequency_ = declare_parameter<double>("control_frequency", 20.0);
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
     nominal_timeout_sec_ = declare_parameter<double>("nominal_timeout_sec", 0.20);
-    obstacle_timeout_sec_ = declare_parameter<double>("obstacle_timeout_sec", 1.00);
+    obstacle_timeout_sec_ = declare_parameter<double>("obstacle_timeout_sec", 0.70);
     odom_timeout_sec_ = declare_parameter<double>("odom_timeout_sec", 0.10);
+    obstacle_slowdown_after_sec_ = declare_parameter<double>(
+      "obstacle_slowdown_after_sec", 0.30);
     odom_linear_deadband_ = declare_parameter<double>("odom_linear_deadband", 0.02);
     odom_angular_deadband_ = declare_parameter<double>("odom_angular_deadband", 0.05);
     angular_stabilization_config_.velocity_tracking_kp = declare_parameter<double>(
@@ -129,14 +134,19 @@ public:
     motion_limits_.max_angular_accel = declare_parameter<double>(
       "max_angular_accel", 2.00);
 
-    sampling_config_.linear_samples = declare_parameter<int>("linear_samples", 9);
-    sampling_config_.angular_samples = declare_parameter<int>("angular_samples", 25);
+    mppi_config_.batch_size = declare_parameter<int>("mppi_batch_size", 48);
+    mppi_config_.iteration_count = declare_parameter<int>("mppi_iteration_count", 2);
+    mppi_config_.temperature = declare_parameter<double>("mppi_temperature", 0.05);
+    mppi_config_.linear_noise_std = declare_parameter<double>("mppi_linear_noise_std", 0.18);
+    mppi_config_.angular_noise_std = declare_parameter<double>("mppi_angular_noise_std", 0.45);
+    mppi_config_.noise_correlation = declare_parameter<double>(
+      "mppi_noise_correlation", 0.85);
+    mppi_config_.random_seed = static_cast<std::uint32_t>(std::max<std::int64_t>(
+        0, declare_parameter<std::int64_t>("mppi_random_seed", 7)));
     sampling_config_.min_avoidance_angular_speed = declare_parameter<double>(
       "min_avoidance_angular_speed", 0.25);
     sampling_config_.max_avoidance_angular_speed = declare_parameter<double>(
       "max_avoidance_angular_speed", 1.50);
-    sampling_config_.linear_speed_priority_scales = declare_parameter<std::vector<double>>(
-      "linear_speed_priority_scales", {1.0, 0.85, 0.70, 0.50, 0.0});
     sampling_config_.obstacle_influence_distance = declare_parameter<double>(
       "obstacle_influence_distance", 0.35);
     sampling_config_.minimum_safe_clearance = declare_parameter<double>(
@@ -181,15 +191,17 @@ public:
     self_filter_y_abs_ = declare_parameter<double>("self_filter_y_abs", 0.20);
     max_obstacle_points_ = declare_parameter<int>("max_obstacle_points", 5000);
     validateParameters();
+    pose_buffer_config_.max_pose_extrapolation_sec = odom_timeout_sec_;
+    pose_buffer_ = OdomPoseBuffer(pose_buffer_config_);
 
     nominal_sub_ = create_subscription<geometry_msgs::msg::TwistStamped>(
-      nominal_cmd_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
+      nominal_cmd_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable(),
       std::bind(&LocalVelocityPlannerNode::nominalCallback, this, std::placeholders::_1));
     obstacle_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>(
-      obstacle_topic_, rclcpp::SensorDataQoS(),
+      obstacle_topic_, rclcpp::SensorDataQoS().keep_last(1),
       std::bind(&LocalVelocityPlannerNode::obstacleCallback, this, std::placeholders::_1));
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      odom_topic_, rclcpp::SensorDataQoS(),
+      odom_topic_, rclcpp::SensorDataQoS().keep_last(30),
       std::bind(&LocalVelocityPlannerNode::odomCallback, this, std::placeholders::_1));
 
     planned_cmd_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(
@@ -238,6 +250,7 @@ private:
   {
     PlannerVelocity2D velocity;
     std::chrono::steady_clock::time_point receipt_time{};
+    std::int64_t stamp_ns{0};
     bool valid{false};
   };
 
@@ -245,6 +258,7 @@ private:
   {
     std::shared_ptr<const std::vector<ObstaclePoint2D>> points;
     std::chrono::steady_clock::time_point receipt_time{};
+    std::int64_t stamp_ns{0};
     bool valid{false};
     std::string rejection_reason;
   };
@@ -253,6 +267,7 @@ private:
   {
     PlannerVelocity2D velocity;
     std::chrono::steady_clock::time_point receipt_time{};
+    std::int64_t stamp_ns{0};
     bool valid{false};
     std::string rejection_reason;
   };
@@ -288,11 +303,12 @@ private:
     bool emergency_recovery_active{false};
   };
 
-  // 检查话题、时效、运动学、采样权重、足迹和障碍过滤参数。
+  // 检查话题、时效、运动学、MPPI、代价权重、足迹和障碍过滤参数。
   void validateParameters()
   {
     std::string reason;
-    if (base_frame_.empty() || odom_child_frame_.empty() || nominal_cmd_topic_.empty() ||
+    if (odom_frame_.empty() || base_frame_.empty() || odom_child_frame_.empty() ||
+      nominal_cmd_topic_.empty() ||
       obstacle_topic_.empty() || odom_topic_.empty() || planned_cmd_topic_.empty() ||
       final_cmd_topic_.empty() || cmd_vel_topic_.empty() || selected_path_topic_.empty() ||
       diagnostics_topic_.empty())
@@ -304,6 +320,7 @@ private:
       !validateMotionLimits(motion_limits_, &reason) ||
       !validateAngularStabilizationConfig(angular_stabilization_config_, &reason) ||
       !validateEmergencyReverseConfig(emergency_reverse_config_, motion_limits_, &reason) ||
+      !validateMppiConfig(mppi_config_, &reason) ||
       !validateVelocitySamplingConfig(sampling_config_, &reason))
     {
       throw std::invalid_argument(reason);
@@ -319,11 +336,20 @@ private:
     {
       throw std::invalid_argument("control and diagnostic frequencies must be positive");
     }
+    if (std::abs(trajectory_config_.simulation_dt - 1.0 / control_frequency_) > 1e-6) {
+      // 当前暖启动每周期前移一个控制量，因此模型时间步必须与实际控制周期一致。
+      throw std::invalid_argument("MPPI simulation_dt must match the control period");
+    }
     if (!std::isfinite(nominal_timeout_sec_) || nominal_timeout_sec_ <= 0.0 ||
       !std::isfinite(obstacle_timeout_sec_) || obstacle_timeout_sec_ <= 0.0 ||
       !std::isfinite(odom_timeout_sec_) || odom_timeout_sec_ <= 0.0)
     {
       throw std::invalid_argument("input timeouts must be positive");
+    }
+    if (!std::isfinite(obstacle_slowdown_after_sec_) || obstacle_slowdown_after_sec_ <= 0.0 ||
+      obstacle_slowdown_after_sec_ >= obstacle_timeout_sec_)
+    {
+      throw std::invalid_argument("obstacle slowdown age must be within obstacle timeout");
     }
     if (!std::isfinite(odom_linear_deadband_) || odom_linear_deadband_ < 0.0 ||
       !std::isfinite(odom_angular_deadband_) || odom_angular_deadband_ < 0.0)
@@ -355,10 +381,16 @@ private:
   // 保存最新名义跟随速度，只接受有限的前进和转向分量。
   void nominalCallback(const geometry_msgs::msg::TwistStamped::SharedPtr message)
   {
+    const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!nominal_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), nominal_timeout_sec_)) {
+      return;
+    }
     NominalSnapshot snapshot;
+    snapshot.stamp_ns = stamp_ns;
     const double linear_x = message->twist.linear.x;
     const double angular_z = message->twist.angular.z;
-    snapshot.valid = std::isfinite(linear_x) && std::isfinite(angular_z);
+    snapshot.valid = message->header.frame_id == base_frame_ &&
+      std::isfinite(linear_x) && std::isfinite(angular_z);
     snapshot.velocity.linear_x = snapshot.valid ?
       clampValue(linear_x, 0.0, motion_limits_.max_linear_speed) : 0.0;
     snapshot.velocity.angular_z = snapshot.valid ?
@@ -370,13 +402,19 @@ private:
     nominal_snapshot_ = snapshot;
   }
 
-  // 从 /odom_leg 读取 base_footprint 下的真实速度，保留恢复倒退所需的负线速度。
+  // 同时保存真实速度与带时间戳位姿；重复、积压或乱序里程计不能刷新有效期。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!odom_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), odom_timeout_sec_)) {
+      return;
+    }
     OdomSnapshot snapshot;
+    snapshot.stamp_ns = stamp_ns;
     snapshot.receipt_time = std::chrono::steady_clock::now();
-    if (message->child_frame_id != odom_child_frame_) {
-      snapshot.rejection_reason = "odom child_frame_id differs from configured frame";
+    TimedPose2D pose;
+    if (!extractOdomPose(*message, odom_frame_, odom_child_frame_, &pose)) {
+      snapshot.rejection_reason = "odom pose or frame is invalid";
       storeOdomSnapshot(std::move(snapshot));
       return;
     }
@@ -399,7 +437,14 @@ private:
     snapshot.velocity.angular_z = clampValue(
       angular_z, -motion_limits_.max_angular_speed, motion_limits_.max_angular_speed);
     snapshot.valid = true;
-    storeOdomSnapshot(std::move(snapshot));
+    std::lock_guard<std::mutex> lock(input_mutex_);
+    if (pose_buffer_.append(pose) == PoseAppendResult::kResetDetected) {
+      obstacle_snapshot_.valid = false;
+      last_command_valid_ = false;
+      mppi_optimizer_.reset();
+      resetEmergencyRecovery();
+    }
+    odom_snapshot_ = std::move(snapshot);
   }
 
   // 用一次短锁替换共享实测速度快照。
@@ -409,10 +454,15 @@ private:
     odom_snapshot_ = std::move(snapshot);
   }
 
-  // 将当前帧 PointCloud2 过滤成 base_footprint 下的二维障碍快照。
+  // 校验并保存观测时刻的完整障碍快照，暂不按当前机身范围裁剪。
   void obstacleCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
+    const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);
+    if (!obstacle_stamp_tracker_.accept(stamp_ns, now().nanoseconds(), obstacle_timeout_sec_)) {
+      return;
+    }
     ObstacleSnapshot snapshot;
+    snapshot.stamp_ns = stamp_ns;
     snapshot.receipt_time = std::chrono::steady_clock::now();
     if (message->header.frame_id != base_frame_) {
       snapshot.rejection_reason = "obstacle frame differs from base_frame";
@@ -420,33 +470,26 @@ private:
       return;
     }
 
+    const std::size_t point_count = static_cast<std::size_t>(message->width) * message->height;
+    if (!validFloatCloud(*message, {"x", "y"}) ||
+      point_count > static_cast<std::size_t>(max_obstacle_points_))
+    {
+      snapshot.rejection_reason = "invalid cloud layout or obstacle count exceeds limit";
+      storeObstacleSnapshot(std::move(snapshot));
+      return;
+    }
     auto points = std::make_shared<std::vector<ObstaclePoint2D>>();
-    points->reserve(
-      std::min<std::size_t>(
-        static_cast<std::size_t>(max_obstacle_points_),
-        static_cast<std::size_t>(message->width) * message->height));
+    points->reserve(point_count);
     try {
       sensor_msgs::PointCloud2ConstIterator<float> x_iterator(*message, "x");
       sensor_msgs::PointCloud2ConstIterator<float> y_iterator(*message, "y");
       for (; x_iterator != x_iterator.end(); ++x_iterator, ++y_iterator) {
         const double x = static_cast<double>(*x_iterator);
         const double y = static_cast<double>(*y_iterator);
-        if (!std::isfinite(x) || !std::isfinite(y) ||
-          x < obstacle_x_min_ || x > obstacle_x_max_ ||
-          std::abs(y) > obstacle_y_abs_max_)
-        {
-          continue;
-        }
-        const bool inside_self_filter =
-          enable_self_filter_ && x >= self_filter_x_min_ && x <= self_filter_x_max_ &&
-          std::abs(y) <= self_filter_y_abs_;
-        if (inside_self_filter) {
+        if (!std::isfinite(x) || !std::isfinite(y)) {
           continue;
         }
         points->push_back(ObstaclePoint2D{x, y});
-        if (points->size() >= static_cast<std::size_t>(max_obstacle_points_)) {
-          break;
-        }
       }
     } catch (const std::runtime_error & exception) {
       snapshot.rejection_reason = exception.what();
@@ -454,6 +497,12 @@ private:
       return;
     }
 
+    if (point_count > 0U && points->empty()) {
+      snapshot.rejection_reason = "nonempty cloud contains no finite obstacles";
+      storeObstacleSnapshot(std::move(snapshot));
+      return;
+    }
+    // 在控制时刻补偿后再裁剪，避免提前丢掉已经移动到机器人附近的历史障碍。
     snapshot.points = std::move(points);
     snapshot.valid = true;
     storeObstacleSnapshot(std::move(snapshot));
@@ -466,15 +515,56 @@ private:
     obstacle_snapshot_ = std::move(snapshot);
   }
 
-  // 计算快照相对当前单调时钟的接收年龄。
+  // 同时检查源时间戳和单调接收年龄，任何一个超时都不能继续使用。
   template<typename SnapshotT>
   double snapshotAge(
     const SnapshotT & snapshot,
     const std::chrono::steady_clock::time_point & current) const
   {
-    return snapshot.valid ?
-           std::chrono::duration<double>(current - snapshot.receipt_time).count() :
+    return snapshot.valid ? std::max(
+      std::chrono::duration<double>(current - snapshot.receipt_time).count(),
+      sourceAgeSeconds(snapshot.stamp_ns, now().nanoseconds())) :
            std::numeric_limits<double>::infinity();
+  }
+
+  // 利用位姿缓存将整帧障碍补偿到控制时刻，查询失败时等待下一帧里程计自动重试。
+  bool compensateObstacles(
+    const ObstacleSnapshot & obstacle, std::vector<ObstaclePoint2D> * points)
+  {
+    if (points == nullptr || !obstacle.points) {
+      return false;
+    }
+    TimedPose2D cloud_pose;
+    TimedPose2D current_pose;
+    {
+      std::lock_guard<std::mutex> lock(input_mutex_);
+      if (!pose_buffer_.lookup(obstacle.stamp_ns, &cloud_pose) ||
+        !pose_buffer_.lookup(now().nanoseconds(), &current_pose))
+      {
+        return false;
+      }
+    }
+    const double yaw_delta = cloud_pose.yaw - current_pose.yaw;
+    const double cosine = std::cos(yaw_delta);
+    const double sine = std::sin(yaw_delta);
+    const auto offset = transformRollingPointToBase(
+      {cloud_pose.x, cloud_pose.y, 0.0}, current_pose);
+    points->reserve(obstacle.points->size());
+    for (const auto & point : *obstacle.points) {
+      // 机身点只能按采集坐标过滤，不能删除补偿后进入当前足迹的真实障碍。
+      if (enable_self_filter_ && point.x >= self_filter_x_min_ &&
+        point.x <= self_filter_x_max_ && std::abs(point.y) <= self_filter_y_abs_)
+      {
+        continue;
+      }
+      const double x = offset.x + cosine * point.x - sine * point.y;
+      const double y = offset.y + sine * point.x + cosine * point.y;
+      if (x < obstacle_x_min_ || x > obstacle_x_max_ || std::abs(y) > obstacle_y_abs_max_) {
+        continue;
+      }
+      points->push_back({x, y});
+    }
+    return true;
   }
 
   // 返回仍在保持期内的避障转向方向，短时点云丢失或 UWB 小角度变化不会清除方向。
@@ -520,7 +610,7 @@ private:
     return emergency_latched_;
   }
 
-  // 清除单次急停恢复状态；关键输入失效后必须重新完成急停确认和停稳阶段。
+  // 暂停当前恢复动作并重新要求停稳；保留倒退预算，避免断流重试无限后退。
   void resetEmergencyRecovery()
   {
     emergency_recovery_state_ = EmergencyRecoveryState::IDLE;
@@ -547,7 +637,8 @@ private:
       emergency_recovery_state_ = EmergencyRecoveryState::BRAKING;
       emergency_brake_start_time_ = current;
       status.emergency_recovery_active = true;
-      status.emergency_reverse_remaining = emergency_reverse_config_.distance;
+      status.emergency_reverse_remaining = std::max(
+        0.0, emergency_reverse_config_.distance - emergency_reverse_distance_used_);
       // 急停触发周期必须先明确发出一次零速，下一周期才允许检查停稳并切换方向。
       const auto braking_path = predictAcceleratingTrajectory(
         odom.velocity, PlannerVelocity2D{}, trajectory_config_, motion_limits_, true);
@@ -570,7 +661,8 @@ private:
         current - emergency_brake_start_time_).count();
       status.emergency_recovery_active = true;
       status.emergency_reverse_elapsed = braking_elapsed;
-      status.emergency_reverse_remaining = emergency_reverse_config_.distance;
+      status.emergency_reverse_remaining = std::max(
+        0.0, emergency_reverse_config_.distance - emergency_reverse_distance_used_);
       const bool hold_finished = braking_elapsed >= emergency_reverse_config_.stop_hold_sec;
       const bool chassis_stopped =
         std::abs(odom.velocity.linear_x) <=
@@ -586,7 +678,8 @@ private:
 
       const auto initial_plan = planEmergencyReverse(
         obstacles, trajectory_config_, footprint_config_, motion_limits_,
-        emergency_reverse_config_, emergency_reverse_config_.distance);
+        emergency_reverse_config_, std::max(
+          0.0, emergency_reverse_config_.distance - emergency_reverse_distance_used_));
       if (!initial_plan.valid) {
         emergency_recovery_state_ = EmergencyRecoveryState::BLOCKED;
         status.min_clearance = initial_plan.collision.min_clearance;
@@ -598,8 +691,8 @@ private:
     }
 
     if (emergency_recovery_state_ == EmergencyRecoveryState::REVERSING) {
-      const double reverse_elapsed = std::chrono::duration<double>(
-        current - emergency_reverse_start_time_).count();
+      const double reverse_elapsed = emergency_reverse_distance_used_ /
+        emergency_reverse_config_.speed;
       const EmergencyReverseProgress progress = evaluateEmergencyReverseProgress(
         status.emergency_detected, emergency_reverse_config_, reverse_elapsed);
       status.emergency_recovery_active = true;
@@ -646,6 +739,15 @@ private:
         resetEmergencyRecovery();
         return false;
       }
+      const auto retry_plan = planEmergencyReverse(
+        obstacles, trajectory_config_, footprint_config_, motion_limits_,
+        emergency_reverse_config_, std::max(
+          0.0, emergency_reverse_config_.distance - emergency_reverse_distance_used_));
+      if (retry_plan.valid) {
+        // 后方清空后自动重试，但必须重新确认停稳且不能重置已使用的距离预算。
+        emergency_recovery_state_ = EmergencyRecoveryState::BRAKING;
+        emergency_brake_start_time_ = current;
+      }
       publishStop(status, "EMERGENCY_REVERSE_BLOCKED", {});
       return true;
     }
@@ -661,8 +763,9 @@ private:
 
     if (emergency_recovery_state_ == EmergencyRecoveryState::COMPLETE) {
       if (status.emergency_detected) {
-        // 清空帧只是短暂抖动时恢复倒退，但先保留一个零速周期再重新进入恢复。
-        emergency_recovery_state_ = EmergencyRecoveryState::REVERSING;
+        // 清空帧只是短暂抖动时重新进入恢复，但必须再次确认底盘停稳。
+        emergency_recovery_state_ = EmergencyRecoveryState::BRAKING;
+        emergency_brake_start_time_ = current;
         publishStop(status, "EMERGENCY_ZONE_REENTERED", {});
         return true;
       }
@@ -726,6 +829,11 @@ private:
     const double measured_dt = std::chrono::duration<double>(current - last_control_time_).count();
     last_control_time_ = current;
     const double control_dt = clampValue(measured_dt, 0.0, 2.0 / control_frequency_);
+    if (last_command_valid_ && last_command_.linear_x < 0.0) {
+      // 按实际下发指令累计预算，输入中断期间的停车时间不会被误算成倒退距离。
+      emergency_reverse_distance_used_ +=
+        -last_command_.linear_x * std::max(0.0, measured_dt);
+    }
 
     StatusSnapshot status;
     status.nominal = nominal.velocity;
@@ -767,12 +875,50 @@ private:
     status.stabilized_nominal = correctNominalAngularVelocity(
       nominal.velocity, odom.velocity, angular_stabilization_config_, motion_limits_);
 
-    const auto & points = *obstacle.points;
+    std::vector<ObstaclePoint2D> points;
+    if (!compensateObstacles(obstacle, &points)) {
+      publishStop(status, "WAIT_TIME_ALIGNED_ODOM", {});
+      return;
+    }
+    // 短暂缺帧仍可使用补偿后的地图，但随采集年龄增加逐渐降低速度上限。
+    if (status.obstacle_age > obstacle_slowdown_after_sec_) {
+      const double scale = clampValue(
+        (obstacle_timeout_sec_ - status.obstacle_age) /
+        (obstacle_timeout_sec_ - obstacle_slowdown_after_sec_), 0.0, 1.0);
+      const double linear_cap = motion_limits_.max_linear_speed * scale;
+      status.stabilized_nominal.linear_x = linear_cap < motion_limits_.min_linear_speed ?
+        0.0 : std::min(status.stabilized_nominal.linear_x, linear_cap);
+      status.stabilized_nominal.angular_z = clampValue(
+        status.stabilized_nominal.angular_z,
+        -motion_limits_.max_angular_speed * scale,
+        motion_limits_.max_angular_speed * scale);
+    }
     status.obstacle_count = points.size();
     status.emergency_detected = hasEmergencyFrontObstacle(
       points, footprint_config_, emergency_front_distance_, emergency_half_width_);
     status.emergency = confirmEmergencyObstacle(
       status.emergency_detected, obstacle.receipt_time);
+    if (!status.emergency && emergency_clear_count_ >= emergency_confirm_frames_) {
+      emergency_reverse_distance_used_ = 0.0;
+    }
+    if (std::abs(nominal.velocity.linear_x) <= 1.0e-9 &&
+      std::abs(nominal.velocity.angular_z) <= 1.0e-9)
+    {
+      // 显式停止始终优先于急停倒退恢复。
+      resetEmergencyRecovery();
+      publishStop(
+        status, "NOMINAL_STOP", predictAcceleratingTrajectory(
+          odom.velocity, {}, trajectory_config_, motion_limits_, true));
+      return;
+    }
+    // 旧地图只能用于减速停车，不能启动或继续主动倒退恢复。
+    if (status.obstacle_age > obstacle_slowdown_after_sec_ &&
+      (status.emergency || emergency_recovery_state_ != EmergencyRecoveryState::IDLE))
+    {
+      resetEmergencyRecovery();
+      publishStop(status, "WAIT_FRESH_RECOVERY_OBSERVATION", {});
+      return;
+    }
     if (handleEmergencyRecovery(status, odom, points, current)) {
       return;
     }
@@ -782,9 +928,9 @@ private:
       previous_command, status.avoidance_turn_direction);
 
     const auto planning_start = std::chrono::steady_clock::now();
-    const LocalPlanResult result = planLocalVelocity(
+    const LocalPlanResult result = mppi_optimizer_.plan(
       odom.velocity, scoring_previous_command, status.stabilized_nominal, points,
-      trajectory_config_, footprint_config_, motion_limits_, sampling_config_,
+      trajectory_config_, footprint_config_, motion_limits_, sampling_config_, mppi_config_,
       status.emergency);
     status.planning_time_ms = std::chrono::duration<double, std::milli>(
       std::chrono::steady_clock::now() - planning_start).count();
@@ -837,6 +983,8 @@ private:
     const std::string & state,
     const std::vector<PlannerPose2D> & trajectory)
   {
+    // 停车后丢弃旧控制序列，避免恢复规划时沿用故障或急停前的 MPPI 暖启动结果。
+    mppi_optimizer_.reset();
     status.planned = PlannerVelocity2D{};
     status.final_command = PlannerVelocity2D{};
     publishDecision(std::move(status), state, trajectory, true);
@@ -950,6 +1098,9 @@ private:
       {"obstacle_age_sec", formatDouble(status.obstacle_age)},
       {"odom_age_sec", formatDouble(status.odom_age)},
       {"obstacle_count", std::to_string(status.obstacle_count)},
+      {"mppi_batch_size", std::to_string(mppi_config_.batch_size)},
+      {"mppi_iteration_count", std::to_string(mppi_config_.iteration_count)},
+      {"mppi_temperature", formatDouble(mppi_config_.temperature)},
       {"evaluated_count", std::to_string(status.evaluated_count)},
       {"collision_count", std::to_string(status.collision_count)},
       {"marginal_count", std::to_string(status.marginal_count)},
@@ -997,6 +1148,12 @@ private:
     diagnostics_pub_->publish(array);
   }
 
+  RollingMapConfig pose_buffer_config_;
+  OdomPoseBuffer pose_buffer_{pose_buffer_config_};
+  SourceStampTracker nominal_stamp_tracker_;
+  SourceStampTracker odom_stamp_tracker_;
+  SourceStampTracker obstacle_stamp_tracker_;
+  std::string odom_frame_;
   std::string base_frame_;
   std::string odom_child_frame_;
   std::string nominal_cmd_topic_;
@@ -1012,8 +1169,10 @@ private:
   double control_frequency_{20.0};
   double diagnostic_frequency_{2.0};
   double nominal_timeout_sec_{0.20};
-  double obstacle_timeout_sec_{1.00};
+  double obstacle_timeout_sec_{0.70};
   double odom_timeout_sec_{0.10};
+  double obstacle_slowdown_after_sec_{0.30};
+  double emergency_reverse_distance_used_{0.0};
   double odom_linear_deadband_{0.02};
   double odom_angular_deadband_{0.05};
   AngularStabilizationConfig angular_stabilization_config_;
@@ -1022,6 +1181,8 @@ private:
   FootprintConfig footprint_config_;
   MotionLimits motion_limits_;
   VelocitySamplingConfig sampling_config_;
+  MppiConfig mppi_config_;
+  MppiOptimizer mppi_optimizer_;
   EmergencyReverseConfig emergency_reverse_config_;
   double emergency_front_distance_{0.25};
   double emergency_half_width_{0.30};

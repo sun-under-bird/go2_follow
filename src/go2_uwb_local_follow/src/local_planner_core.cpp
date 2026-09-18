@@ -20,6 +20,8 @@
 #include <string>
 #include <utility>
 
+#include "go2_uwb_local_follow/obstacle_index.hpp"
+
 namespace go2_uwb_local_follow
 {
 namespace
@@ -414,19 +416,7 @@ CollisionResult checkTrajectoryCollision(
   const std::vector<ObstaclePoint2D> & obstacles,
   const FootprintConfig & footprint)
 {
-  CollisionResult result;
-  for (std::size_t pose_index = 0U; pose_index < poses.size(); ++pose_index) {
-    for (const auto & obstacle : obstacles) {
-      const double clearance = pointToFootprintClearance(poses[pose_index], obstacle, footprint);
-      result.min_clearance = std::min(result.min_clearance, clearance);
-      if (clearance <= 0.0) {
-        result.collision = true;
-        result.collision_pose_index = pose_index;
-        return result;
-      }
-    }
-  }
-  return result;
+  return ObstacleIndex(obstacles).check(poses, footprint);
 }
 
 // 检查障碍是否进入机器人正前方的紧急停车矩形区域。
@@ -880,14 +870,16 @@ LocalPlanResult planLocalVelocity(
   bool force_linear_stop)
 {
   LocalPlanResult result;
+  // 每次规划只构建一次索引，名义轨迹和全部速度候选共享精确查询结果。
+  const ObstacleIndex obstacle_index(obstacles);
   result.effective_nominal = makeEffectiveVelocity(nominal_velocity, limits);
   const PlannerVelocity2D clamped_previous = clampVelocityToLimits(previous_command, limits);
 
   // 先单独验证 UWB 名义轨迹；净空充足时直接交给最终变化率限制器平滑执行。
   auto nominal_trajectory = predictAcceleratingTrajectory(
     measured_velocity, result.effective_nominal, trajectory_config, limits, true);
-  const CollisionResult nominal_collision = checkTrajectoryCollision(
-    nominal_trajectory, obstacles, footprint_config);
+  const CollisionResult nominal_collision = obstacle_index.check(
+    nominal_trajectory, footprint_config);
   const CandidateSafetyEvaluation nominal_safety = evaluateCandidateSafety(
     result.effective_nominal, nominal_collision, footprint_config, sampling_config);
   const bool nominal_has_clearance = !std::isfinite(nominal_collision.min_clearance) ||
@@ -928,8 +920,8 @@ LocalPlanResult planLocalVelocity(
       const PlannerVelocity2D candidate{level.velocity, angular_z};
       auto trajectory = predictAcceleratingTrajectory(
         measured_velocity, candidate, trajectory_config, limits, true);
-      const CollisionResult collision = checkTrajectoryCollision(
-        trajectory, obstacles, footprint_config);
+      const CollisionResult collision = obstacle_index.check(
+        trajectory, footprint_config);
       ++result.evaluated_count;
       if (collision.collision) {
         ++result.collision_count;
