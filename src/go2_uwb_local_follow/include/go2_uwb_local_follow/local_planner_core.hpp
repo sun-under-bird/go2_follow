@@ -107,7 +107,9 @@ struct VelocitySamplingConfig
   double min_avoidance_angular_speed{0.25};
   // 主动避障候选的最大角速度；无障碍 UWB 跟随仍使用运动学总上限。
   double max_avoidance_angular_speed{1.50};
-  // 按顺序尝试的 UWB 线速度比例，当前层存在安全轨迹时不再继续减速。
+  // 从名义速度逐档递减的间隔（m/s）；0 使用旧比例模式，非零至少为 0.01。
+  double linear_speed_step{0.10};
+  // 仅在 linear_speed_step=0 时使用的兼容比例档位。
   std::vector<double> linear_speed_priority_scales{1.0, 0.85, 0.70, 0.50, 0.0};
   double obstacle_influence_distance{0.35};
   // 候选轨迹除硬碰撞检查外还必须保留的最小软净空。
@@ -120,6 +122,46 @@ struct VelocitySamplingConfig
   double weight_smooth_angular{8.0};
   double weight_obstacle{6.0};
   double weight_progress{0.80};
+};
+
+// 指令生成与运动预测共用的控制周期、响应延迟和角速度响应比例。
+struct CommandPredictionConfig
+{
+  double control_dt{0.05};
+  double control_period{0.05};
+  double response_delay{0.15};
+  double angular_response_gain{1.0};
+};
+
+enum class FollowRecoveryPhase {FOLLOWING, AVOIDING, RECOVERING};
+
+struct FollowRecoveryConfig
+{
+  double heading_tolerance{0.15};
+  double settled_command_angular{0.10};
+  double settled_measured_angular{0.10};
+  double turn_command_threshold{0.30};
+  double turn_measured_threshold{0.10};
+  double turn_tracking_timeout{0.35};
+  int clear_observations{3};
+};
+
+struct FollowRecoveryState
+{
+  FollowRecoveryPhase phase{FollowRecoveryPhase::FOLLOWING};
+  // 仅 RECOVERING 使用；AVOIDING 不施加此上限。
+  double speed_cap{0.0};
+  int clear_count{0};
+  bool turn_unestablished{false};
+  double turn_mismatch_sec{0.0};
+  bool reversing{false};
+};
+
+struct FollowRecoveryInput
+{
+  double heading{0.0};
+  bool heading_valid{false};
+  bool new_observation{false};
 };
 
 struct PlannerCost
@@ -137,6 +179,7 @@ struct LocalPlanResult
   bool avoidance_active{false};
   PlannerVelocity2D effective_nominal;
   PlannerVelocity2D selected_velocity;
+  PlannerVelocity2D first_command;
   std::vector<PlannerPose2D> selected_trajectory;
   PlannerCost cost;
   double min_clearance{std::numeric_limits<double>::infinity()};
@@ -278,7 +321,7 @@ PlannerCost scoreVelocityCandidate(
   const MotionLimits & limits,
   const VelocitySamplingConfig & config);
 
-// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时按比例降速。
+// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时进入下一减速档。
 LocalPlanResult planLocalVelocity(
   const PlannerVelocity2D & measured_velocity,
   const PlannerVelocity2D & previous_command,
@@ -288,7 +331,28 @@ LocalPlanResult planLocalVelocity(
   const FootprintConfig & footprint_config,
   const MotionLimits & limits,
   const VelocitySamplingConfig & sampling_config,
-  bool force_linear_stop = false);
+  bool force_linear_stop = false,
+  const CommandPredictionConfig & prediction = CommandPredictionConfig{},
+  const PlannerVelocity2D * scoring_previous = nullptr);
+
+bool validateCommandPredictionConfig(const CommandPredictionConfig & config);
+bool validateFollowRecoveryConfig(const FollowRecoveryConfig & config);
+
+std::vector<PlannerPose2D> predictCommandTrajectory(
+  const PlannerVelocity2D & measured, const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & target, const TrajectoryConfig & trajectory,
+  const MotionLimits & limits, const CommandPredictionConfig & prediction,
+  double angular_command_limit, bool force_linear_stop,
+  PlannerVelocity2D * first_command = nullptr);
+
+LocalPlanResult planRecoveringVelocity(
+  const PlannerVelocity2D & measured, const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & nominal, const std::vector<ObstaclePoint2D> & obstacles,
+  const TrajectoryConfig & trajectory, const FootprintConfig & footprint,
+  const MotionLimits & limits, const VelocitySamplingConfig & sampling,
+  const CommandPredictionConfig & prediction, const FollowRecoveryConfig & config,
+  const FollowRecoveryInput & input, FollowRecoveryState & state,
+  bool force_linear_stop = false, const PlannerVelocity2D * scoring_previous = nullptr);
 
 // 按控制周期限制最终指令变化，并对非零指令跨过底盘执行死区。
 PlannerVelocity2D limitCommandVelocity(

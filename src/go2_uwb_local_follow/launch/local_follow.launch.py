@@ -147,6 +147,7 @@ def generate_launch_description() -> LaunchDescription:
                 "base_frame": base_frame,
                 "odom_child_frame": base_frame,
                 "nominal_cmd_topic": "/go2_uwb_local_follow/nominal_cmd",
+                "target_topic": target_topic,
                 "obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
                 "cmd_vel_topic": cmd_vel_topic,

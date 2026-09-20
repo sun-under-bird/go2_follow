@@ -24,6 +24,19 @@ local_velocity_planner_node:
     angular_reverse_speed_threshold: 0.15  # ↑更早允许反向/响应快；↓必须更接近停稳/更少左右切换；步长 0.05 rad/s
     avoidance_direction_hold_sec: 0.0  # ↑更不易左右换向/绕行改变慢；↓更灵活/易摆头；步长 0.25 s
 
+    # 恢复跟随使用真实目标方位，名义角速度为零不等于目标已对正。
+    target_topic: /uwb/target_point
+    target_timeout_sec: 0.50
+    recovery_heading_tolerance: 0.15  # rad，满足该方位误差才允许退出恢复
+    recovery_command_angular: 0.10  # rad/s，历史及即将输出的转向指令均须降至此值
+    recovery_measured_angular: 0.10  # rad/s，实测转向停止门槛
+    recovery_clear_observations: 3  # 连续安全的新障碍时间戳；重复同一帧不计数
+    turn_command_threshold: 0.30  # 本周期实际输出达到此值时，监测同向实测转向
+    turn_measured_threshold: 0.10  # rad/s，要求同向实测转向至少达到此值
+    turn_tracking_timeout: 0.35  # s，转向持续不足达到该时间才停车；不短于预测响应延迟
+    command_response_delay: 0.15  # s，预测中的响应延迟初值，需实机标定
+    angular_response_gain: 1.0  # 预测实测角速度/指令比例初值，非实机标定结果
+
     prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
     simulation_dt: 0.08  # ↑计算快/检查粗；↓检查细/计算多；0.08 s 对应最高速约 4.8 cm/步；步长 0.01 s
 
@@ -42,11 +55,12 @@ local_velocity_planner_node:
     max_linear_decel: 0.70  # ↑停车快/前倾顿挫强；↓停车柔和/制动距离长；步长 0.10 m/s²
     max_angular_accel: 1.50  # ↑转向响应快/易摆头；↓转向平滑/响应慢；步长 0.10 rad/s²
 
-    linear_samples: 10  # 保留给全局候选调试接口；分层规划使用下方速度比例
+    linear_samples: 10  # 保留给全局候选调试接口；分层规划使用 linear_speed_step
     angular_samples: 25  # ↑避障角速度候选更细/CPU 高；↓选择粗/CPU 低；步长 2
     min_avoidance_angular_speed: 0.50  # 仅主动避障候选使用；跟随小角速度不受影响；步长 0.05 rad/s
     max_avoidance_angular_speed: 1.50  # 仅主动避障使用；跟随仍可达到 2.0 rad/s；步长 0.10 rad/s
-    linear_speed_priority_scales: [1.0, 0.85, 0.70, 0.50, 0.0]  # 当前速度层无安全轨迹才进入下一层
+    linear_speed_step: 0.10  # m/s；从名义速度向下采样，始终保留最低有效速度和停车；非零至少 0.01
+    linear_speed_priority_scales: [1.0, 0.85, 0.70, 0.50, 0.0]  # 仅 linear_speed_step=0 时启用旧比例模式
     obstacle_influence_distance: 0.5  # ↑更早软减速、更保守；↓更敢靠近障碍；步长 0.05 m
     minimum_safe_clearance: 0.05  # 候选相对膨胀足迹的基础软净空；低于该值视为勉强不碰撞
     minimum_ttc: 0.20  # 按足迹边界速度换算所需净空；↑高速更早降层，↓更偏向保持速度；步长 0.05 s

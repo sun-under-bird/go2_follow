@@ -30,6 +30,7 @@
 #include "diagnostic_msgs/msg/diagnostic_status.hpp"
 #include "diagnostic_msgs/msg/key_value.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -89,6 +90,30 @@ public:
     diagnostics_topic_ = declare_parameter<std::string>(
       "diagnostics_topic", "/go2_uwb_local_follow/planner_diagnostics");
 
+    target_topic_ = declare_parameter<std::string>("target_topic", "/uwb/target_point");
+    target_timeout_sec_ = declare_parameter<double>("target_timeout_sec", 0.50);
+    recovery_config_.heading_tolerance = declare_parameter<double>(
+      "recovery_heading_tolerance",
+      0.15);
+    recovery_config_.settled_command_angular = declare_parameter<double>(
+      "recovery_command_angular",
+      0.10);
+    recovery_config_.settled_measured_angular = declare_parameter<double>(
+      "recovery_measured_angular", 0.10);
+    recovery_config_.turn_command_threshold = declare_parameter<double>(
+      "turn_command_threshold",
+      0.30);
+    recovery_config_.turn_measured_threshold = declare_parameter<double>(
+      "turn_measured_threshold",
+      0.10);
+    recovery_config_.turn_tracking_timeout =
+      declare_parameter<double>("turn_tracking_timeout", 0.35);
+    recovery_config_.clear_observations = declare_parameter<int>("recovery_clear_observations", 3);
+    prediction_config_.response_delay = declare_parameter<double>("command_response_delay", 0.15);
+    prediction_config_.angular_response_gain = declare_parameter<double>(
+      "angular_response_gain",
+      1.0);
+
     enable_motion_ = declare_parameter<bool>("enable_motion", false);
     control_frequency_ = declare_parameter<double>("control_frequency", 20.0);
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
@@ -135,6 +160,7 @@ public:
       "min_avoidance_angular_speed", 0.25);
     sampling_config_.max_avoidance_angular_speed = declare_parameter<double>(
       "max_avoidance_angular_speed", 1.50);
+    sampling_config_.linear_speed_step = declare_parameter<double>("linear_speed_step", 0.10);
     sampling_config_.linear_speed_priority_scales = declare_parameter<std::vector<double>>(
       "linear_speed_priority_scales", {1.0, 0.85, 0.70, 0.50, 0.0});
     sampling_config_.obstacle_influence_distance = declare_parameter<double>(
@@ -180,8 +206,13 @@ public:
     self_filter_x_max_ = declare_parameter<double>("self_filter_x_max", 0.35);
     self_filter_y_abs_ = declare_parameter<double>("self_filter_y_abs", 0.20);
     max_obstacle_points_ = declare_parameter<int>("max_obstacle_points", 5000);
+    prediction_config_.control_period = 1.0 / control_frequency_;
+    prediction_config_.control_dt = prediction_config_.control_period;
     validateParameters();
 
+    target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
+      target_topic_, rclcpp::QoS(10),
+      std::bind(&LocalVelocityPlannerNode::targetCallback, this, std::placeholders::_1));
     nominal_sub_ = create_subscription<geometry_msgs::msg::TwistStamped>(
       nominal_cmd_topic_, rclcpp::QoS(rclcpp::KeepLast(10)).reliable(),
       std::bind(&LocalVelocityPlannerNode::nominalCallback, this, std::placeholders::_1));
@@ -241,9 +272,18 @@ private:
     bool valid{false};
   };
 
+  struct TargetSnapshot
+  {
+    double heading{0.0};
+    int64_t stamp_ns{0};
+    std::chrono::steady_clock::time_point receipt_time{};
+    bool valid{false};
+  };
+
   struct ObstacleSnapshot
   {
     std::shared_ptr<const std::vector<ObstaclePoint2D>> points;
+    int64_t stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
     std::string rejection_reason;
@@ -260,6 +300,9 @@ private:
   struct StatusSnapshot
   {
     std::string state{"WAIT_INPUT"};
+    double target_heading{0.0};
+    double target_age{std::numeric_limits<double>::infinity()};
+    FollowRecoveryState recovery;
     PlannerVelocity2D nominal;
     PlannerVelocity2D stabilized_nominal;
     PlannerVelocity2D effective_nominal;
@@ -292,6 +335,13 @@ private:
   void validateParameters()
   {
     std::string reason;
+    if (target_topic_.empty() || !std::isfinite(target_timeout_sec_) ||
+      target_timeout_sec_ <= 0.0 ||
+      !validateCommandPredictionConfig(prediction_config_) ||
+      !validateFollowRecoveryConfig(recovery_config_))
+    {
+      throw std::invalid_argument("invalid command prediction, target or recovery configuration");
+    }
     if (base_frame_.empty() || odom_child_frame_.empty() || nominal_cmd_topic_.empty() ||
       obstacle_topic_.empty() || odom_topic_.empty() || planned_cmd_topic_.empty() ||
       final_cmd_topic_.empty() || cmd_vel_topic_.empty() || selected_path_topic_.empty() ||
@@ -350,6 +400,20 @@ private:
     {
       throw std::invalid_argument("self filter or maximum obstacle count is invalid");
     }
+  }
+
+  void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr message)
+  {
+    TargetSnapshot snapshot;
+    snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.stamp_ns = rclcpp::Time(message->header.stamp).nanoseconds();
+    snapshot.valid = message->header.frame_id == base_frame_ && snapshot.stamp_ns > 0 &&
+      std::isfinite(message->point.x) && std::isfinite(message->point.y);
+    if (snapshot.valid) {
+      snapshot.heading = std::atan2(message->point.y, message->point.x);
+    }
+    std::lock_guard<std::mutex> lock(input_mutex_);
+    target_snapshot_ = snapshot;
   }
 
   // 保存最新名义跟随速度，只接受有限的前进和转向分量。
@@ -413,6 +477,7 @@ private:
   void obstacleCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
     ObstacleSnapshot snapshot;
+    snapshot.stamp_ns = rclcpp::Time(message->header.stamp).nanoseconds();
     snapshot.receipt_time = std::chrono::steady_clock::now();
     if (message->header.frame_id != base_frame_) {
       snapshot.rejection_reason = "obstacle frame differs from base_frame";
@@ -713,11 +778,13 @@ private:
   void controlTick()
   {
     NominalSnapshot nominal;
+    TargetSnapshot target;
     ObstacleSnapshot obstacle;
     OdomSnapshot odom;
     {
       std::lock_guard<std::mutex> lock(input_mutex_);
       nominal = nominal_snapshot_;
+      target = target_snapshot_;
       obstacle = obstacle_snapshot_;
       odom = odom_snapshot_;
     }
@@ -728,6 +795,10 @@ private:
     const double control_dt = clampValue(measured_dt, 0.0, 2.0 / control_frequency_);
 
     StatusSnapshot status;
+    status.target_heading = target.heading;
+    status.target_age = std::max(
+      snapshotAge(target, current),
+      static_cast<double>(now().nanoseconds() - target.stamp_ns) * 1e-9);
     status.nominal = nominal.velocity;
     status.measured = odom.velocity;
     status.nominal_age = snapshotAge(nominal, current);
@@ -764,6 +835,14 @@ private:
       return;
     }
 
+    if (!target.valid || status.target_age > target_timeout_sec_ ||
+      target.stamp_ns > now().nanoseconds() + 50000000LL)
+    {
+      resetEmergencyRecovery();
+      publishStop(status, "TARGET_INVALID_OR_TIMEOUT", {});
+      return;
+    }
+
     status.stabilized_nominal = correctNominalAngularVelocity(
       nominal.velocity, odom.velocity, angular_stabilization_config_, motion_limits_);
 
@@ -782,10 +861,19 @@ private:
       previous_command, status.avoidance_turn_direction);
 
     const auto planning_start = std::chrono::steady_clock::now();
-    const LocalPlanResult result = planLocalVelocity(
-      odom.velocity, scoring_previous_command, status.stabilized_nominal, points,
+    auto prediction = prediction_config_;
+    prediction.control_dt = control_dt;
+    const bool new_observation = obstacle.stamp_ns > last_recovery_observation_stamp_;
+    if (new_observation) {
+      last_recovery_observation_stamp_ = obstacle.stamp_ns;
+    }
+    const FollowRecoveryInput recovery_input{target.heading, true, new_observation};
+    const LocalPlanResult result = planRecoveringVelocity(
+      odom.velocity, previous_command, status.stabilized_nominal, points,
       trajectory_config_, footprint_config_, motion_limits_, sampling_config_,
-      status.emergency);
+      prediction, recovery_config_, recovery_input, recovery_state_, status.emergency,
+      &scoring_previous_command);
+    status.recovery = recovery_state_;
     status.planning_time_ms = std::chrono::duration<double, std::milli>(
       std::chrono::steady_clock::now() - planning_start).count();
     status.effective_nominal = result.effective_nominal;
@@ -810,24 +898,11 @@ private:
     status.min_clearance = result.min_clearance;
     status.required_clearance = result.required_clearance;
     status.clearance_ttc = result.clearance_ttc;
-    PlannerVelocity2D final_command = limitCommandVelocity(
-      previous_command, result.selected_velocity, motion_limits_, control_dt);
-    if (result.avoidance_active) {
-      // 避障状态使用独立上限，防止上一周期较大的跟随转向指令继续透传。
-      final_command.angular_z = clampValue(
-        final_command.angular_z,
-        -sampling_config_.max_avoidance_angular_speed,
-        sampling_config_.max_avoidance_angular_speed);
-    }
-    if (status.emergency) {
-      // 紧急区优先立即撤销前进指令，角速度仍必须来自通过足迹检查的候选。
-      final_command.linear_x = 0.0;
-    }
-    status.final_command = final_command;
-    const std::string state = status.emergency ? "EMERGENCY_STOP" :
-      (result.avoidance_active ?
-      (enable_motion_ ? "AVOIDING" : "AVOIDING_DEBUG") :
-      (enable_motion_ ? "PLANNING" : "PLANNING_DEBUG"));
+    // first_command 已参与所选轨迹预测；此处不得再次限幅或改写。
+    status.final_command = result.first_command;
+    const std::string phase = recovery_state_.phase == FollowRecoveryPhase::AVOIDING ? "AVOIDING" :
+      (recovery_state_.phase == FollowRecoveryPhase::RECOVERING ? "RECOVERING" : "PLANNING");
+    const std::string state = enable_motion_ ? phase : phase + "_DEBUG";
     publishDecision(status, state, result.selected_trajectory);
   }
 
@@ -837,6 +912,13 @@ private:
     const std::string & state,
     const std::vector<PlannerPose2D> & trajectory)
   {
+    // 本次实际发布全零指令，恢复阶段从零上限开始确认。
+    recovery_state_.speed_cap = 0.0;
+    recovery_state_.phase = FollowRecoveryPhase::RECOVERING;
+    recovery_state_.clear_count = 0;
+    recovery_state_.turn_mismatch_sec = 0.0;
+    recovery_state_.turn_unestablished = false;
+    status.recovery = recovery_state_;
     status.planned = PlannerVelocity2D{};
     status.final_command = PlannerVelocity2D{};
     publishDecision(std::move(status), state, trajectory, true);
@@ -945,6 +1027,13 @@ private:
     diagnostic.hardware_id = "go2_stereo_local_planner";
     diagnostic.message = status.state;
     const std::pair<std::string, std::string> entries[] = {
+      {"target_heading", formatDouble(status.target_heading)},
+      {"target_age_sec", formatDouble(status.target_age)},
+      {"recovery_speed_cap", formatDouble(status.recovery.speed_cap)},
+      {"recovery_clear_count", std::to_string(status.recovery.clear_count)},
+      {"turn_mismatch_sec", formatDouble(status.recovery.turn_mismatch_sec)},
+      {"turn_unestablished", status.recovery.turn_unestablished ? "true" : "false"},
+      {"recovery_reversing", status.recovery.reversing ? "true" : "false"},
       {"enable_motion", enable_motion_ ? "true" : "false"},
       {"nominal_age_sec", formatDouble(status.nominal_age)},
       {"obstacle_age_sec", formatDouble(status.obstacle_age)},
@@ -997,6 +1086,14 @@ private:
     diagnostics_pub_->publish(array);
   }
 
+  std::string target_topic_;
+  double target_timeout_sec_{0.50};
+  CommandPredictionConfig prediction_config_;
+  FollowRecoveryConfig recovery_config_;
+  FollowRecoveryState recovery_state_;
+  TargetSnapshot target_snapshot_;
+  int64_t last_recovery_observation_stamp_{0};
+  rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr target_sub_;
   std::string base_frame_;
   std::string odom_child_frame_;
   std::string nominal_cmd_topic_;

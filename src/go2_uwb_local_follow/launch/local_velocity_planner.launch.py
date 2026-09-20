@@ -72,6 +72,7 @@ def generate_launch_description() -> LaunchDescription:
                 "base_frame": base_frame,
                 "odom_child_frame": base_frame,
                 "nominal_cmd_topic": nominal_cmd_topic,
+                "target_topic": LaunchConfiguration("target_topic"),
                 "obstacle_topic": rolling_obstacle_topic,
                 "odom_topic": odom_topic,
                 "cmd_vel_topic": cmd_vel_topic,
@@ -96,6 +97,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "rolling_obstacle_topic", default_value="/local_rolling_obstacle"
             ),
+            DeclareLaunchArgument("target_topic", default_value="/uwb/target_point"),
             DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
             DeclareLaunchArgument("odom_frame", default_value="odom"),

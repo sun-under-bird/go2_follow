@@ -249,6 +249,11 @@ bool validateVelocitySamplingConfig(
   if (config.linear_samples < 2 || config.angular_samples < 3) {
     return rejectWithReason("velocity sample counts are too small", reason);
   }
+  if (!std::isfinite(config.linear_speed_step) || config.linear_speed_step < 0.0 ||
+    (config.linear_speed_step > 0.0 && config.linear_speed_step < 0.01))
+  {
+    return rejectWithReason("linear speed step must be zero or at least 0.01 m/s", reason);
+  }
   const bool finite = std::isfinite(config.min_avoidance_angular_speed) &&
     std::isfinite(config.max_avoidance_angular_speed) &&
     std::isfinite(config.obstacle_influence_distance) &&
@@ -271,6 +276,9 @@ bool validateVelocitySamplingConfig(
     config.weight_progress < 0.0)
   {
     return rejectWithReason("sampling distances and weights must be non-negative", reason);
+  }
+  if (config.linear_speed_step > 0.0) {
+    return true;
   }
   if (config.linear_speed_priority_scales.empty()) {
     return rejectWithReason("linear speed priority scales must not be empty", reason);
@@ -415,6 +423,11 @@ CollisionResult checkTrajectoryCollision(
   const FootprintConfig & footprint)
 {
   CollisionResult result;
+  if (poses.empty()) {
+    result.collision = true;
+    result.min_clearance = 0.0;
+    return result;
+  }
   for (std::size_t pose_index = 0U; pose_index < poses.size(); ++pose_index) {
     for (const auto & obstacle : obstacles) {
       const double clearance = pointToFootprintClearance(poses[pose_index], obstacle, footprint);
@@ -837,7 +850,7 @@ bool isFullStopVelocity(const PlannerVelocity2D & velocity)
          std::abs(velocity.angular_z) <= tolerance;
 }
 
-// 根据配置生成严格按优先级排列的线速度层，并合并最小线速度造成的重复层。
+// 固定步长模式保留名义速度、最低有效速度和停车；旧比例模式保持兼容。
 std::vector<LinearSpeedLevel> makeLinearSpeedLevels(
   double nominal_linear,
   const MotionLimits & limits,
@@ -850,6 +863,24 @@ std::vector<LinearSpeedLevel> makeLinearSpeedLevels(
 
   std::vector<LinearSpeedLevel> levels;
   constexpr double tolerance = 1e-9;
+  if (config.linear_speed_step > 0.0) {
+    levels.push_back({nominal_linear, 1.0});
+    for (std::size_t index = 1U; ; ++index) {
+      const double velocity = nominal_linear -
+        static_cast<double>(index) * config.linear_speed_step;
+      if (velocity <= limits.min_linear_speed + tolerance) {
+        break;
+      }
+      levels.push_back({velocity, velocity / nominal_linear});
+    }
+    if (limits.min_linear_speed > 0.0 &&
+      nominal_linear > limits.min_linear_speed + tolerance)
+    {
+      levels.push_back({limits.min_linear_speed, limits.min_linear_speed / nominal_linear});
+    }
+    levels.push_back({0.0, 0.0});
+    return levels;
+  }
   for (const double scale : config.linear_speed_priority_scales) {
     const double velocity = scale <= 0.0 ? 0.0 :
       makeEffectiveVelocity({nominal_linear * scale, 0.0}, limits).linear_x;
@@ -867,7 +898,7 @@ std::vector<LinearSpeedLevel> makeLinearSpeedLevels(
 
 }  // namespace
 
-// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时按比例降速。
+// 优先保持 UWB 线速度，仅在当前速度层没有安全角速度时进入下一减速档。
 LocalPlanResult planLocalVelocity(
   const PlannerVelocity2D & measured_velocity,
   const PlannerVelocity2D & previous_command,
@@ -877,15 +908,23 @@ LocalPlanResult planLocalVelocity(
   const FootprintConfig & footprint_config,
   const MotionLimits & limits,
   const VelocitySamplingConfig & sampling_config,
-  bool force_linear_stop)
+  bool force_linear_stop,
+  const CommandPredictionConfig & prediction,
+  const PlannerVelocity2D * scoring_previous)
 {
   LocalPlanResult result;
+  if (!validateCommandPredictionConfig(prediction)) {
+    return result;
+  }
   result.effective_nominal = makeEffectiveVelocity(nominal_velocity, limits);
-  const PlannerVelocity2D clamped_previous = clampVelocityToLimits(previous_command, limits);
+  const PlannerVelocity2D clamped_previous = clampVelocityToLimits(
+    scoring_previous == nullptr ? previous_command : *scoring_previous, limits);
 
   // 先单独验证 UWB 名义轨迹；净空充足时直接交给最终变化率限制器平滑执行。
-  auto nominal_trajectory = predictAcceleratingTrajectory(
-    measured_velocity, result.effective_nominal, trajectory_config, limits, true);
+  PlannerVelocity2D nominal_command;
+  auto nominal_trajectory = predictCommandTrajectory(
+    measured_velocity, previous_command, result.effective_nominal, trajectory_config,
+    limits, prediction, limits.max_angular_speed, force_linear_stop, &nominal_command);
   const CollisionResult nominal_collision = checkTrajectoryCollision(
     nominal_trajectory, obstacles, footprint_config);
   const CandidateSafetyEvaluation nominal_safety = evaluateCandidateSafety(
@@ -897,6 +936,7 @@ LocalPlanResult planLocalVelocity(
   if (!result.avoidance_active) {
     result.valid = true;
     result.selected_velocity = result.effective_nominal;
+    result.first_command = nominal_command;
     result.selected_trajectory = std::move(nominal_trajectory);
     result.cost = scoreVelocityCandidate(
       result.selected_velocity, result.effective_nominal, clamped_previous,
@@ -918,6 +958,7 @@ LocalPlanResult planLocalVelocity(
   for (const auto & level : speed_levels) {
     bool level_valid = false;
     PlannerVelocity2D level_velocity;
+    PlannerVelocity2D level_command;
     std::vector<PlannerPose2D> level_trajectory;
     PlannerCost level_cost;
     double level_clearance = std::numeric_limits<double>::infinity();
@@ -926,8 +967,10 @@ LocalPlanResult planLocalVelocity(
 
     for (const double angular_z : angular_values) {
       const PlannerVelocity2D candidate{level.velocity, angular_z};
-      auto trajectory = predictAcceleratingTrajectory(
-        measured_velocity, candidate, trajectory_config, limits, true);
+      PlannerVelocity2D command;
+      auto trajectory = predictCommandTrajectory(
+        measured_velocity, previous_command, candidate, trajectory_config, limits,
+        prediction, sampling_config.max_avoidance_angular_speed, force_linear_stop, &command);
       const CollisionResult collision = checkTrajectoryCollision(
         trajectory, obstacles, footprint_config);
       ++result.evaluated_count;
@@ -953,6 +996,7 @@ LocalPlanResult planLocalVelocity(
       if (!level_valid || cost.total < level_cost.total) {
         level_valid = true;
         level_velocity = candidate;
+        level_command = command;
         level_trajectory = std::move(trajectory);
         level_cost = cost;
         level_clearance = collision.min_clearance;
@@ -964,6 +1008,7 @@ LocalPlanResult planLocalVelocity(
     if (level_valid) {
       result.valid = true;
       result.selected_velocity = level_velocity;
+      result.first_command = level_command;
       result.selected_trajectory = std::move(level_trajectory);
       result.cost = level_cost;
       result.min_clearance = level_clearance;
@@ -1012,6 +1057,241 @@ PlannerVelocity2D limitCommandVelocity(
       std::copysign(limits.min_angular_speed, target.angular_z);
   }
   return makeEffectiveVelocity(output, limits);
+}
+
+bool validateCommandPredictionConfig(const CommandPredictionConfig & config)
+{
+  return std::isfinite(config.control_dt) && config.control_dt >= 0.0 &&
+         config.control_dt <= 1.0 && std::isfinite(config.control_period) &&
+         config.control_period >= 0.01 && config.control_period <= 1.0 &&
+         std::isfinite(config.response_delay) && config.response_delay >= 0.0 &&
+         config.response_delay <= 2.0 && std::isfinite(config.angular_response_gain) &&
+         config.angular_response_gain > 0.0 && config.angular_response_gain <= 2.0;
+}
+
+bool validateFollowRecoveryConfig(const FollowRecoveryConfig & config)
+{
+  return std::isfinite(config.heading_tolerance) && config.heading_tolerance > 0.0 &&
+         std::isfinite(config.settled_command_angular) && config.settled_command_angular >= 0.0 &&
+         std::isfinite(config.settled_measured_angular) && config.settled_measured_angular >= 0.0 &&
+         std::isfinite(config.turn_command_threshold) &&
+         config.turn_command_threshold > config.settled_command_angular &&
+         std::isfinite(config.turn_measured_threshold) && config.turn_measured_threshold > 0.0 &&
+         std::isfinite(config.turn_tracking_timeout) && config.turn_tracking_timeout >= 0.0 &&
+         config.clear_observations > 0;
+}
+
+// 每个控制周期先生成指令，再按带延迟的响应模型积分实测速度。
+// 预测终点之后也继续模拟指令限幅和底盘制动，直到两者均停止。
+std::vector<PlannerPose2D> predictCommandTrajectory(
+  const PlannerVelocity2D & measured, const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & target, const TrajectoryConfig & trajectory,
+  const MotionLimits & limits, const CommandPredictionConfig & prediction,
+  double angular_command_limit, bool force_linear_stop, PlannerVelocity2D * first_command)
+{
+  if (!validateCommandPredictionConfig(prediction) || !validateTrajectoryConfig(trajectory) ||
+    !validateMotionLimits(limits))
+  {
+    return {};
+  }
+  const auto commandFor = [&](const PlannerVelocity2D & previous,
+      const PlannerVelocity2D & desired, double dt) {
+      auto command = limitCommandVelocity(previous, desired, limits, dt);
+      command.angular_z = clampValue(
+        command.angular_z, -angular_command_limit,
+        angular_command_limit);
+      if (force_linear_stop) {
+        command.linear_x = 0.0;
+      }
+      return command;
+    };
+  PlannerVelocity2D command = commandFor(previous_command, target, prediction.control_dt);
+  if (first_command != nullptr) {
+    *first_command = command;
+  }
+  struct TimedCommand {double time; PlannerVelocity2D velocity;};
+  std::vector<TimedCommand> commands{{0.0, command}};
+  PlannerVelocity2D actual = clampVelocityToLimits(measured, limits);
+  PlannerPose2D pose;
+  std::vector<PlannerPose2D> poses{pose};
+  const double braking_time = std::max(
+    std::max(limits.max_linear_speed, limits.max_reverse_speed) / limits.max_linear_decel,
+    limits.max_angular_speed / limits.max_angular_accel);
+  const double end_time = trajectory.prediction_time + 2.0 * braking_time +
+    prediction.response_delay + 4.0 * prediction.control_period;
+  double elapsed = 0.0;
+  double next_control = prediction.control_period;
+  std::size_t delayed_index = 0U;
+  constexpr double tolerance = 1e-8;
+  while (elapsed < end_time) {
+    if (elapsed + tolerance >= next_control) {
+      command = commandFor(
+        command,
+        elapsed + tolerance >= trajectory.prediction_time ? PlannerVelocity2D{} : target,
+        prediction.control_period);
+      commands.push_back({elapsed, command});
+      next_control += prediction.control_period;
+    }
+    const double delayed_time = elapsed - prediction.response_delay;
+    PlannerVelocity2D applied = previous_command;
+    if (delayed_time >= -tolerance) {
+      while (delayed_index + 1U < commands.size() &&
+        commands[delayed_index + 1U].time <= delayed_time + tolerance)
+      {
+        ++delayed_index;
+      }
+      applied = commands[delayed_index].velocity;
+    }
+    applied.angular_z *= prediction.angular_response_gain;
+    applied = clampVelocityToLimits(applied, limits);
+    // 在指令更新和延迟指令到达处切分，避免跳过一个控制周期。
+    double dt = std::min({trajectory.simulation_dt, next_control - elapsed, end_time - elapsed});
+    for (const auto & queued : commands) {
+      const double arrival = queued.time + prediction.response_delay;
+      if (arrival > elapsed + tolerance) {
+        dt = std::min(dt, arrival - elapsed);
+        break;
+      }
+    }
+    if (dt <= 0.0) {
+      return {};
+    }
+    const auto next = approachVelocity(actual, applied, limits, dt);
+    integrateVelocityStep(pose, actual, next, dt);
+    poses.push_back(pose);
+    actual = next;
+    elapsed += dt;
+    if (elapsed >= trajectory.prediction_time + prediction.response_delay &&
+      std::abs(command.linear_x) < tolerance && std::abs(command.angular_z) < tolerance &&
+      std::abs(applied.linear_x) < tolerance && std::abs(applied.angular_z) < tolerance &&
+      std::abs(actual.linear_x) < tolerance && std::abs(actual.angular_z) < tolerance)
+    {
+      return poses;
+    }
+  }
+  // 未能完成完整制动的预测不能作为安全候选。
+  return {};
+}
+
+LocalPlanResult planRecoveringVelocity(
+  const PlannerVelocity2D & measured, const PlannerVelocity2D & previous_command,
+  const PlannerVelocity2D & nominal, const std::vector<ObstaclePoint2D> & obstacles,
+  const TrajectoryConfig & trajectory, const FootprintConfig & footprint,
+  const MotionLimits & limits, const VelocitySamplingConfig & sampling,
+  const CommandPredictionConfig & prediction, const FollowRecoveryConfig & config,
+  const FollowRecoveryInput & input, FollowRecoveryState & state,
+  bool force_linear_stop, const PlannerVelocity2D * scoring_previous)
+{
+  if (!validateFollowRecoveryConfig(config) || !input.heading_valid ||
+    !std::isfinite(input.heading))
+  {
+    state.phase = FollowRecoveryPhase::RECOVERING;
+    state.clear_count = 0;
+    return {};
+  }
+  const auto probe = planLocalVelocity(
+    measured, previous_command, nominal, obstacles,
+    trajectory, footprint, limits, sampling, force_linear_stop, prediction, scoring_previous);
+  // 方位误差只用于恢复释放，不用于判断是否必须停止前进。
+  const auto reversesMotion = [&](double requested) {
+      const bool opposite_measured = requested * measured.angular_z < 0.0;
+      const bool opposite_command = requested * previous_command.angular_z < 0.0;
+      return std::abs(requested) > config.settled_command_angular &&
+             ((opposite_measured &&
+             std::abs(measured.angular_z) > config.settled_measured_angular) ||
+             (opposite_command &&
+             std::abs(previous_command.angular_z) > config.settled_command_angular));
+    };
+  state.reversing = probe.valid && reversesMotion(probe.selected_velocity.angular_z);
+  const bool avoiding = !probe.valid || probe.avoidance_active;
+  const bool residual_turn = std::abs(nominal.angular_z) <= config.settled_command_angular &&
+    (std::abs(previous_command.angular_z) > config.settled_command_angular ||
+    std::abs(measured.angular_z) > config.settled_measured_angular);
+  if (avoiding) {
+    state.phase = FollowRecoveryPhase::AVOIDING;
+    state.speed_cap = 0.0;
+    state.clear_count = 0;
+  } else if (state.phase == FollowRecoveryPhase::AVOIDING ||
+    (state.phase == FollowRecoveryPhase::FOLLOWING && (state.reversing || residual_turn)))
+  {
+    state.phase = FollowRecoveryPhase::RECOVERING;
+    state.speed_cap = std::max(0.0, previous_command.linear_x);
+    state.clear_count = 0;
+  }
+
+  auto result = probe;
+  if (state.phase == FollowRecoveryPhase::RECOVERING) {
+    auto bounded_nominal = nominal;
+    double cap = std::min(state.speed_cap, std::max(0.0, previous_command.linear_x));
+    if (cap < limits.min_linear_speed) {
+      cap = 0.0;
+    }
+    bounded_nominal.linear_x = std::min(std::max(0.0, nominal.linear_x), cap);
+    result = planLocalVelocity(
+      measured, previous_command, bounded_nominal, obstacles, trajectory, footprint,
+      limits, sampling, force_linear_stop || cap == 0.0, prediction, scoring_previous);
+  }
+
+  // 检查最终候选的本周期输出，而非目标方位或尚未执行的远期转向。
+  // 减小转向和穿过零点不算失跟；只有有效转向指令持续得不到响应才停车。
+  const double command_turn = result.valid ? result.first_command.angular_z : 0.0;
+  const bool strong_turn = std::abs(command_turn) >= config.turn_command_threshold;
+  const bool tracking_mismatch = strong_turn &&
+    (command_turn * measured.angular_z <= 0.0 ||
+    std::abs(measured.angular_z) < config.turn_measured_threshold);
+  state.turn_mismatch_sec = tracking_mismatch ?
+    state.turn_mismatch_sec + prediction.control_dt : 0.0;
+  const double tracking_timeout = std::max(config.turn_tracking_timeout, prediction.response_delay);
+  state.turn_unestablished = tracking_mismatch &&
+    state.turn_mismatch_sec + 1e-9 >= tracking_timeout;
+  state.reversing = result.valid && reversesMotion(result.selected_velocity.angular_z);
+  if (tracking_mismatch && !state.turn_unestablished && result.valid &&
+    result.first_command.linear_x > std::max(0.0, previous_command.linear_x))
+  {
+    // 观察窗口内先禁止提速，不把短暂延迟直接变成停车。
+    auto hold_target = result.selected_velocity;
+    const double hold_speed = std::max(0.0, previous_command.linear_x);
+    hold_target.linear_x = hold_speed < limits.min_linear_speed ? 0.0 : hold_speed;
+    result = planLocalVelocity(
+      measured, previous_command, hold_target, obstacles, trajectory, footprint,
+      limits, sampling, force_linear_stop || hold_target.linear_x == 0.0,
+      prediction, scoring_previous);
+  }
+  if (state.turn_unestablished && result.valid) {
+    if (state.phase == FollowRecoveryPhase::FOLLOWING) {
+      state.phase = FollowRecoveryPhase::RECOVERING;
+      state.speed_cap = std::max(0.0, previous_command.linear_x);
+      state.clear_count = 0;
+    }
+    // 保留当前选中的转向意图以建立转向；停车过渡本身仍须重新检查。
+    const PlannerVelocity2D turn_only{0.0, result.selected_velocity.angular_z};
+    result = planLocalVelocity(
+      measured, previous_command, turn_only, obstacles, trajectory, footprint,
+      limits, sampling, true, prediction, scoring_previous);
+  }
+
+  if (state.phase == FollowRecoveryPhase::RECOVERING) {
+    const bool settled = result.valid && probe.valid && !avoiding &&
+      !state.reversing && !state.turn_unestablished &&
+      std::abs(input.heading) <= config.heading_tolerance &&
+      std::abs(previous_command.angular_z) <= config.settled_command_angular &&
+      std::abs(measured.angular_z) <= config.settled_measured_angular &&
+      std::abs(probe.first_command.angular_z) <= config.settled_command_angular;
+    if (!settled) {
+      state.clear_count = 0;
+    } else if (input.new_observation) {
+      ++state.clear_count;
+    }
+    if (state.clear_count >= config.clear_observations) {
+      state.phase = FollowRecoveryPhase::FOLLOWING;
+      state.clear_count = 0;
+      return probe;
+    }
+    if (result.valid) {
+      state.speed_cap = std::min(state.speed_cap, std::max(0.0, result.first_command.linear_x));
+    }
+  }
+  return result;
 }
 
 }  // namespace go2_uwb_local_follow

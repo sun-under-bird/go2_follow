@@ -507,6 +507,7 @@ TEST(LocalVelocityPlanner, ReducesSpeedForMarginalClearanceTtc)
   sampling.angular_samples = 3;
   sampling.min_avoidance_angular_speed = 0.0;
   sampling.max_avoidance_angular_speed = 0.0;
+  sampling.linear_speed_step = 0.0;
   sampling.linear_speed_priority_scales = {1.0, 0.5, 0.0};
   sampling.minimum_safe_clearance = 0.05;
   sampling.minimum_ttc = 0.40;
@@ -535,6 +536,7 @@ TEST(LocalVelocityPlanner, PrefersAnySafeMovingTierOverStopping)
   sampling.angular_samples = 3;
   sampling.min_avoidance_angular_speed = 0.0;
   sampling.max_avoidance_angular_speed = 0.0;
+  sampling.linear_speed_step = 0.0;
   sampling.linear_speed_priority_scales = {1.0, 0.5, 0.0};
   sampling.minimum_safe_clearance = 0.05;
   sampling.minimum_ttc = 0.40;
@@ -565,6 +567,7 @@ TEST(LocalVelocityPlanner, AllowsStopOnlyAfterEveryMovingTierIsMarginal)
   sampling.angular_samples = 3;
   sampling.min_avoidance_angular_speed = 0.0;
   sampling.max_avoidance_angular_speed = 0.0;
+  sampling.linear_speed_step = 0.0;
   sampling.linear_speed_priority_scales = {1.0, 0.5, 0.0};
   sampling.minimum_safe_clearance = 0.25;
   sampling.minimum_ttc = 2.0;
@@ -580,6 +583,73 @@ TEST(LocalVelocityPlanner, AllowsStopOnlyAfterEveryMovingTierIsMarginal)
   EXPECT_DOUBLE_EQ(result.selected_velocity.angular_z, 0.0);
   EXPECT_GT(result.marginal_count, 0U);
   EXPECT_LT(result.min_clearance, result.required_clearance);
+}
+
+// 用侧障净空限制可行速度，验证所有新增档位都能参与真实规划。
+TEST(LocalVelocityPlanner, SelectsFixedStepTiersByClearance)
+{
+  const planner::TrajectoryConfig trajectory{1.20, 0.05};
+  const planner::FootprintConfig footprint;
+  const planner::MotionLimits limits;
+  planner::VelocitySamplingConfig sampling;
+  sampling.angular_samples = 3;
+  sampling.min_avoidance_angular_speed = 0.0;
+  sampling.max_avoidance_angular_speed = 0.0;
+  sampling.minimum_ttc = 0.40;
+  const double half_width = footprint.robot_width * 0.5 + footprint.safety_margin;
+
+  for (const double expected : {0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.23, 0.0}) {
+    SCOPED_TRACE(expected);
+    const double clearance = expected > 0.0 ? (expected + 0.02) * 0.40 : 0.06;
+    const std::vector<planner::ObstaclePoint2D> obstacles{{0.45, half_width + clearance}};
+    const auto result = planner::planLocalVelocity(
+      {}, {}, {0.80, 0.0}, obstacles, trajectory, footprint, limits, sampling);
+    ASSERT_TRUE(result.valid);
+    EXPECT_TRUE(result.avoidance_active);
+    EXPECT_NEAR(result.selected_velocity.linear_x, expected, 1e-9);
+    EXPECT_NEAR(result.selected_speed_scale, expected / 0.80, 1e-9);
+    EXPECT_GE(result.min_clearance, result.required_clearance);
+  }
+}
+
+TEST(LocalVelocityPlanner, KeepsMinimumExecutableTierAtLowNominalSpeeds)
+{
+  const planner::MotionLimits limits;
+  planner::VelocitySamplingConfig sampling;
+  sampling.angular_samples = 3;
+  sampling.min_avoidance_angular_speed = 0.0;
+  sampling.max_avoidance_angular_speed = 0.0;
+  sampling.minimum_ttc = 0.40;
+  for (const double nominal : {0.30, 0.23, 0.10, 0.0}) {
+    SCOPED_TRACE(nominal);
+    const auto result = planner::planLocalVelocity(
+      {}, {}, {nominal, 0.0}, {{0.60, 0.38}}, {1.20, 0.05}, {}, limits, sampling);
+    ASSERT_TRUE(result.valid);
+    EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, nominal > 0.0 ? 0.23 : 0.0);
+  }
+  const auto forced_stop = planner::planLocalVelocity(
+    {}, {}, {0.80, 0.0}, {}, {1.20, 0.05}, {}, limits, sampling, true);
+  ASSERT_TRUE(forced_stop.valid);
+  EXPECT_DOUBLE_EQ(forced_stop.selected_velocity.linear_x, 0.0);
+}
+
+TEST(PlannerConfig, ValidatesFixedSpeedStepAndLegacyMode)
+{
+  planner::VelocitySamplingConfig sampling;
+  for (const double step : {-0.1, 0.001, std::numeric_limits<double>::infinity(),
+      std::numeric_limits<double>::quiet_NaN()})
+  {
+    sampling.linear_speed_step = step;
+    EXPECT_FALSE(planner::validateVelocitySamplingConfig(sampling));
+  }
+  for (const double step : {0.0, 0.01, 0.10}) {
+    sampling.linear_speed_step = step;
+    EXPECT_TRUE(planner::validateVelocitySamplingConfig(sampling));
+  }
+  sampling.linear_speed_priority_scales.clear();
+  EXPECT_TRUE(planner::validateVelocitySamplingConfig(sampling));
+  sampling.linear_speed_step = 0.0;
+  EXPECT_FALSE(planner::validateVelocitySamplingConfig(sampling));
 }
 
 // 验证障碍已经进入当前膨胀足迹时所有候选都会被安全淘汰。
@@ -654,4 +724,367 @@ TEST(PlannerConfig, RejectsInvalidSamplingAndMotionLimits)
   EXPECT_FALSE(planner::validateMotionLimits(reverse_limits, &reason));
   EXPECT_FALSE(
     planner::validateEmergencyReverseConfig(reverse_config, planner::MotionLimits{}, &reason));
+}
+
+TEST(CommandPrediction, IncludesHistoricalTurnAndPublishesCheckedCommand)
+{
+  planner::MotionLimits limits;
+  limits.max_angular_speed = 1.5;
+  limits.max_angular_accel = 1.5;
+  limits.max_linear_accel = 0.5;
+  const planner::PlannerVelocity2D previous{0.4, 1.5};
+  const planner::CommandPredictionConfig prediction;
+  const auto result = planner::planLocalVelocity(
+    {0.4, 0.0}, previous, {0.8, 0.0}, {}, {1.5, 0.08}, {}, limits, {});
+  ASSERT_TRUE(result.valid);
+  EXPECT_NEAR(result.first_command.linear_x, 0.425, 1e-9);
+  EXPECT_NEAR(result.first_command.angular_z, 1.425, 1e-9);
+  EXPECT_GT(result.selected_trajectory.back().yaw, 0.1);
+  const auto expected = planner::predictCommandTrajectory(
+    {0.4, 0.0}, previous, result.selected_velocity, {1.5, 0.08}, limits,
+    prediction, limits.max_angular_speed, false);
+  ASSERT_EQ(expected.size(), result.selected_trajectory.size());
+  EXPECT_DOUBLE_EQ(expected.back().x, result.selected_trajectory.back().x);
+  EXPECT_DOUBLE_EQ(expected.back().yaw, result.selected_trajectory.back().yaw);
+}
+
+TEST(CommandPrediction, HistoricalTurnCollisionIsNotTreatedAsStraightClearance)
+{
+  const planner::MotionLimits limits;
+  const planner::FootprintConfig footprint{0.70, 0.38, 0.02};
+  const planner::TrajectoryConfig trajectory{1.5, 0.05};
+  const auto straight = planner::predictAcceleratingTrajectory(
+    {0.4, 0.0}, {0.8, 0.0}, trajectory, limits);
+  const auto transition = planner::predictCommandTrajectory(
+    {0.4, 0.0}, {0.4, 1.5}, {0.8, 0.0}, trajectory, limits, {}, 2.0, false);
+  ASSERT_FALSE(transition.empty());
+  // Pick a point on the turning path well outside the old straight swept footprint.
+  planner::ObstaclePoint2D obstacle;
+  bool found = false;
+  for (const auto & pose : transition) {
+    if (pose.y > 0.35) {
+      obstacle = {pose.x, pose.y};
+      found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(found);
+  EXPECT_FALSE(planner::checkTrajectoryCollision(straight, {obstacle}, footprint).collision);
+  EXPECT_TRUE(planner::checkTrajectoryCollision(transition, {obstacle}, footprint).collision);
+  const auto result = planner::planLocalVelocity(
+    {0.4, 0.0}, {0.4, 1.5}, {0.8, 0.0}, {obstacle}, trajectory, footprint, limits, {});
+  EXPECT_TRUE(result.avoidance_active);
+  if (result.valid) {
+    EXPECT_FALSE(
+      planner::checkTrajectoryCollision(
+        result.selected_trajectory, {obstacle}, footprint).collision);
+  }
+}
+
+TEST(CommandPrediction, DelayExtendsStoppingTravelAndStopOverridesArePredicted)
+{
+  const planner::MotionLimits limits;
+  planner::CommandPredictionConfig prediction;
+  prediction.response_delay = 0.0;
+  const auto immediate = planner::predictCommandTrajectory(
+    {0.8, 0.0}, {0.8, 0.0}, {}, {1.5, 0.05}, limits, prediction, 2.0, true);
+  prediction.response_delay = 0.3;
+  planner::PlannerVelocity2D first;
+  const auto delayed = planner::predictCommandTrajectory(
+    {0.8, 0.0}, {0.8, 0.0}, {}, {1.5, 0.05}, limits, prediction, 2.0, true, &first);
+  ASSERT_FALSE(immediate.empty());
+  ASSERT_FALSE(delayed.empty());
+  EXPECT_DOUBLE_EQ(first.linear_x, 0.0);
+  EXPECT_GT(delayed.back().x, immediate.back().x + 0.2);
+  EXPECT_TRUE(planner::checkTrajectoryCollision({}, {}, {}).collision);
+}
+
+TEST(FollowRecovery, ResidualTurnCannotAccelerateOrReleaseWithoutNewObservations)
+{
+  planner::FollowRecoveryState state;
+  state.phase = planner::FollowRecoveryPhase::AVOIDING;
+  state.speed_cap = 0.30;
+  planner::FollowRecoveryInput input{0.0, true, true};
+  auto result = planner::planRecoveringVelocity(
+    {0.3, 0.7}, {0.3, 0.7}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, input, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::RECOVERING);
+  EXPECT_LE(result.first_command.linear_x, 0.30);
+  EXPECT_GT(result.first_command.angular_z, 0.0);
+  EXPECT_EQ(state.clear_count, 0);
+  // Zero measured rotation and zero nominal rotation do not imply heading alignment.
+  input.heading = 0.4;
+  result = planner::planRecoveringVelocity(
+    {0.3, 0.0}, {0.3, 0.0}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, input, state);
+  EXPECT_EQ(state.clear_count, 0);
+  EXPECT_LE(result.first_command.linear_x, 0.30);
+  input.heading = 0.0;
+  for (int index = 0; index < 2; ++index) {
+    result = planner::planRecoveringVelocity(
+      {0.3, 0.0}, {0.3, 0.0}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, input, state);
+    EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::RECOVERING);
+  }
+  input.new_observation = false;
+  for (int index = 0; index < 10; ++index) {
+    result = planner::planRecoveringVelocity(
+      {0.3, 0.0}, {0.3, 0.0}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, input, state);
+    EXPECT_LE(result.first_command.linear_x, 0.30);
+  }
+  EXPECT_EQ(state.clear_count, 2);
+  input.new_observation = true;
+  result = planner::planRecoveringVelocity(
+    {0.3, 0.0}, {0.3, 0.0}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, input, state);
+  EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::FOLLOWING);
+  EXPECT_GT(result.first_command.linear_x, 0.30);
+  EXPECT_LT(result.first_command.linear_x, 0.8);
+}
+
+TEST(FollowRecovery, SafeReverseCorrectionKeepsMovingThroughZeroTurn)
+{
+  planner::FollowRecoveryState state;
+  planner::PlannerVelocity2D previous{0.4, 1.0};
+  bool crossed_zero = false;
+  for (int index = 0; index < 30; ++index) {
+    const auto result = planner::planRecoveringVelocity(
+      previous, previous, {0.8, -0.5}, {}, {}, {}, {}, {}, {}, {},
+      {-0.5, true, true}, state);
+    ASSERT_TRUE(result.valid);
+    EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::RECOVERING);
+    EXPECT_FALSE(state.turn_unestablished);
+    EXPECT_DOUBLE_EQ(result.first_command.linear_x, 0.4);
+    EXPECT_LE(std::abs(result.first_command.angular_z - previous.angular_z), 0.100000001);
+    if (index == 0) {
+      EXPECT_TRUE(state.reversing);
+      EXPECT_GT(result.first_command.angular_z, 0.0);
+    }
+    crossed_zero = crossed_zero || result.first_command.angular_z < 0.0;
+    previous = result.first_command;
+  }
+  EXPECT_TRUE(crossed_zero);
+}
+
+TEST(FollowRecovery, SustainedWeakTurnStopsButTransientLagDoesNot)
+{
+  planner::FollowRecoveryState state;
+  planner::PlannerVelocity2D previous{0.3, 0.4};
+  for (int index = 0; index < 10; ++index) {
+    const auto result = planner::planRecoveringVelocity(
+      {0.3, 0.03}, previous, {0.8, 0.5}, {}, {}, {}, {}, {}, {}, {},
+      {0.5, true, true}, state);
+    ASSERT_TRUE(result.valid);
+    if (index < 6) {
+      EXPECT_FALSE(state.turn_unestablished);
+      EXPECT_GT(result.first_command.linear_x, 0.0);
+      EXPECT_LE(result.first_command.linear_x, previous.linear_x);
+    } else {
+      EXPECT_TRUE(state.turn_unestablished);
+      EXPECT_DOUBLE_EQ(result.first_command.linear_x, 0.0);
+    }
+    EXPECT_GT(result.first_command.angular_z, 0.4);
+    previous = result.first_command;
+  }
+}
+
+TEST(FollowRecovery, UnsafeAccelerationProbePreventsRelease)
+{
+  planner::FollowRecoveryState state;
+  state.phase = planner::FollowRecoveryPhase::RECOVERING;
+  state.speed_cap = 0.30;
+  for (int index = 0; index < 5; ++index) {
+    const auto result = planner::planRecoveringVelocity(
+      {}, {}, {0.8, 0.0}, {{0.7, 0.0}}, {}, {}, {}, {}, {}, {},
+      {0.0, true, true}, state);
+    EXPECT_NE(state.phase, planner::FollowRecoveryPhase::FOLLOWING);
+    EXPECT_EQ(state.clear_count, 0);
+    if (result.valid) {
+      EXPECT_FALSE(
+        planner::checkTrajectoryCollision(
+          result.selected_trajectory, {{0.7, 0.0}}, {}).collision);
+    }
+  }
+}
+
+TEST(FollowRecovery, InvalidHeadingAndSubDeadzoneCapCannotStartWalking)
+{
+  planner::FollowRecoveryState state;
+  auto result = planner::planRecoveringVelocity(
+    {}, {}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, {}, state);
+  EXPECT_FALSE(result.valid);
+  state.speed_cap = 0.20;
+  const planner::FollowRecoveryInput input{0.4, true, true};
+  result = planner::planRecoveringVelocity(
+    {}, {}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {}, input, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_DOUBLE_EQ(result.first_command.linear_x, 0.0);
+}
+
+TEST(FollowRecovery, StandingAvoidanceCanRestartOnlyAtMinimumSpeed)
+{
+  planner::FollowRecoveryState state;
+  state.phase = planner::FollowRecoveryPhase::AVOIDING;
+  state.speed_cap = 0.30;
+  const auto result = planner::planRecoveringVelocity(
+    {0.0, 0.5}, {0.0, 0.5}, {0.8, 0.0}, {{0.9, -0.2}}, {}, {}, {}, {}, {}, {},
+    {0.0, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_NE(state.phase, planner::FollowRecoveryPhase::FOLLOWING);
+  EXPECT_LE(result.first_command.linear_x, 0.23);
+  if (result.first_command.linear_x > 0.0) {
+    EXPECT_DOUBLE_EQ(result.first_command.linear_x, 0.23);
+  }
+}
+
+TEST(FollowRecovery, SafetyLossResetsConsecutiveReleaseCount)
+{
+  planner::FollowRecoveryState state;
+  state.phase = planner::FollowRecoveryPhase::RECOVERING;
+  state.speed_cap = 0.3;
+  state.clear_count = 2;
+  const auto result = planner::planRecoveringVelocity(
+    {0.3, 0.0}, {0.3, 0.0}, {0.8, 0.0}, {{0.7, 0.0}}, {}, {}, {}, {}, {}, {},
+    {0.0, true, false}, state);
+  EXPECT_NE(state.phase, planner::FollowRecoveryPhase::FOLLOWING);
+  EXPECT_EQ(state.clear_count, 0);
+  if (result.valid) {
+    EXPECT_FALSE(
+      planner::checkTrajectoryCollision(
+        result.selected_trajectory, {{0.7, 0.0}}, {}).collision);
+  }
+}
+
+TEST(CommandPrediction, ScoringPreferenceCannotBecomeExecutionHistory)
+{
+  const planner::PlannerVelocity2D scoring{0.3, 1.5};
+  const auto result = planner::planLocalVelocity(
+    {0.3, 0.0}, {0.3, 0.0}, {0.8, 0.0}, {}, {}, {}, {}, {}, false, {}, &scoring);
+  ASSERT_TRUE(result.valid);
+  EXPECT_DOUBLE_EQ(result.first_command.angular_z, 0.0);
+  EXPECT_DOUBLE_EQ(result.selected_trajectory.back().yaw, 0.0);
+}
+
+TEST(PlannerConfig, RejectsInvalidPredictionAndRecoveryParameters)
+{
+  planner::CommandPredictionConfig prediction;
+  prediction.control_period = 0.0;
+  EXPECT_FALSE(planner::validateCommandPredictionConfig(prediction));
+  prediction = {};
+  prediction.response_delay = -0.1;
+  EXPECT_FALSE(planner::validateCommandPredictionConfig(prediction));
+  prediction = {};
+  prediction.angular_response_gain = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(planner::validateCommandPredictionConfig(prediction));
+  planner::FollowRecoveryConfig recovery;
+  recovery.clear_observations = 0;
+  EXPECT_FALSE(planner::validateFollowRecoveryConfig(recovery));
+  recovery = {};
+  recovery.turn_tracking_timeout = -0.1;
+  EXPECT_FALSE(planner::validateFollowRecoveryConfig(recovery));
+  recovery = {};
+  recovery.turn_command_threshold = recovery.settled_command_angular;
+  EXPECT_FALSE(planner::validateFollowRecoveryConfig(recovery));
+}
+
+TEST(FollowRecovery, SafeAvoidanceKeepsPlannerSpeedAbovePointThree)
+{
+  const planner::PlannerVelocity2D measured{0.6, 0.5};
+  const planner::PlannerVelocity2D nominal{0.8, 0.5};
+  const std::vector<planner::ObstaclePoint2D> obstacles{{0.0, -0.6}};
+  const auto baseline = planner::planLocalVelocity(
+    measured, measured, nominal, obstacles, {}, {}, {}, {});
+  ASSERT_TRUE(baseline.valid);
+  ASSERT_TRUE(baseline.avoidance_active);
+  ASSERT_GT(baseline.selected_velocity.linear_x, 0.3);
+  // Both initial avoidance and re-entry from recovery must ignore old recovery caps.
+  for (const auto phase : {planner::FollowRecoveryPhase::FOLLOWING,
+      planner::FollowRecoveryPhase::AVOIDING, planner::FollowRecoveryPhase::RECOVERING})
+  {
+    planner::FollowRecoveryState state;
+    state.phase = phase;
+    state.speed_cap = 0.23;
+    const auto result = planner::planRecoveringVelocity(
+      measured, measured, nominal, obstacles, {}, {}, {}, {}, {}, {},
+      {0.5, true, true}, state);
+    ASSERT_TRUE(result.valid);
+    EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::AVOIDING);
+    EXPECT_DOUBLE_EQ(result.selected_velocity.linear_x, baseline.selected_velocity.linear_x);
+    EXPECT_DOUBLE_EQ(result.first_command.linear_x, baseline.first_command.linear_x);
+    EXPECT_DOUBLE_EQ(result.first_command.angular_z, baseline.first_command.angular_z);
+    EXPECT_GT(result.first_command.linear_x, 0.6);
+  }
+}
+
+TEST(FollowRecovery, ExitCapturesLastOutputAndRatchetsOnlyWithActualDeceleration)
+{
+  planner::FollowRecoveryState state;
+  state.phase = planner::FollowRecoveryPhase::AVOIDING;
+  state.speed_cap = 0.23;  // Must not carry a stale cap into a new recovery episode.
+  auto result = planner::planRecoveringVelocity(
+    {0.6, 0.5}, {0.6, 0.5}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {},
+    {0.4, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::RECOVERING);
+  EXPECT_DOUBLE_EQ(state.speed_cap, 0.6);
+  EXPECT_DOUBLE_EQ(result.first_command.linear_x, 0.6);
+  result = planner::planRecoveringVelocity(
+    {0.6, 0.5}, result.first_command, {0.3, 0.0}, {}, {}, {}, {}, {}, {}, {},
+    {0.4, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  const double reduced = result.first_command.linear_x;
+  EXPECT_LT(reduced, 0.6);
+  EXPECT_GT(reduced, 0.3);
+  EXPECT_DOUBLE_EQ(state.speed_cap, reduced);
+  result = planner::planRecoveringVelocity(
+    {reduced, 0.5}, result.first_command, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {},
+    {0.4, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_LE(result.first_command.linear_x, reduced);
+}
+
+
+TEST(FollowRecovery, OppositeTargetDoesNotStopSafeAvoidance)
+{
+  planner::FollowRecoveryState state;
+  const auto baseline = planner::planLocalVelocity(
+    {0.4, 0.8}, {0.4, 0.8}, {0.8, -0.3}, {{0.6, -0.4}}, {}, {}, {}, {});
+  ASSERT_TRUE(baseline.valid);
+  ASSERT_TRUE(baseline.avoidance_active);
+  ASSERT_GT(baseline.selected_velocity.angular_z, 0.0);
+  const auto result = planner::planRecoveringVelocity(
+    {0.4, 0.8}, {0.4, 0.8}, {0.8, -0.3}, {{0.6, -0.4}},
+    {}, {}, {}, {}, {}, {}, {-0.5, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::AVOIDING);
+  EXPECT_FALSE(state.reversing);
+  EXPECT_FALSE(state.turn_unestablished);
+  EXPECT_DOUBLE_EQ(result.first_command.linear_x, baseline.first_command.linear_x);
+  EXPECT_DOUBLE_EQ(result.first_command.angular_z, baseline.first_command.angular_z);
+}
+
+TEST(FollowRecovery, EstablishedTurnClearsTransientMismatch)
+{
+  planner::FollowRecoveryState state;
+  state.turn_mismatch_sec = 0.25;
+  const auto result = planner::planRecoveringVelocity(
+    {0.4, 0.5}, {0.4, 0.5}, {0.8, 0.5}, {}, {}, {}, {}, {}, {}, {},
+    {0.5, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_FALSE(state.turn_unestablished);
+  EXPECT_DOUBLE_EQ(state.turn_mismatch_sec, 0.0);
+  EXPECT_GT(result.first_command.linear_x, 0.4);
+}
+
+TEST(FollowRecovery, LargeHeadingKeepsRecoveryMovingWithoutAcceleration)
+{
+  planner::FollowRecoveryState state;
+  state.phase = planner::FollowRecoveryPhase::AVOIDING;
+  const auto result = planner::planRecoveringVelocity(
+    {0.6, 0.5}, {0.6, 0.5}, {0.8, 0.0}, {}, {}, {}, {}, {}, {}, {},
+    {-0.8, true, true}, state);
+  ASSERT_TRUE(result.valid);
+  EXPECT_EQ(state.phase, planner::FollowRecoveryPhase::RECOVERING);
+  EXPECT_FALSE(state.reversing);
+  EXPECT_DOUBLE_EQ(result.first_command.linear_x, 0.6);
+  EXPECT_GT(result.first_command.angular_z, 0.0);
+  EXPECT_LT(result.first_command.angular_z, 0.5);
+  EXPECT_EQ(state.clear_count, 0);
 }
