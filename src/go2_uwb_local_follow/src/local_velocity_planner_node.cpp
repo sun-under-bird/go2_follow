@@ -40,6 +40,8 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 
 #include "go2_uwb_local_follow/local_planner_core.hpp"
+#include "go2_uwb_local_follow/rolling_obstacle_map_core.hpp"
+#include "go2_uwb_local_follow/observation_time.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -55,6 +57,13 @@ std::string formatDouble(double value, int precision = 3)
   std::ostringstream stream;
   stream << std::fixed << std::setprecision(precision) << value;
   return stream.str();
+}
+
+// Decode invalid ROS stamps without throwing inside subscription callbacks.
+int64_t messageStamp(const builtin_interfaces::msg::Time & stamp)
+{
+  if (stamp.sec < 0 || stamp.nanosec >= 1000000000U) {return 0;}
+  return static_cast<int64_t>(stamp.sec) * 1000000000LL + stamp.nanosec;
 }
 
 // 将数值限制在给定闭区间内。
@@ -73,6 +82,25 @@ public:
   : Node("local_velocity_planner_node", options)
   {
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
+    odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
+    compensate_obstacle_motion_ = declare_parameter<bool>("compensate_obstacle_motion", true);
+    enforce_source_time_ = declare_parameter<bool>("enforce_source_time", true);
+    enable_cycle_telemetry_ = declare_parameter<bool>("enable_cycle_telemetry", true);
+    pose_config_.odom_buffer_duration_sec = declare_parameter<double>(
+      "odom_buffer_duration_sec",
+      3.0);
+    pose_config_.max_pose_extrapolation_sec = declare_parameter<double>(
+      "max_pose_extrapolation_sec", 0.05);
+    pose_config_.max_pose_interpolation_gap_sec = declare_parameter<double>(
+      "max_pose_interpolation_gap_sec", 0.20);
+    pose_config_.odom_jump_distance = declare_parameter<double>("odom_jump_distance", 1.0);
+    pose_config_.odom_jump_yaw = declare_parameter<double>("odom_jump_yaw", 0.8);
+    pose_config_.odom_jump_check_interval_sec = declare_parameter<double>(
+      "odom_jump_check_interval_sec", 0.5);
+    if (!validateRollingMapConfig(pose_config_)) {
+      throw std::invalid_argument("invalid planner pose buffer configuration");
+    }
+    pose_buffer_ = std::make_unique<OdomPoseBuffer>(pose_config_);
     odom_child_frame_ = declare_parameter<std::string>(
       "odom_child_frame", "base_footprint");
     nominal_cmd_topic_ = declare_parameter<std::string>(
@@ -230,6 +258,12 @@ public:
     selected_path_pub_ = create_publisher<nav_msgs::msg::Path>(selected_path_topic_, 10);
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       diagnostics_topic_, 10);
+    telemetry_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      "/go2_uwb_local_follow/control_cycle", 10);
+    transitions_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      "/go2_uwb_local_follow/state_transitions", 100);
+    control_obstacles_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
+      "/go2_uwb_local_follow/control_obstacles", rclcpp::SensorDataQoS());
 
     const auto control_period = std::chrono::duration<double>(1.0 / control_frequency_);
     control_timer_ = create_wall_timer(
@@ -267,15 +301,20 @@ private:
 
   struct NominalSnapshot
   {
+    int64_t stamp_ns{0};
     PlannerVelocity2D velocity;
+    int64_t receipt_stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
 
   struct TargetSnapshot
   {
+    double x{0.0};
+    double y{0.0};
     double heading{0.0};
     int64_t stamp_ns{0};
+    int64_t receipt_stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
@@ -283,7 +322,9 @@ private:
   struct ObstacleSnapshot
   {
     std::shared_ptr<const std::vector<ObstaclePoint2D>> points;
+    std::shared_ptr<const std::vector<double>> expires_at;
     int64_t stamp_ns{0};
+    int64_t receipt_stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
     std::string rejection_reason;
@@ -291,7 +332,9 @@ private:
 
   struct OdomSnapshot
   {
+    int64_t stamp_ns{0};
     PlannerVelocity2D velocity;
+    int64_t receipt_stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
     std::string rejection_reason;
@@ -299,6 +342,28 @@ private:
 
   struct StatusSnapshot
   {
+    int64_t control_stamp_ns{0};
+    int64_t obstacle_stamp_ns{0};
+    int64_t odom_stamp_ns{0};
+    int64_t nominal_stamp_ns{0};
+    int64_t target_stamp_ns{0};
+    int64_t obstacle_receipt_stamp_ns{0};
+    int64_t odom_receipt_stamp_ns{0};
+    int64_t nominal_receipt_stamp_ns{0};
+    int64_t target_receipt_stamp_ns{0};
+    double target_x{0.0};
+    double target_y{0.0};
+    double obstacle_source_age{0.0};
+    double obstacle_receipt_age{0.0};
+    double odom_source_age{0.0};
+    double nominal_source_age{0.0};
+    double compensation_ms{0.0};
+    double control_dt{0.0};
+    double command_latency_ms{0.0};
+    double cycle_work_ms{0.0};
+    bool deadline_missed{false};
+    std::string reason;
+    PlannerVelocity2D published_command;
     std::string state{"WAIT_INPUT"};
     double target_heading{0.0};
     double target_age{std::numeric_limits<double>::infinity()};
@@ -342,7 +407,8 @@ private:
     {
       throw std::invalid_argument("invalid command prediction, target or recovery configuration");
     }
-    if (base_frame_.empty() || odom_child_frame_.empty() || nominal_cmd_topic_.empty() ||
+    if (base_frame_.empty() || odom_frame_.empty() || odom_child_frame_.empty() ||
+      nominal_cmd_topic_.empty() ||
       obstacle_topic_.empty() || odom_topic_.empty() || planned_cmd_topic_.empty() ||
       final_cmd_topic_.empty() || cmd_vel_topic_.empty() || selected_path_topic_.empty() ||
       diagnostics_topic_.empty())
@@ -404,22 +470,31 @@ private:
 
   void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr message)
   {
+    checkClock();
     TargetSnapshot snapshot;
     snapshot.receipt_time = std::chrono::steady_clock::now();
-    snapshot.stamp_ns = rclcpp::Time(message->header.stamp).nanoseconds();
+    snapshot.receipt_stamp_ns = now().nanoseconds();
+    snapshot.stamp_ns = messageStamp(message->header.stamp);
     snapshot.valid = message->header.frame_id == base_frame_ && snapshot.stamp_ns > 0 &&
       std::isfinite(message->point.x) && std::isfinite(message->point.y);
     if (snapshot.valid) {
+      snapshot.x = message->point.x;
+      snapshot.y = message->point.y;
       snapshot.heading = std::atan2(message->point.y, message->point.x);
     }
     std::lock_guard<std::mutex> lock(input_mutex_);
+    if (snapshot.stamp_ns > 0 && snapshot.stamp_ns <= last_target_accepted_stamp_) {return;}
+    if (!std::isfinite(sourceAge(snapshot.stamp_ns, now().nanoseconds()))) {snapshot.valid = false;}
+    if (snapshot.valid) {last_target_accepted_stamp_ = snapshot.stamp_ns;}
     target_snapshot_ = snapshot;
   }
 
   // 保存最新名义跟随速度，只接受有限的前进和转向分量。
   void nominalCallback(const geometry_msgs::msg::TwistStamped::SharedPtr message)
   {
+    checkClock();
     NominalSnapshot snapshot;
+    snapshot.stamp_ns = messageStamp(message->header.stamp);
     const double linear_x = message->twist.linear.x;
     const double angular_z = message->twist.angular.z;
     snapshot.valid = std::isfinite(linear_x) && std::isfinite(angular_z);
@@ -430,15 +505,25 @@ private:
       angular_z, -motion_limits_.max_angular_speed, motion_limits_.max_angular_speed) :
       0.0;
     snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.receipt_stamp_ns = now().nanoseconds();
     std::lock_guard<std::mutex> lock(input_mutex_);
+    if (snapshot.stamp_ns > 0 && snapshot.stamp_ns <= last_nominal_accepted_stamp_) {return;}
+    if (enforce_source_time_ && !std::isfinite(sourceAge(snapshot.stamp_ns, now().nanoseconds()))) {
+      snapshot.valid = false;
+    }
+    if (snapshot.valid) {last_nominal_accepted_stamp_ = snapshot.stamp_ns;}
     nominal_snapshot_ = snapshot;
   }
 
   // 从 /odom_leg 读取 base_footprint 下的真实速度，保留恢复倒退所需的负线速度。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    checkClock();
     OdomSnapshot snapshot;
+    snapshot.stamp_ns = messageStamp(message->header.stamp);
+    if (snapshot.stamp_ns > 0 && snapshot.stamp_ns <= last_odom_accepted_stamp_) {return;}
     snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.receipt_stamp_ns = now().nanoseconds();
     if (message->child_frame_id != odom_child_frame_) {
       snapshot.rejection_reason = "odom child_frame_id differs from configured frame";
       storeOdomSnapshot(std::move(snapshot));
@@ -458,6 +543,32 @@ private:
     if (std::abs(angular_z) < odom_angular_deadband_) {
       angular_z = 0.0;
     }
+    if (compensate_obstacle_motion_) {
+      const auto & q = message->pose.pose.orientation;
+      const double norm = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+      TimedPose2D pose{snapshot.stamp_ns, message->pose.pose.position.x,
+        message->pose.pose.position.y, 0.0};
+      if (message->header.frame_id != odom_frame_ || !std::isfinite(norm) || norm <= 1e-12 ||
+        !std::isfinite(pose.x) || !std::isfinite(pose.y) ||
+        sourceAge(snapshot.stamp_ns, now().nanoseconds()) > odom_timeout_sec_)
+      {
+        snapshot.rejection_reason = "invalid/expired odom pose, timestamp or parent frame";
+        storeOdomSnapshot(std::move(snapshot));
+        return;
+      }
+      pose.yaw = std::atan2(
+        2.0 * (q.w * q.z + q.x * q.y) / norm,
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z) / norm);
+      const auto result = pose_buffer_->append(pose);
+      if (result == PoseAppendResult::kRejected) {
+        snapshot.rejection_reason = "odom pose rejected";
+        storeOdomSnapshot(std::move(snapshot));
+        return;
+      }
+      if (result == PoseAppendResult::kResetDetected) {
+        invalidateObservations(pose.stamp_ns);
+      }
+    }
     snapshot.velocity.linear_x = clampValue(
       linear_x, -motion_limits_.max_reverse_speed, motion_limits_.max_linear_speed);
     snapshot.velocity.angular_z = clampValue(
@@ -470,64 +581,185 @@ private:
   void storeOdomSnapshot(OdomSnapshot snapshot)
   {
     std::lock_guard<std::mutex> lock(input_mutex_);
+    if (enforce_source_time_ && !std::isfinite(sourceAge(snapshot.stamp_ns, now().nanoseconds()))) {
+      snapshot.valid = false;
+    }
+    if (snapshot.valid) {last_odom_accepted_stamp_ = snapshot.stamp_ns;}
     odom_snapshot_ = std::move(snapshot);
   }
 
-  // 将当前帧 PointCloud2 过滤成 base_footprint 下的二维障碍快照。
+  // Cache source-frame points without spatial clipping; clip only after time compensation.
   void obstacleCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
+    checkClock();
     ObstacleSnapshot snapshot;
-    snapshot.stamp_ns = rclcpp::Time(message->header.stamp).nanoseconds();
+    snapshot.stamp_ns = messageStamp(message->header.stamp);
+    if (snapshot.stamp_ns > 0 && snapshot.stamp_ns <= last_obstacle_accepted_stamp_) {return;}
     snapshot.receipt_time = std::chrono::steady_clock::now();
-    if (message->header.frame_id != base_frame_) {
-      snapshot.rejection_reason = "obstacle frame differs from base_frame";
+    snapshot.receipt_stamp_ns = now().nanoseconds();
+    if (message->header.frame_id != base_frame_ || snapshot.stamp_ns < epoch_start_ns_) {
+      snapshot.rejection_reason = "obstacle frame or reset epoch mismatch";
       storeObstacleSnapshot(std::move(snapshot));
       return;
     }
-
+    const auto fieldValid = [&](const std::string & name, uint8_t type, uint32_t size) {
+        return std::any_of(
+          message->fields.begin(), message->fields.end(),
+          [&](const sensor_msgs::msg::PointField & f) {
+            return f.name == name && f.datatype == type && f.count == 1 &&
+            f.offset + size <= message->point_step;
+          });
+      };
+    const auto count = static_cast<std::size_t>(message->width) * message->height;
+    const bool has_expiry = std::any_of(
+      message->fields.begin(), message->fields.end(),
+      [](const auto & f) {return f.name == "expires_at";});
+    if (!fieldValid("x", sensor_msgs::msg::PointField::FLOAT32, 4) ||
+      !fieldValid("y", sensor_msgs::msg::PointField::FLOAT32, 4) || message->is_bigendian ||
+      message->row_step != static_cast<std::size_t>(message->point_step) * message->width ||
+      message->data.size() != static_cast<std::size_t>(message->row_step) * message->height ||
+      count > 100000U ||
+      (has_expiry && !fieldValid("expires_at", sensor_msgs::msg::PointField::FLOAT64, 8)))
+    {
+      snapshot.rejection_reason = "invalid point cloud layout or excessive input size";
+      storeObstacleSnapshot(std::move(snapshot));
+      return;
+    }
     auto points = std::make_shared<std::vector<ObstaclePoint2D>>();
-    points->reserve(
-      std::min<std::size_t>(
-        static_cast<std::size_t>(max_obstacle_points_),
-        static_cast<std::size_t>(message->width) * message->height));
+    auto expiry = std::make_shared<std::vector<double>>();
+    points->reserve(count);
+    expiry->reserve(count);
     try {
-      sensor_msgs::PointCloud2ConstIterator<float> x_iterator(*message, "x");
-      sensor_msgs::PointCloud2ConstIterator<float> y_iterator(*message, "y");
-      for (; x_iterator != x_iterator.end(); ++x_iterator, ++y_iterator) {
-        const double x = static_cast<double>(*x_iterator);
-        const double y = static_cast<double>(*y_iterator);
-        if (!std::isfinite(x) || !std::isfinite(y) ||
-          x < obstacle_x_min_ || x > obstacle_x_max_ ||
-          std::abs(y) > obstacle_y_abs_max_)
-        {
-          continue;
+      sensor_msgs::PointCloud2ConstIterator<float> x(*message, "x"), y(*message, "y");
+      std::unique_ptr<sensor_msgs::PointCloud2ConstIterator<double>> end_time;
+      if (has_expiry) {
+        end_time = std::make_unique<sensor_msgs::PointCloud2ConstIterator<double>>(
+          *message, "expires_at");
+      }
+      for (std::size_t i = 0; i < count; ++i, ++x, ++y) {
+        const double expires = end_time ? **end_time : std::numeric_limits<double>::infinity();
+        if (end_time) {++*end_time;}
+        if (has_expiry && (!std::isfinite(expires) || expires <= 0.0)) {
+          throw std::runtime_error("invalid cell expiration time");
         }
-        const bool inside_self_filter =
-          enable_self_filter_ && x >= self_filter_x_min_ && x <= self_filter_x_max_ &&
-          std::abs(y) <= self_filter_y_abs_;
-        if (inside_self_filter) {
-          continue;
-        }
-        points->push_back(ObstaclePoint2D{x, y});
-        if (points->size() >= static_cast<std::size_t>(max_obstacle_points_)) {
-          break;
-        }
+        if (!std::isfinite(*x) || !std::isfinite(*y)) {continue;}
+        points->push_back({static_cast<double>(*x), static_cast<double>(*y)});
+        expiry->push_back(expires);
       }
     } catch (const std::runtime_error & exception) {
       snapshot.rejection_reason = exception.what();
       storeObstacleSnapshot(std::move(snapshot));
       return;
     }
-
     snapshot.points = std::move(points);
+    snapshot.expires_at = std::move(expiry);
     snapshot.valid = true;
     storeObstacleSnapshot(std::move(snapshot));
+  }
+
+  bool prepareObstacles(
+    const ObstacleSnapshot & source, int64_t stamp,
+    std::vector<ObstaclePoint2D> & points, std::string & reason)
+  {
+    TimedPose2D source_pose, control_pose;
+    if (compensate_obstacle_motion_ &&
+      (!pose_buffer_->lookup(source.stamp_ns, &source_pose) ||
+      !pose_buffer_->lookup(stamp, &control_pose)))
+    {
+      reason = "source/control pose unavailable within interpolation/extrapolation bounds";
+      return false;
+    }
+    points.reserve(source.points->size());
+    // Cover the full rear footprint of the configured reverse maneuver.
+    const double rear_limit = emergency_reverse_config_.enabled ?
+      std::min(
+      obstacle_x_min_, -emergency_reverse_config_.distance -
+      footprint_config_.robot_length * 0.5 - footprint_config_.safety_margin -
+      emergency_reverse_config_.extra_safety_margin) : obstacle_x_min_;
+    for (std::size_t i = 0; i < source.points->size(); ++i) {
+      if (enforce_source_time_ && static_cast<double>(stamp) * 1e-9 > (*source.expires_at)[i]) {
+        continue;
+      }
+      auto point = (*source.points)[i];
+      if (compensate_obstacle_motion_) {
+        const auto odom = transformRollingPointToOdom({point.x, point.y, 0.0}, source_pose);
+        const auto base = transformRollingPointToBase(odom, control_pose);
+        point = {base.x, base.y};
+      }
+      if (point.x < rear_limit || point.x > obstacle_x_max_ ||
+        std::abs(point.y) > obstacle_y_abs_max_) {continue;}
+      if (enable_self_filter_ && point.x >= self_filter_x_min_ &&
+        point.x <= self_filter_x_max_ && std::abs(point.y) <= self_filter_y_abs_) {continue;}
+      points.push_back(point);
+    }
+    if (points.size() > static_cast<std::size_t>(max_obstacle_points_)) {
+      // Do not silently drop collision evidence to satisfy a computation budget.
+      reason = "control obstacle count exceeds max_obstacle_points";
+      return false;
+    }
+    return true;
+  }
+
+  void publishControlObstacles(const std::vector<ObstaclePoint2D> & points, int64_t stamp)
+  {
+    if (!enable_cycle_telemetry_) {return;}
+    sensor_msgs::msg::PointCloud2 cloud;
+    cloud.header.frame_id = base_frame_;
+    cloud.header.stamp = rclcpp::Time(stamp);
+    sensor_msgs::PointCloud2Modifier modifier(cloud);
+    modifier.setPointCloud2FieldsByString(1, "xyz");
+    modifier.resize(points.size());
+    sensor_msgs::PointCloud2Iterator<float> x(cloud, "x"), y(cloud, "y"), z(cloud, "z");
+    for (const auto & p : points) {
+      *x = p.x; *y = p.y; *z = 0.0F;
+      ++x; ++y; ++z;
+    }
+    control_obstacles_pub_->publish(cloud);
+  }
+
+  // Default callback group serializes these callbacks, including pose buffer access.
+  void invalidateObservations(int64_t epoch)
+  {
+    std::lock_guard<std::mutex> lock(input_mutex_);
+    obstacle_snapshot_ = ObstacleSnapshot{};
+    target_snapshot_ = TargetSnapshot{};
+    nominal_snapshot_ = NominalSnapshot{};
+    last_target_accepted_stamp_ = 0;
+    last_nominal_accepted_stamp_ = 0;
+    last_obstacle_accepted_stamp_ = 0;
+    epoch_start_ns_ = epoch;
+    last_recovery_observation_stamp_ = 0;
+    last_confirm_stamp_ = 0;
+    emergency_hit_count_ = 0;
+    emergency_clear_count_ = 0;
+    emergency_latched_ = false;
+    resetEmergencyRecovery();
+    have_avoidance_turn_time_ = false;
+    avoidance_turn_direction_ = 0;
+    recovery_state_ = FollowRecoveryState{};
+  }
+
+  void checkClock()
+  {
+    const auto stamp = now().nanoseconds();
+    if (last_ros_time_ns_ > 0 && stamp < last_ros_time_ns_) {
+      pose_buffer_->clear();
+      invalidateObservations(stamp);
+      odom_snapshot_ = OdomSnapshot{};
+      last_odom_accepted_stamp_ = 0;
+    }
+    last_ros_time_ns_ = stamp;
   }
 
   // 用一次短锁替换共享障碍快照，避免控制循环复制整帧点云。
   void storeObstacleSnapshot(ObstacleSnapshot snapshot)
   {
     std::lock_guard<std::mutex> lock(input_mutex_);
+    if (enforce_source_time_ && !std::isfinite(sourceAge(snapshot.stamp_ns, now().nanoseconds()))) {
+      snapshot.valid = false;
+      snapshot.rejection_reason = "zero or future obstacle source timestamp";
+    }
+    if (snapshot.valid) {last_obstacle_accepted_stamp_ = snapshot.stamp_ns;}
     obstacle_snapshot_ = std::move(snapshot);
   }
 
@@ -561,14 +793,13 @@ private:
   // 按新点云帧确认紧急障碍，过滤只出现一帧的近场伪点。
   bool confirmEmergencyObstacle(
     bool detected,
-    const std::chrono::steady_clock::time_point & obstacle_receipt)
+    int64_t obstacle_stamp)
   {
     // 控制频率高于点云频率，同一帧只能计数一次，否则确认机制会退化成单帧触发。
-    if (have_confirm_receipt_ && obstacle_receipt == last_confirm_receipt_) {
+    if (!newerObservation(obstacle_stamp, last_confirm_stamp_)) {
       return emergency_latched_;
     }
-    last_confirm_receipt_ = obstacle_receipt;
-    have_confirm_receipt_ = true;
+    last_confirm_stamp_ = obstacle_stamp;
 
     if (detected) {
       emergency_clear_count_ = 0;
@@ -777,6 +1008,18 @@ private:
   // 固定频率执行输入时效、速度采样、制动轨迹碰撞和最终指令限幅。
   void controlTick()
   {
+    cycle_start_ = std::chrono::steady_clock::now();
+    ++cycle_sequence_;
+    checkClock();
+    controlTickImpl();
+    previous_cycle_total_ms_ = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - cycle_start_).count();
+    previous_control_stamp_ns_ = cycle_stamp_ns_;
+    if (previous_cycle_total_ms_ > 1000.0 / control_frequency_) {++deadline_miss_count_;}
+  }
+
+  void controlTickImpl()
+  {
     NominalSnapshot nominal;
     TargetSnapshot target;
     ObstacleSnapshot obstacle;
@@ -795,15 +1038,37 @@ private:
     const double control_dt = clampValue(measured_dt, 0.0, 2.0 / control_frequency_);
 
     StatusSnapshot status;
+    status.control_stamp_ns = now().nanoseconds();
+    cycle_stamp_ns_ = status.control_stamp_ns;
+    status.control_dt = measured_dt;
+    status.target_x = target.x;
+    status.target_y = target.y;
+    status.target_stamp_ns = target.stamp_ns;
+    status.obstacle_receipt_stamp_ns = obstacle.receipt_stamp_ns;
+    status.odom_receipt_stamp_ns = odom.receipt_stamp_ns;
+    status.nominal_receipt_stamp_ns = nominal.receipt_stamp_ns;
+    status.target_receipt_stamp_ns = target.receipt_stamp_ns;
+    status.obstacle_stamp_ns = obstacle.stamp_ns;
+    status.odom_stamp_ns = odom.stamp_ns;
+    status.nominal_stamp_ns = nominal.stamp_ns;
+    status.obstacle_source_age = sourceAge(obstacle.stamp_ns, status.control_stamp_ns);
+    status.odom_source_age = sourceAge(odom.stamp_ns, status.control_stamp_ns);
+    status.nominal_source_age = sourceAge(nominal.stamp_ns, status.control_stamp_ns);
     status.target_heading = target.heading;
     status.target_age = std::max(
       snapshotAge(target, current),
-      static_cast<double>(now().nanoseconds() - target.stamp_ns) * 1e-9);
+      sourceAge(target.stamp_ns, status.control_stamp_ns));
     status.nominal = nominal.velocity;
     status.measured = odom.velocity;
     status.nominal_age = snapshotAge(nominal, current);
     status.obstacle_age = snapshotAge(obstacle, current);
+    status.obstacle_receipt_age = status.obstacle_age;
     status.odom_age = snapshotAge(odom, current);
+    if (enforce_source_time_) {
+      status.nominal_age = std::max(status.nominal_age, status.nominal_source_age);
+      status.obstacle_age = std::max(status.obstacle_age, status.obstacle_source_age);
+      status.odom_age = std::max(status.odom_age, status.odom_source_age);
+    }
     status.avoidance_turn_direction = activeAvoidanceTurnDirection(current);
 
     if (!nominal.valid || status.nominal_age > nominal_timeout_sec_) {
@@ -815,6 +1080,7 @@ private:
       resetEmergencyRecovery();
       const std::string state = obstacle.rejection_reason.empty() ?
         "WAIT_OBSTACLE" : "OBSTACLE_INVALID";
+      status.reason = obstacle.rejection_reason;
       publishStop(status, state, {});
       return;
     }
@@ -826,6 +1092,7 @@ private:
     if (!odom.valid) {
       resetEmergencyRecovery();
       const std::string state = odom.rejection_reason.empty() ? "WAIT_ODOM" : "ODOM_INVALID";
+      status.reason = odom.rejection_reason;
       publishStop(status, state, {});
       return;
     }
@@ -846,12 +1113,21 @@ private:
     status.stabilized_nominal = correctNominalAngularVelocity(
       nominal.velocity, odom.velocity, angular_stabilization_config_, motion_limits_);
 
-    const auto & points = *obstacle.points;
+    const auto compensation_start = std::chrono::steady_clock::now();
+    std::vector<ObstaclePoint2D> points;
+    if (!prepareObstacles(obstacle, status.control_stamp_ns, points, status.reason)) {
+      resetEmergencyRecovery();
+      publishStop(status, "OBSTACLE_ALIGNMENT_FAILED", {});
+      return;
+    }
+    status.compensation_ms = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - compensation_start).count();
+    publishControlObstacles(points, status.control_stamp_ns);
     status.obstacle_count = points.size();
     status.emergency_detected = hasEmergencyFrontObstacle(
       points, footprint_config_, emergency_front_distance_, emergency_half_width_);
     status.emergency = confirmEmergencyObstacle(
-      status.emergency_detected, obstacle.receipt_time);
+      status.emergency_detected, obstacle.stamp_ns);
     if (handleEmergencyRecovery(status, odom, points, current)) {
       return;
     }
@@ -903,6 +1179,18 @@ private:
     const std::string phase = recovery_state_.phase == FollowRecoveryPhase::AVOIDING ? "AVOIDING" :
       (recovery_state_.phase == FollowRecoveryPhase::RECOVERING ? "RECOVERING" : "PLANNING");
     const std::string state = enable_motion_ ? phase : phase + "_DEBUG";
+    if (status.emergency) {
+      status.reason = "emergency_latched";
+    } else if (recovery_state_.turn_unestablished) {
+      status.reason = "turn_tracking_timeout";
+    } else if (recovery_state_.phase == FollowRecoveryPhase::RECOVERING) {
+      status.reason = recovery_state_.reversing ? "turn_direction_reversal" :
+        "waiting_for_heading_and_turn_to_settle";
+    } else {
+      status.reason =
+        result.avoidance_active ? "nominal_path_requires_collision_or_clearance_avoidance" :
+        "nominal_path_clear";
+    }
     publishDecision(status, state, result.selected_trajectory);
   }
 
@@ -932,6 +1220,24 @@ private:
     bool force_stop = false)
   {
     status.state = state;
+    // A long planning callback must not publish motion from inputs that expired meanwhile.
+    const double elapsed = std::chrono::duration<double>(
+      std::chrono::steady_clock::now() - cycle_start_).count();
+    if (!force_stop && enforce_source_time_ &&
+      (status.obstacle_age + elapsed > obstacle_timeout_sec_ ||
+      status.odom_age + elapsed > odom_timeout_sec_ ||
+      status.nominal_age + elapsed > nominal_timeout_sec_ ||
+      status.target_age + elapsed > target_timeout_sec_))
+    {
+      force_stop = true;
+      status.state = "INPUT_EXPIRED_DURING_PLANNING";
+      status.reason = "input freshness budget exhausted before command publication";
+      recovery_state_.phase = FollowRecoveryPhase::RECOVERING;
+      recovery_state_.speed_cap = 0.0;
+      recovery_state_.clear_count = 0;
+      status.recovery = recovery_state_;
+      resetEmergencyRecovery();
+    }
     if (force_stop) {
       status.planned = PlannerVelocity2D{};
       status.final_command = PlannerVelocity2D{};
@@ -956,7 +1262,17 @@ private:
       last_command_valid_ = true;
     }
     cmd_vel_pub_->publish(output_message);
-    publishPath(trajectory, stamp);
+    status.published_command = {output_message.linear.x, output_message.angular.z};
+    status.command_latency_ms = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - cycle_start_).count();
+    if (status.state == "INPUT_EXPIRED_DURING_PLANNING") {
+      publishPath({}, rclcpp::Time(status.control_stamp_ns));
+    } else {
+      publishPath(trajectory, rclcpp::Time(status.control_stamp_ns));
+    }
+    status.cycle_work_ms = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - cycle_start_).count();
+    status.deadline_missed = status.cycle_work_ms > 1000.0 / control_frequency_;
 
     {
       std::lock_guard<std::mutex> lock(status_mutex_);
@@ -1005,19 +1321,22 @@ private:
   void publishDiagnosticIfDue()
   {
     const auto current = std::chrono::steady_clock::now();
-    if (have_diagnostic_time_ && current - last_diagnostic_time_ < diagnostic_period_) {
-      return;
+    const bool diagnostic_due = !have_diagnostic_time_ ||
+      current - last_diagnostic_time_ >= diagnostic_period_;
+    if (diagnostic_due) {
+      have_diagnostic_time_ = true;
+      last_diagnostic_time_ = current;
     }
-    have_diagnostic_time_ = true;
-    last_diagnostic_time_ = current;
 
     StatusSnapshot status;
     {
       std::lock_guard<std::mutex> lock(status_mutex_);
       status = status_snapshot_;
     }
+    const bool transition = status.state != last_published_state_;
+    if (!diagnostic_due && !enable_cycle_telemetry_ && !transition) {return;}
     diagnostic_msgs::msg::DiagnosticArray array;
-    array.header.stamp = now();
+    array.header.stamp = rclcpp::Time(status.control_stamp_ns);
     diagnostic_msgs::msg::DiagnosticStatus diagnostic;
     diagnostic.level = status.state == "PLANNING" || status.state == "PLANNING_DEBUG" ||
       status.state == "AVOIDING" || status.state == "AVOIDING_DEBUG" ?
@@ -1027,6 +1346,40 @@ private:
     diagnostic.hardware_id = "go2_stereo_local_planner";
     diagnostic.message = status.state;
     const std::pair<std::string, std::string> entries[] = {
+      {"previous_state", last_published_state_},
+      {"reason", status.reason.empty() ? status.state : status.reason},
+      {"control_stamp_ns", std::to_string(status.control_stamp_ns)},
+      {"cycle_sequence", std::to_string(cycle_sequence_)},
+      {"publish_stamp_ns", std::to_string(now().nanoseconds())},
+      {"obstacle_source_stamp_ns", std::to_string(status.obstacle_stamp_ns)},
+      {"obstacle_receipt_stamp_ns", std::to_string(status.obstacle_receipt_stamp_ns)},
+      {"odom_receipt_stamp_ns", std::to_string(status.odom_receipt_stamp_ns)},
+      {"nominal_receipt_stamp_ns", std::to_string(status.nominal_receipt_stamp_ns)},
+      {"target_receipt_stamp_ns", std::to_string(status.target_receipt_stamp_ns)},
+      {"odom_source_stamp_ns", std::to_string(status.odom_stamp_ns)},
+      {"nominal_source_stamp_ns", std::to_string(status.nominal_stamp_ns)},
+      {"target_source_stamp_ns", std::to_string(status.target_stamp_ns)},
+      {"target_x", formatDouble(status.target_x)},
+      {"target_y", formatDouble(status.target_y)},
+      {"distance", formatDouble(std::hypot(status.target_x, status.target_y))},
+      {"obstacle_source_age_sec", formatDouble(status.obstacle_source_age)},
+      {"obstacle_receipt_age_sec", formatDouble(status.obstacle_receipt_age)},
+      {"odom_source_age_sec", formatDouble(status.odom_source_age)},
+      {"nominal_source_age_sec", formatDouble(status.nominal_source_age)},
+      {"compensation_ms", formatDouble(status.compensation_ms)},
+      {"control_interval_ms", formatDouble(1000.0 * status.control_dt)},
+      {"command_latency_ms", formatDouble(status.command_latency_ms)},
+      {"cycle_work_ms", formatDouble(status.cycle_work_ms)},
+      {"cycle_work_over_budget", status.deadline_missed ? "true" : "false"},
+      {"previous_cycle_total_ms", formatDouble(previous_cycle_total_ms_)},
+      {"previous_control_stamp_ns", std::to_string(previous_control_stamp_ns_)},
+      {"deadline_miss_count", std::to_string(deadline_miss_count_)},
+      {"published_v", formatDouble(status.published_command.linear_x)},
+      {"published_w", formatDouble(status.published_command.angular_z)},
+      {"compensate_obstacle_motion", compensate_obstacle_motion_ ? "true" : "false"},
+      {"enforce_source_time", enforce_source_time_ ? "true" : "false"},
+      {"emergency_hit_count", std::to_string(emergency_hit_count_)},
+      {"emergency_clear_count", std::to_string(emergency_clear_count_)},
       {"target_heading", formatDouble(status.target_heading)},
       {"target_age_sec", formatDouble(status.target_age)},
       {"recovery_speed_cap", formatDouble(status.recovery.speed_cap)},
@@ -1083,8 +1436,34 @@ private:
       diagnostic.values.push_back(std::move(value));
     }
     array.status.push_back(std::move(diagnostic));
-    diagnostics_pub_->publish(array);
+    if (diagnostic_due) {diagnostics_pub_->publish(array);}
+    if (enable_cycle_telemetry_) {telemetry_pub_->publish(array);}
+    if (transition && enable_cycle_telemetry_) {transitions_pub_->publish(array);}
+    last_published_state_ = status.state;
   }
+
+  RollingMapConfig pose_config_;
+  std::unique_ptr<OdomPoseBuffer> pose_buffer_;
+  std::string odom_frame_;
+  bool compensate_obstacle_motion_{true};
+  bool enforce_source_time_{true};
+  bool enable_cycle_telemetry_{true};
+  int64_t last_target_accepted_stamp_{0};
+  int64_t last_nominal_accepted_stamp_{0};
+  int64_t last_odom_accepted_stamp_{0};
+  int64_t last_obstacle_accepted_stamp_{0};
+  int64_t last_ros_time_ns_{0};
+  int64_t epoch_start_ns_{0};
+  int64_t cycle_stamp_ns_{0};
+  int64_t previous_control_stamp_ns_{0};
+  double previous_cycle_total_ms_{0.0};
+  std::size_t deadline_miss_count_{0};
+  std::size_t cycle_sequence_{0};
+  std::string last_published_state_;
+  std::chrono::steady_clock::time_point cycle_start_{};
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr telemetry_pub_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr transitions_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr control_obstacles_pub_;
 
   std::string target_topic_;
   double target_timeout_sec_{0.50};
@@ -1144,8 +1523,7 @@ private:
   int emergency_clear_count_{0};
   bool emergency_latched_{false};
   EmergencyRecoveryState emergency_recovery_state_{EmergencyRecoveryState::IDLE};
-  bool have_confirm_receipt_{false};
-  std::chrono::steady_clock::time_point last_confirm_receipt_{};
+  int64_t last_confirm_stamp_{0};
   std::chrono::steady_clock::time_point last_avoidance_turn_time_{};
   std::chrono::steady_clock::time_point emergency_brake_start_time_{};
   std::chrono::steady_clock::time_point emergency_reverse_start_time_{};

@@ -113,6 +113,9 @@ public:
       std::bind(&UwbFollowControllerNode::odomCallback, this, std::placeholders::_1));
     cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
     nominal_cmd_pub_ = create_publisher<geometry_msgs::msg::TwistStamped>(nominal_cmd_topic_, 10);
+    enable_cycle_telemetry_ = declare_parameter<bool>("enable_cycle_telemetry", true);
+    telemetry_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      "/go2_uwb_local_follow/follow_cycle", 10);
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       diagnostics_topic_, 10);
 
@@ -257,6 +260,12 @@ private:
   // 固定频率计算名义速度、执行变化率限制并发布隔离跟随速度。
   void controlTick()
   {
+    controlTickImpl();
+    if (enable_cycle_telemetry_) {publishDiagnostic(true);}
+  }
+
+  void controlTickImpl()
+  {
     const auto current_time = std::chrono::steady_clock::now();
     const double measured_dt =
       std::chrono::duration<double>(current_time - last_control_time_).count();
@@ -377,6 +386,11 @@ private:
   // 周期发布目标距离、角度、速度和最新样本年龄。
   void diagnosticTick()
   {
+    publishDiagnostic(false);
+  }
+
+  void publishDiagnostic(bool cycle)
+  {
     std::string state;
     Velocity2D output;
     FollowResult result;
@@ -404,6 +418,9 @@ private:
     status.hardware_id = "go2_base";
     status.message = state;
     const std::pair<std::string, std::string> entries[] = {
+      {"within_follow_distance", have_result && result.within_follow_distance ? "true" : "false"},
+      {"blind_rotation", have_result && result.blind_rotation ? "true" : "false"},
+      {"have_result", have_result ? "true" : "false"},
       {"target_age_sec", formatDouble(target_age)},
       {"odom_age_sec", formatDouble(odom_age)},
       {"distance", have_result ? formatDouble(result.distance) : "n/a"},
@@ -427,9 +444,11 @@ private:
       status.values.push_back(std::move(value));
     }
     array.status.push_back(std::move(status));
-    diagnostics_pub_->publish(array);
+    if (cycle) {telemetry_pub_->publish(array);} else {diagnostics_pub_->publish(array);}
   }
 
+  bool enable_cycle_telemetry_{true};
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr telemetry_pub_;
   std::string base_frame_;
   std::string target_topic_;
   std::string odom_topic_;

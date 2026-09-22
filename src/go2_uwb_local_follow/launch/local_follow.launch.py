@@ -114,6 +114,8 @@ def generate_launch_description() -> LaunchDescription:
                 "cmd_vel_topic": "/cmd_vel_follow",
                 # 名义控制只给规划器提供输入，禁止绕过避障直接控制底盘。
                 "enable_motion": False,
+                "enable_cycle_telemetry": ParameterValue(
+                    LaunchConfiguration("enable_cycle_telemetry"), value_type=bool),
             },
         ],
     )
@@ -127,6 +129,10 @@ def generate_launch_description() -> LaunchDescription:
             rolling_map_params_file,
             {
                 "base_frame": base_frame,
+                "enforce_source_time": ParameterValue(
+                    LaunchConfiguration("enforce_source_time"), value_type=bool),
+                "enable_cycle_telemetry": ParameterValue(
+                    LaunchConfiguration("enable_cycle_telemetry"), value_type=bool),
                 "odom_frame": odom_frame,
                 "odom_child_frame": base_frame,
                 "input_observation_topic": depth_observation_topic,
@@ -145,6 +151,13 @@ def generate_launch_description() -> LaunchDescription:
             planner_params_file,
             {
                 "base_frame": base_frame,
+                "odom_frame": odom_frame,
+                "compensate_obstacle_motion": ParameterValue(
+                    LaunchConfiguration("compensate_obstacle_motion"), value_type=bool),
+                "enforce_source_time": ParameterValue(
+                    LaunchConfiguration("enforce_source_time"), value_type=bool),
+                "enable_cycle_telemetry": ParameterValue(
+                    LaunchConfiguration("enable_cycle_telemetry"), value_type=bool),
                 "odom_child_frame": base_frame,
                 "nominal_cmd_topic": "/go2_uwb_local_follow/nominal_cmd",
                 "target_topic": target_topic,
@@ -158,6 +171,9 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument("compensate_obstacle_motion", default_value="true"),
+            DeclareLaunchArgument("enforce_source_time", default_value="true"),
+            DeclareLaunchArgument("enable_cycle_telemetry", default_value="true"),
             DeclareLaunchArgument(
                 "stereo_params_file",
                 default_value=str(config_directory / "stereo_obstacle_cloud.yaml"),

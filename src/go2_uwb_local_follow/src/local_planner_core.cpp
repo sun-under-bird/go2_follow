@@ -428,17 +428,31 @@ CollisionResult checkTrajectoryCollision(
     result.min_clearance = 0.0;
     return result;
   }
+  const double half_length = footprint.robot_length * 0.5 + footprint.safety_margin;
+  const double half_width = footprint.robot_width * 0.5 + footprint.safety_margin;
+  double min_clearance_squared = std::numeric_limits<double>::infinity();
   for (std::size_t pose_index = 0U; pose_index < poses.size(); ++pose_index) {
+    const auto & pose = poses[pose_index];
+    // Trigonometry depends on the pose, not on each obstacle. Compare squared
+    // distances and take one square root after the scan, preserving the same geometry.
+    const double cosine = std::cos(pose.yaw);
+    const double sine = std::sin(pose.yaw);
     for (const auto & obstacle : obstacles) {
-      const double clearance = pointToFootprintClearance(poses[pose_index], obstacle, footprint);
-      result.min_clearance = std::min(result.min_clearance, clearance);
-      if (clearance <= 0.0) {
+      const double dx = obstacle.x - pose.x;
+      const double dy = obstacle.y - pose.y;
+      const double outside_x = std::max(0.0, std::abs(cosine * dx + sine * dy) - half_length);
+      const double outside_y = std::max(0.0, std::abs(-sine * dx + cosine * dy) - half_width);
+      const double squared = outside_x * outside_x + outside_y * outside_y;
+      min_clearance_squared = std::min(min_clearance_squared, squared);
+      if (squared <= 0.0) {
         result.collision = true;
+        result.min_clearance = 0.0;
         result.collision_pose_index = pose_index;
         return result;
       }
     }
   }
+  result.min_clearance = std::sqrt(min_clearance_squared);
   return result;
 }
 
@@ -1207,13 +1221,13 @@ LocalPlanResult planRecoveringVelocity(
   const bool residual_turn = std::abs(nominal.angular_z) <= config.settled_command_angular &&
     (std::abs(previous_command.angular_z) > config.settled_command_angular ||
     std::abs(measured.angular_z) > config.settled_measured_angular);
+  const bool entering_recovery = state.phase == FollowRecoveryPhase::AVOIDING ||
+    (state.phase == FollowRecoveryPhase::FOLLOWING && (state.reversing || residual_turn));
   if (avoiding) {
     state.phase = FollowRecoveryPhase::AVOIDING;
     state.speed_cap = 0.0;
     state.clear_count = 0;
-  } else if (state.phase == FollowRecoveryPhase::AVOIDING ||
-    (state.phase == FollowRecoveryPhase::FOLLOWING && (state.reversing || residual_turn)))
-  {
+  } else if (entering_recovery) {
     state.phase = FollowRecoveryPhase::RECOVERING;
     state.speed_cap = std::max(0.0, previous_command.linear_x);
     state.clear_count = 0;

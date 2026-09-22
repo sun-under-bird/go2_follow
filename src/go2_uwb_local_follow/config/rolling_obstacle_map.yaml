@@ -18,7 +18,10 @@ rolling_obstacle_map_node:
     ray_clearing_endpoint_margin: 0.10  # 终点前保留安全余量，避免深度噪声清掉真实表面
     ray_clearing_min_observations: 2  # 同一帧至少两条射线穿过体素才确认清除
 
-    odom_buffer_duration_sec: 3.00  # 必须覆盖点云处理延迟和地图保留时间
+    enforce_source_time: true
+    enable_cycle_telemetry: true
+    max_pose_interpolation_gap_sec: 0.20  # 禁止跨越里程计断流进行插值
+    odom_buffer_duration_sec: 3.00  # 覆盖观测处理延迟；历史障碍已在 odom 中，无需覆盖其保留时间
     max_pose_extrapolation_sec: 0.05  # 点云略新于最新里程计时允许的短时位姿外推
     odom_jump_distance: 1.00  # 短时间位置跳变量超过该值立即清空历史地图
     odom_jump_yaw: 0.80  # 短时间朝向跳变量超过该值立即清空历史地图

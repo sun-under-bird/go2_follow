@@ -86,6 +86,7 @@ bool validateRollingMapConfig(const RollingMapConfig & config, std::string * rea
     std::isfinite(config.rolling_radius) &&
     std::isfinite(config.odom_buffer_duration_sec) &&
     std::isfinite(config.max_pose_extrapolation_sec) &&
+    std::isfinite(config.max_pose_interpolation_gap_sec) &&
     std::isfinite(config.odom_jump_distance) &&
     std::isfinite(config.odom_jump_yaw) &&
     std::isfinite(config.odom_jump_check_interval_sec) &&
@@ -97,6 +98,7 @@ bool validateRollingMapConfig(const RollingMapConfig & config, std::string * rea
   if (config.voxel_size <= 0.0 || config.obstacle_retention_sec <= 0.0 ||
     config.rolling_radius <= 0.0 || config.max_obstacle_points == 0U ||
     config.odom_buffer_duration_sec <= 0.0 || config.max_pose_extrapolation_sec < 0.0 ||
+    config.max_pose_interpolation_gap_sec <= 0.0 ||
     config.odom_jump_distance <= 0.0 || config.odom_jump_yaw <= 0.0 ||
     config.odom_jump_check_interval_sec <= 0.0 || config.ray_clearing_max_range <= 0.0 ||
     config.ray_clearing_endpoint_margin < 0.0 ||
@@ -133,7 +135,7 @@ RollingObstaclePoint transformRollingPointToOdom(
   return RollingObstaclePoint{
     pose.x + cosine * point.x - sine * point.y,
     pose.y + sine * point.x + cosine * point.y,
-    point.z};
+    point.z, point.last_seen_ns};
 }
 
 // 将局部 odom 地图点转换到指定时刻的机身坐标系。
@@ -148,7 +150,7 @@ RollingObstaclePoint transformRollingPointToBase(
   return RollingObstaclePoint{
     cosine * dx + sine * dy,
     -sine * dx + cosine * dy,
-    point.z};
+    point.z, point.last_seen_ns};
 }
 
 // 使用给定配置创建有界里程计位姿缓存。
@@ -210,10 +212,10 @@ bool OdomPoseBuffer::lookup(std::int64_t stamp_ns, TimedPose2D * pose) const
       return false;
     }
     if (poses_.size() < 2U) {
-      *pose = poses_.front();
-      pose->stamp_ns = stamp_ns;
-      return true;
+      return false;
     }
+    if (static_cast<double>(poses_[1U].stamp_ns - poses_[0U].stamp_ns) * 1e-9 >
+      config_.max_pose_interpolation_gap_sec) {return false;}
     // 启动阶段点云可能先于首帧里程计到达，使用最早两帧恢复采集时刻位姿。
     *pose = interpolatePose(poses_[0U], poses_[1U], stamp_ns);
     return true;
@@ -223,10 +225,11 @@ bool OdomPoseBuffer::lookup(std::int64_t stamp_ns, TimedPose2D * pose) const
       return false;
     }
     if (poses_.size() < 2U) {
-      *pose = poses_.back();
-      pose->stamp_ns = stamp_ns;
-      return true;
+      return false;
     }
+    if (static_cast<double>(poses_.back().stamp_ns -
+      poses_[poses_.size() - 2U].stamp_ns) * 1e-9 > config_.max_pose_interpolation_gap_sec)
+    {return false;}
     *pose = interpolatePose(poses_[poses_.size() - 2U], poses_.back(), stamp_ns);
     return true;
   }
@@ -244,6 +247,8 @@ bool OdomPoseBuffer::lookup(std::int64_t stamp_ns, TimedPose2D * pose) const
     *pose = *upper;
     return true;
   }
+  if (static_cast<double>(upper->stamp_ns - std::prev(upper)->stamp_ns) * 1e-9 >
+    config_.max_pose_interpolation_gap_sec) {return false;}
   *pose = interpolatePose(*std::prev(upper), *upper, stamp_ns);
   return true;
 }
@@ -348,7 +353,9 @@ std::vector<RollingObstaclePoint> RollingObstacleMap::pointsInBase(
   std::vector<RollingObstaclePoint> points;
   points.reserve(cells_.size());
   for (const auto & item : cells_) {
-    points.push_back(transformRollingPointToBase(item.second.point, pose));
+    auto point = transformRollingPointToBase(item.second.point, pose);
+    point.last_seen_ns = item.second.last_seen_ns;
+    points.push_back(point);
   }
   std::sort(
     points.begin(), points.end(),

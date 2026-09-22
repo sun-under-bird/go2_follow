@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 #include "go2_uwb_local_follow/rolling_obstacle_map_core.hpp"
+#include "go2_uwb_local_follow/observation_time.hpp"
 
 namespace rolling = go2_uwb_local_follow;
 
@@ -49,6 +50,7 @@ TEST(RollingTransform, RoundTripsBasePoint)
 TEST(OdomPoseBuffer, InterpolatesPositionAndWrappedYaw)
 {
   rolling::RollingMapConfig config;
+  config.max_pose_interpolation_gap_sec = 1.10;
   rolling::OdomPoseBuffer buffer(config);
   ASSERT_EQ(
     buffer.append({kSecond, 0.0, 0.0, kPi - 0.1}),
@@ -241,4 +243,54 @@ TEST(RollingMapConfig, RejectsInvalidRayEndpointMargin)
 
   EXPECT_FALSE(rolling::validateRollingMapConfig(config, &reason));
   EXPECT_FALSE(reason.empty());
+}
+// A source delay must not be hidden by a new receipt or a future/zero stamp.
+TEST(ObservationTime, RejectsInvalidSourceTimeAndCountsOnlyNewFrames)
+{
+  EXPECT_NEAR(rolling::sourceAge(kSecond, 2 * kSecond), 1.0, 1e-12);
+  EXPECT_TRUE(std::isinf(rolling::sourceAge(0, kSecond)));
+  EXPECT_TRUE(std::isinf(rolling::sourceAge(2 * kSecond, kSecond)));
+  EXPECT_DOUBLE_EQ(rolling::sourceAge(kSecond + 10000000LL, kSecond), 0.0);
+  EXPECT_FALSE(rolling::newerObservation(kSecond, kSecond));
+  EXPECT_FALSE(rolling::newerObservation(kSecond - 1, kSecond));
+  EXPECT_TRUE(rolling::newerObservation(kSecond + 1, kSecond));
+}
+
+TEST(OdomPoseBuffer, RejectsInterpolationAndExtrapolationAcrossDropout)
+{
+  rolling::RollingMapConfig config;
+  rolling::OdomPoseBuffer buffer(config);
+  buffer.append({kSecond, 0.0, 0.0, 0.0});
+  rolling::TimedPose2D pose;
+  EXPECT_TRUE(buffer.lookup(kSecond, &pose));
+  EXPECT_FALSE(buffer.lookup(kSecond + 10000000LL, &pose));
+  buffer.append({2 * kSecond, 0.2, 0.0, 0.2});
+  EXPECT_FALSE(buffer.lookup(1500000000LL, &pose));
+  EXPECT_FALSE(buffer.lookup(2010000000LL, &pose));
+  EXPECT_FALSE(buffer.lookup(990000000LL, &pose));
+}
+
+TEST(RollingObstacleMap, OutputPreservesEachCellsObservationTime)
+{
+  rolling::RollingMapConfig config;
+  rolling::RollingObstacleMap map(config);
+  map.integrate({{1.0, 0.0, 0.2}}, {kSecond, 0.0, 0.0, 0.0});
+  map.integrate({{2.0, 0.0, 0.2}}, {kSecond + 100000000LL, 0.0, 0.0, 0.0});
+  const auto points = map.pointsInBase({kSecond + 200000000LL, 0.1, 0.0, 0.3});
+  ASSERT_EQ(points.size(), 2U);
+  EXPECT_EQ(points[0].last_seen_ns, kSecond);
+  EXPECT_EQ(points[1].last_seen_ns, kSecond + 100000000LL);
+}
+
+TEST(RollingTransform, CompensatesAcquisitionToControlDuringTurn)
+{
+  const rolling::TimedPose2D source{kSecond, 1.0, 2.0, kPi / 2.0};
+  const rolling::TimedPose2D control{kSecond + 150000000LL, 1.3, 2.2, kPi};
+  const auto world = rolling::transformRollingPointToOdom({1.0, 0.0, 0.2}, source);
+  const auto current = rolling::transformRollingPointToBase(world, control);
+  EXPECT_NEAR(current.x, 0.3, 1e-12);
+  EXPECT_NEAR(current.y, -0.8, 1e-12);
+  const auto repeated = rolling::transformRollingPointToBase(world, control);
+  EXPECT_DOUBLE_EQ(current.x, repeated.x);
+  EXPECT_DOUBLE_EQ(current.y, repeated.y);
 }

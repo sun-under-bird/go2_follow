@@ -38,6 +38,7 @@ struct RollingObstaclePoint
   double x{0.0};
   double y{0.0};
   double z{0.0};
+  std::int64_t last_seen_ns{0};
 };
 
 struct RollingMapConfig
@@ -48,6 +49,7 @@ struct RollingMapConfig
   std::size_t max_obstacle_points{5000U};
   double odom_buffer_duration_sec{3.00};
   double max_pose_extrapolation_sec{0.05};
+  double max_pose_interpolation_gap_sec{0.20};
   double odom_jump_distance{1.00};
   double odom_jump_yaw{0.80};
   double odom_jump_check_interval_sec{0.50};

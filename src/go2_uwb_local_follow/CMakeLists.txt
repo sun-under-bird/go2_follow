@@ -123,7 +123,7 @@ target_include_directories(local_velocity_planner_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_compile_features(local_velocity_planner_node PUBLIC cxx_std_17)
-target_link_libraries(local_velocity_planner_node local_planner_core)
+target_link_libraries(local_velocity_planner_node local_planner_core rolling_obstacle_map_core)
 ament_target_dependencies(local_velocity_planner_node
   diagnostic_msgs
   geometry_msgs
@@ -166,9 +166,13 @@ install(
 )
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY docs DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS scripts/record_baseline.py scripts/analyze_baseline.py
+  DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 
@@ -195,6 +199,12 @@ if(BUILD_TESTING)
   )
   target_link_libraries(test_rolling_obstacle_map_core rolling_obstacle_map_core)
   target_include_directories(test_rolling_obstacle_map_core PRIVATE include)
+
+  ament_add_pytest_test(test_stage1_timing test/test_stage1_timing.py
+    TIMEOUT 120
+    ENV PLANNER_EXECUTABLE=$<TARGET_FILE:local_velocity_planner_node>
+      MAP_EXECUTABLE=$<TARGET_FILE:rolling_obstacle_map_node>)
+  ament_add_pytest_test(test_baseline_analysis test/test_baseline_analysis.py)
 endif()
 
 ament_export_include_directories(include)

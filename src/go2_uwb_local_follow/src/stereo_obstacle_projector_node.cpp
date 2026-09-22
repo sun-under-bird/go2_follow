@@ -536,6 +536,9 @@ private:
         {"min_points_per_voxel", std::to_string(min_points_per_voxel_)},
         {"min_voxels_per_cluster", std::to_string(min_voxels_per_cluster_)},
         {"output_points", std::to_string(obstacle_points.size())},
+        {"source_stamp_ns", std::to_string(rclcpp::Time(message->header.stamp).nanoseconds())},
+        {"source_to_publish_ms", formatDouble(
+            (now() - rclcpp::Time(message->header.stamp)).seconds() * 1000.0)},
         {"processing_ms", formatDouble(processing_ms)}});
   }
 

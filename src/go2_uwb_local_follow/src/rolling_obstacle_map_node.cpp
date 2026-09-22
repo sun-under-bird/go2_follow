@@ -36,6 +36,7 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 
 #include "go2_uwb_local_follow/rolling_obstacle_map_core.hpp"
+#include "go2_uwb_local_follow/observation_time.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -68,6 +69,7 @@ std::string formatDouble(double value, int precision = 3)
 // 将 ROS 内置时间戳转换为不带时钟类型的纳秒整数。
 std::int64_t stampNanoseconds(const builtin_interfaces::msg::Time & stamp)
 {
+  if (stamp.sec < 0 || stamp.nanosec >= 1000000000U) {return 0;}
   return static_cast<std::int64_t>(stamp.sec) * static_cast<std::int64_t>(kNanosecondsPerSecond) +
          static_cast<std::int64_t>(stamp.nanosec);
 }
@@ -118,6 +120,8 @@ public:
     input_timeout_sec_ = declare_parameter<double>("input_timeout_sec", 0.60);
     odom_timeout_sec_ = declare_parameter<double>("odom_timeout_sec", 0.15);
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
+    enforce_source_time_ = declare_parameter<bool>("enforce_source_time", true);
+    enable_cycle_telemetry_ = declare_parameter<bool>("enable_cycle_telemetry", true);
     validateParameters();
 
     auto cloud_qos = rclcpp::SensorDataQoS();
@@ -134,6 +138,8 @@ public:
       output_obstacle_topic_, cloud_qos);
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
       diagnostics_topic_, 10);
+    telemetry_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      "/go2_uwb_local_follow/map_observations", 10);
 
     diagnostic_period_ = std::chrono::duration<double>(1.0 / diagnostic_frequency_);
     watchdog_timer_ = create_wall_timer(
@@ -154,6 +160,7 @@ private:
     std::string reason;
     double input_age{std::numeric_limits<double>::infinity()};
     double odom_age{std::numeric_limits<double>::infinity()};
+    double processing_ms{0.0};
     std::size_t input_points{0U};
     std::size_t obstacle_points{0U};
     std::size_t ray_endpoints{0U};
@@ -176,6 +183,8 @@ private:
       "odom_buffer_duration_sec", 3.00);
     map_config_.max_pose_extrapolation_sec = declare_parameter<double>(
       "max_pose_extrapolation_sec", 0.05);
+    map_config_.max_pose_interpolation_gap_sec = declare_parameter<double>(
+      "max_pose_interpolation_gap_sec", 0.20);
     map_config_.odom_jump_distance = declare_parameter<double>("odom_jump_distance", 1.00);
     map_config_.odom_jump_yaw = declare_parameter<double>("odom_jump_yaw", 0.80);
     map_config_.odom_jump_check_interval_sec = declare_parameter<double>(
@@ -215,6 +224,14 @@ private:
   // 校验并缓存 /odom_leg 的二维位置和朝向，检测跳变后清空旧障碍地图。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    checkClock();
+    const auto stamp = stampNanoseconds(message->header.stamp);
+    if (!newerObservation(stamp, last_odom_stamp_ns_)) {return;}
+    if (enforce_source_time_ && sourceAge(stamp, now().nanoseconds()) > odom_timeout_sec_) {
+      have_valid_odom_ = false;
+      setStatus("ODOM_TIME_INVALID", "odom source timestamp is invalid or expired");
+      return;
+    }
     last_odom_receipt_ = std::chrono::steady_clock::now();
     have_odom_receipt_ = true;
     if (message->header.frame_id != odom_frame_ || message->child_frame_id != odom_child_frame_) {
@@ -244,9 +261,11 @@ private:
       obstacle_map_.clear();
       ++odom_reset_count_;
       last_cloud_stamp_ns_ = 0;
+      epoch_start_ns_ = pose.stamp_ns;
       RCLCPP_WARN(get_logger(), "Odom jump or time reset detected; cleared rolling obstacle map");
     }
     have_valid_odom_ = true;
+    last_odom_stamp_ns_ = stamp;
     if (!have_input_receipt_) {
       setStatus("WAIT_OBSERVATION", "waiting for depth observation cloud");
     }
@@ -352,8 +371,9 @@ private:
   // 使用观测时间查询里程计位姿，以同帧射线清除历史体素并发布补偿障碍。
   void observationCallback(const sensor_msgs::msg::PointCloud2::SharedPtr message)
   {
-    last_input_receipt_ = std::chrono::steady_clock::now();
-    have_input_receipt_ = true;
+    const auto processing_start = std::chrono::steady_clock::now();
+    checkClock();
+    const auto receipt_ros_ns = now().nanoseconds();
     if (message->header.frame_id != base_frame_) {
       setStatus("CLOUD_FRAME_INVALID", "depth observation frame differs from base_frame");
       return;
@@ -361,6 +381,20 @@ private:
     const std::int64_t cloud_stamp_ns = stampNanoseconds(message->header.stamp);
     if (cloud_stamp_ns <= 0 || cloud_stamp_ns <= last_cloud_stamp_ns_) {
       setStatus("CLOUD_TIME_INVALID", "depth observation timestamp is zero or not increasing");
+      return;
+    }
+    if (cloud_stamp_ns < epoch_start_ns_ ||
+      (enforce_source_time_ && sourceAge(cloud_stamp_ns, now().nanoseconds()) > input_timeout_sec_))
+    {
+      setStatus("CLOUD_TIME_INVALID", "depth observation is expired, future dated or before reset");
+      return;
+    }
+    if (enforce_source_time_ &&
+      (sourceAge(last_odom_stamp_ns_, now().nanoseconds()) > odom_timeout_sec_ ||
+      std::chrono::duration<double>(processing_start - last_odom_receipt_).count() >
+      odom_timeout_sec_))
+    {
+      setStatus("ODOM_TIMEOUT", "no fresh odom for depth observation");
       return;
     }
     if (!have_valid_odom_) {
@@ -394,6 +428,9 @@ private:
       obstacle_points, ray_endpoints, sensor_origin, cloud_pose);
     const auto output_points = obstacle_map_.pointsInBase(cloud_pose);
     last_cloud_stamp_ns_ = cloud_stamp_ns;
+    last_input_receipt_ = processing_start;
+    last_input_receipt_ros_ns_ = receipt_ros_ns;
+    have_input_receipt_ = true;
     publishObstacleCloud(message->header.stamp, output_points);
     status_.input_points = obstacle_points.size() + ray_endpoints.size();
     status_.obstacle_points = obstacle_points.size();
@@ -402,8 +439,10 @@ private:
     status_.map_points = output_points.size();
     status_.odom_buffer_size = pose_buffer_.size();
     status_.odom_reset_count = odom_reset_count_;
+    status_.processing_ms = std::chrono::duration<double, std::milli>(
+      std::chrono::steady_clock::now() - processing_start).count();
     setStatus("MAP_VALID", output_points.empty() ? "valid empty rolling map" : "rolling map valid");
-    publishDiagnosticIfDue(false);
+    publishDiagnosticIfDue(false, true);
   }
 
   // 发布补偿到当前点云时刻 base_footprint 的滚动障碍点云。
@@ -417,18 +456,30 @@ private:
     cloud.height = 1U;
     cloud.is_dense = true;
     sensor_msgs::PointCloud2Modifier modifier(cloud);
-    modifier.setPointCloud2FieldsByString(1, "xyz");
+    modifier.setPointCloud2Fields(
+      6, "x", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "y", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "z", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "padding", 1, sensor_msgs::msg::PointField::UINT32,
+      "last_seen", 1, sensor_msgs::msg::PointField::FLOAT64,
+      "expires_at", 1, sensor_msgs::msg::PointField::FLOAT64);
     modifier.resize(points.size());
     sensor_msgs::PointCloud2Iterator<float> x_iterator(cloud, "x");
     sensor_msgs::PointCloud2Iterator<float> y_iterator(cloud, "y");
     sensor_msgs::PointCloud2Iterator<float> z_iterator(cloud, "z");
+    sensor_msgs::PointCloud2Iterator<double> seen_iterator(cloud, "last_seen");
+    sensor_msgs::PointCloud2Iterator<double> expiry_iterator(cloud, "expires_at");
     for (const auto & point : points) {
       *x_iterator = static_cast<float>(point.x);
       *y_iterator = static_cast<float>(point.y);
       *z_iterator = static_cast<float>(point.z);
+      *seen_iterator = static_cast<double>(point.last_seen_ns) * 1e-9;
+      *expiry_iterator = *seen_iterator + map_config_.obstacle_retention_sec;
       ++x_iterator;
       ++y_iterator;
       ++z_iterator;
+      ++seen_iterator;
+      ++expiry_iterator;
     }
     obstacle_pub_->publish(cloud);
   }
@@ -443,6 +494,7 @@ private:
   // 周期检查真实点云和里程计接收是否超时，避免滚动地图掩盖传感器断流。
   void watchdogTick()
   {
+    checkClock();
     const auto current = std::chrono::steady_clock::now();
     status_.input_age = have_input_receipt_ ?
       std::chrono::duration<double>(current - last_input_receipt_).count() :
@@ -450,6 +502,14 @@ private:
     status_.odom_age = have_odom_receipt_ ?
       std::chrono::duration<double>(current - last_odom_receipt_).count() :
       std::numeric_limits<double>::infinity();
+    if (enforce_source_time_) {
+      status_.input_age = std::max(
+        status_.input_age,
+        sourceAge(last_cloud_stamp_ns_, now().nanoseconds()));
+      status_.odom_age = std::max(
+        status_.odom_age,
+        sourceAge(last_odom_stamp_ns_, now().nanoseconds()));
+    }
     status_.map_points = obstacle_map_.size();
     status_.odom_buffer_size = pose_buffer_.size();
     status_.odom_reset_count = odom_reset_count_;
@@ -467,14 +527,16 @@ private:
   }
 
   // 按限制频率发布输入时效、地图点数、缓存规模和重置次数。
-  void publishDiagnosticIfDue(bool force)
+  void publishDiagnosticIfDue(bool force, bool observation = false)
   {
     const auto current = std::chrono::steady_clock::now();
-    if (!force && have_diagnostic_time_ && current - last_diagnostic_time_ < diagnostic_period_) {
-      return;
+    const bool due = force || !have_diagnostic_time_ ||
+      current - last_diagnostic_time_ >= diagnostic_period_;
+    if (!due && !(observation && enable_cycle_telemetry_)) {return;}
+    if (due) {
+      have_diagnostic_time_ = true;
+      last_diagnostic_time_ = current;
     }
-    have_diagnostic_time_ = true;
-    last_diagnostic_time_ = current;
 
     diagnostic_msgs::msg::DiagnosticArray array;
     array.header.stamp = now();
@@ -487,6 +549,11 @@ private:
     diagnostic.message = status_.state;
     const std::pair<std::string, std::string> entries[] = {
       {"reason", status_.reason},
+      {"source_stamp_ns", std::to_string(last_cloud_stamp_ns_)},
+      {"receipt_stamp_ns", std::to_string(last_input_receipt_ros_ns_)},
+      {"source_age_sec", formatDouble(sourceAge(last_cloud_stamp_ns_, now().nanoseconds()))},
+      {"odom_source_age_sec", formatDouble(sourceAge(last_odom_stamp_ns_, now().nanoseconds()))},
+      {"processing_ms", formatDouble(status_.processing_ms)},
       {"input_age_sec", formatDouble(status_.input_age)},
       {"odom_age_sec", formatDouble(status_.odom_age)},
       {"input_points", std::to_string(status_.input_points)},
@@ -503,7 +570,26 @@ private:
       diagnostic.values.push_back(std::move(value));
     }
     array.status.push_back(std::move(diagnostic));
-    diagnostics_pub_->publish(array);
+    if (due) {diagnostics_pub_->publish(array);}
+    if (observation && enable_cycle_telemetry_) {telemetry_pub_->publish(array);}
+  }
+
+  void checkClock()
+  {
+    const auto stamp = now().nanoseconds();
+    if (last_ros_time_ns_ > 0 && stamp < last_ros_time_ns_) {
+      pose_buffer_.clear();
+      obstacle_map_.clear();
+      last_cloud_stamp_ns_ = 0;
+      last_odom_stamp_ns_ = 0;
+      epoch_start_ns_ = stamp;
+      have_valid_odom_ = false;
+      have_input_receipt_ = false;
+      have_odom_receipt_ = false;
+      ++odom_reset_count_;
+      setStatus("CLOCK_RESET", "ROS time moved backward; cleared all cached observations");
+    }
+    last_ros_time_ns_ = stamp;
   }
 
   RollingMapConfig map_config_;
@@ -520,6 +606,12 @@ private:
   double input_timeout_sec_{0.60};
   double odom_timeout_sec_{0.15};
   double diagnostic_frequency_{2.0};
+  bool enforce_source_time_{true};
+  bool enable_cycle_telemetry_{true};
+  std::int64_t last_input_receipt_ros_ns_{0};
+  std::int64_t last_odom_stamp_ns_{0};
+  std::int64_t last_ros_time_ns_{0};
+  std::int64_t epoch_start_ns_{0};
 
   StatusSnapshot status_;
   bool have_odom_receipt_{false};
@@ -537,6 +629,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr telemetry_pub_;
   rclcpp::TimerBase::SharedPtr watchdog_timer_;
 };
 

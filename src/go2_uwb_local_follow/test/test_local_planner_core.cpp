@@ -1088,3 +1088,35 @@ TEST(FollowRecovery, LargeHeadingKeepsRecoveryMovingWithoutAcceleration)
   EXPECT_LT(result.first_command.angular_z, 0.5);
   EXPECT_EQ(state.clear_count, 0);
 }
+
+TEST(CollisionChecker, OptimizedScanMatchesPointwiseReference)
+{
+  const planner::FootprintConfig footprint{0.70, 0.38, 0.02};
+  for (int scenario = 0; scenario < 20; ++scenario) {
+    std::vector<planner::PlannerPose2D> poses;
+    std::vector<planner::ObstaclePoint2D> obstacles;
+    for (int i = 0; i < 30; ++i) {
+      poses.push_back({0.01 * i, -0.02 * i, 0.04 * i - 0.5});
+    }
+    for (int i = 0; i < 100; ++i) {
+      obstacles.push_back({0.1 * scenario + std::cos(i * 0.2), 1.0 + std::sin(i * 0.2)});
+    }
+    planner::CollisionResult reference;
+    bool hit = false;
+    for (std::size_t i = 0; i < poses.size() && !hit; ++i) {
+      for (const auto & obstacle : obstacles) {
+        const double clearance = planner::pointToFootprintClearance(poses[i], obstacle, footprint);
+        reference.min_clearance = std::min(reference.min_clearance, clearance);
+        if (clearance <= 0.0) {
+          reference.collision = hit = true;
+          reference.collision_pose_index = i;
+          break;
+        }
+      }
+    }
+    const auto actual = planner::checkTrajectoryCollision(poses, obstacles, footprint);
+    EXPECT_EQ(actual.collision, reference.collision);
+    EXPECT_EQ(actual.collision_pose_index, reference.collision_pose_index);
+    EXPECT_NEAR(actual.min_clearance, reference.min_clearance, 1e-12);
+  }
+}

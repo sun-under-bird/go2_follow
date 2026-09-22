@@ -1,7 +1,17 @@
 local_velocity_planner_node:
   ros__parameters:
     base_frame: base_footprint  # 规划坐标系；应与障碍点云和机器人足迹坐标系一致
-    odom_child_frame: base_footprint  # 里程计速度所属坐标系；只使用 twist，不使用 pose
+    odom_child_frame: base_footprint  # 位姿与实测速度所属的机身坐标系
+    odom_frame: odom
+    compensate_obstacle_motion: true  # 每周期从图像时刻补偿到控制时刻；false 用于基线对照
+    enforce_source_time: true  # 源时间过期、未来时间戳、体素到期检查
+    enable_cycle_telemetry: true  # 逐周期记录、状态切换事件、实际规划障碍
+    odom_buffer_duration_sec: 3.0
+    max_pose_extrapolation_sec: 0.05
+    max_pose_interpolation_gap_sec: 0.20
+    odom_jump_distance: 1.0
+    odom_jump_yaw: 0.80
+    odom_jump_check_interval_sec: 0.50
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # UWB 名义速度输入话题
     obstacle_topic: /local_rolling_obstacle  # 里程计补偿和时间衰减后的滚动局部障碍点云
     odom_topic: /odom_leg  # 实际初始速度输入话题

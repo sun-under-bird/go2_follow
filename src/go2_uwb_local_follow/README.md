@@ -1,5 +1,8 @@
 # go2_uwb_local_follow
 
+第一阶段的时间对齐、基线录制与验收见 [stage1_baseline.md](docs/stage1_baseline.md)。
+当前运行参数以 YAML 和运行时参数快照为准，下文早期阶段的示例数值不代表实际生效配置。
+
 当前已实现五个可独立验收的阶段：
 
 1. 双目视差与 `base_footprint` 障碍点云。
@@ -89,7 +92,7 @@ ros2 run tf2_ros tf2_echo base_footprint camera_infra1_optical_frame
 
 ## UWB 纯跟随阶段
 
-本阶段不缓存目标队列，也不做时间插值。厂家消息没有 Header，适配节点在收到每一帧时赋本机时间戳；20 Hz 控制器只保存最新一帧并零阶保持，超过 0.50 秒立即停车。厂家 `state` 和 `pos_confidence` 只进入诊断，不阻断有限的 `x/y`。
+本阶段不缓存目标队列，也不做时间插值。厂家消息带驱动发布时间 Header，但适配节点目前仍在收到每一帧时重新赋本机时间戳；20 Hz 控制器只保存最新一帧并零阶保持，超过 0.50 秒立即停车。厂家 `state` 和 `pos_confidence` 只进入诊断，不阻断有限的 `x/y`。
 
 默认速度输出是隔离话题 `/cmd_vel_follow`：
 
@@ -169,8 +172,8 @@ UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角�
 动态刹车触发后会锁存零名义角速度，直到实测角速度低于
 `angular_brake_release_speed`，防止停止角随速度下降后过早恢复同方向转向。
 
-`local_velocity_planner_node` 仍只读取 `/odom_leg` 的 `twist.twist.linear.x` 和
-`twist.twist.angular.z` 作为当前真实速度。新增的 `rolling_obstacle_map_node` 独立
+`local_velocity_planner_node` 读取 `/odom_leg` 的 `twist.twist.linear.x` 和
+`twist.twist.angular.z` 作为当前真实速度，并缓存带时间戳的 pose，将障碍补偿到控制时刻。新增的 `rolling_obstacle_map_node` 独立
 读取同一话题的带时间戳 pose：每帧 `/local_depth_observation` 先按观测时间戳插值
 `odom -> base_footprint` 位姿并转换到局部 `odom` 二维体素地图，再把全部保留障碍补偿到
 该观测时刻的当前 `base_footprint`，发布 `/local_rolling_obstacle` 给原规划器。
@@ -182,7 +185,7 @@ UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角�
 同一单元默认至少需要 `2` 条本帧射线穿过才清除。无效视差和量程外区域保持未知，
 不会被当成自由空间。
 
-时间衰减继续作为保守兜底：滚动地图默认只保留机器人周围 `3.0 m`、最近 `1.0 s`
+时间衰减继续作为保守兜底：滚动地图默认只保留机器人周围 `3.0 m`、最近 `5.0 s`
 内观测到的障碍；同一体素的新观测刷新时间，超时、超范围和超过点数上限的障碍
 自动删除。里程计时间回退或短时间位置/朝向大跳变会立即清空历史地图。滚动地图
 只在收到合法的新深度观测后发布，因此不会用历史点持续重发来掩盖双目断流；规划器

@@ -102,6 +102,11 @@ src/go2_uwb_local_follow/config/rolling_obstacle_map.yaml
 src/go2_uwb_local_follow/config/local_velocity_planner.yaml
 ```
 
+## 第一阶段基线与时间对齐
+
+录制、对照开关、时间戳语义和验收步骤见
+[第一阶段说明](src/go2_uwb_local_follow/docs/stage1_baseline.md)。
+
 ## 诊断与测试
 
 主要诊断话题：
