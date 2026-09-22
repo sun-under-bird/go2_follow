@@ -73,6 +73,11 @@ def generate_launch_description() -> LaunchDescription:
         parameters=[
             params_file,
             {
+                "use_target_state": ParameterValue(
+                    LaunchConfiguration("enable_target_estimation"), value_type=bool),
+                "target_state_topic": LaunchConfiguration("target_state_topic"),
+                "target_prediction_sec": ParameterValue(
+                    LaunchConfiguration("target_prediction_sec"), value_type=float),
                 "base_frame": base_frame,
                 "odom_frame": odom_frame,
                 "compensate_obstacle_motion": ParameterValue(
@@ -94,6 +99,9 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument("enable_target_estimation", default_value="false"),
+            DeclareLaunchArgument("target_state_topic", default_value="/uwb/target_state"),
+            DeclareLaunchArgument("target_prediction_sec", default_value="0.20"),
             DeclareLaunchArgument("compensate_obstacle_motion", default_value="true"),
             DeclareLaunchArgument("enforce_source_time", default_value="true"),
             DeclareLaunchArgument("enable_cycle_telemetry", default_value="true"),

@@ -1,5 +1,9 @@
 local_velocity_planner_node:
   ros__parameters:
+    # 单独启动兼容原始目标输入；完整 local_follow.launch.py 自动启用目标状态。
+    use_target_state: false
+    target_state_topic: /uwb/target_state
+    target_prediction_sec: 0.20
     base_frame: base_footprint  # 规划坐标系；应与障碍点云和机器人足迹坐标系一致
     odom_child_frame: base_footprint  # 位姿与实测速度所属的机身坐标系
     odom_frame: odom

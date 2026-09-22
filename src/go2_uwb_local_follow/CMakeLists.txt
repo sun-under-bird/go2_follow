@@ -34,6 +34,13 @@ target_include_directories(follow_control_core PUBLIC
 )
 target_compile_features(follow_control_core PUBLIC cxx_std_17)
 
+add_library(target_motion_core src/target_motion_core.cpp)
+target_include_directories(target_motion_core PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(target_motion_core PUBLIC cxx_std_17)
+target_link_libraries(target_motion_core follow_control_core)
+
 add_library(local_planner_core
   src/local_planner_core.cpp
 )
@@ -90,7 +97,7 @@ target_include_directories(uwb_follow_controller_node PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 target_compile_features(uwb_follow_controller_node PUBLIC cxx_std_17)
-target_link_libraries(uwb_follow_controller_node follow_control_core)
+target_link_libraries(uwb_follow_controller_node target_motion_core rolling_obstacle_map_core)
 ament_target_dependencies(uwb_follow_controller_node
   diagnostic_msgs
   geometry_msgs
@@ -152,6 +159,7 @@ install(
   TARGETS
     stereo_projection_core
     follow_control_core
+    target_motion_core
     local_planner_core
     rolling_obstacle_map_core
     stereo_obstacle_projector_node
@@ -182,6 +190,9 @@ if(BUILD_TESTING)
   target_link_libraries(test_stereo_projection_core stereo_projection_core)
   target_include_directories(test_stereo_projection_core PRIVATE include)
 
+  ament_add_gtest(test_target_motion_core test/test_target_motion_core.cpp)
+  target_link_libraries(test_target_motion_core target_motion_core rolling_obstacle_map_core)
+
   ament_add_gtest(test_follow_control_core
     test/test_follow_control_core.cpp
   )
@@ -204,6 +215,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
     ENV PLANNER_EXECUTABLE=$<TARGET_FILE:local_velocity_planner_node>
       MAP_EXECUTABLE=$<TARGET_FILE:rolling_obstacle_map_node>)
+  ament_add_pytest_test(test_stage2_follow test/test_stage2_follow.py
+    TIMEOUT 180
+    ENV PLANNER_EXECUTABLE=$<TARGET_FILE:local_velocity_planner_node>
+      FOLLOW_EXECUTABLE=$<TARGET_FILE:uwb_follow_controller_node>
+      ADAPTER_EXECUTABLE=$<TARGET_FILE:uwb_target_adapter_node>)
   ament_add_pytest_test(test_baseline_analysis test/test_baseline_analysis.py)
 endif()
 
@@ -211,6 +227,7 @@ ament_export_include_directories(include)
 ament_export_libraries(
   stereo_projection_core
   follow_control_core
+  target_motion_core
   local_planner_core
   rolling_obstacle_map_core
 )

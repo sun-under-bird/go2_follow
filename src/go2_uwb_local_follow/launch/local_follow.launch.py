@@ -93,6 +93,8 @@ def generate_launch_description() -> LaunchDescription:
         parameters=[
             follow_params_file,
             {
+                "preserve_source_stamp": ParameterValue(
+                    LaunchConfiguration("enable_target_estimation"), value_type=bool),
                 "raw_topic": raw_uwb_topic,
                 "target_topic": target_topic,
                 "target_frame": base_frame,
@@ -108,6 +110,12 @@ def generate_launch_description() -> LaunchDescription:
         parameters=[
             follow_params_file,
             {
+                "enable_target_estimation": ParameterValue(
+                    LaunchConfiguration("enable_target_estimation"), value_type=bool),
+                "target_state_topic": LaunchConfiguration("target_state_topic"),
+                "target_prediction_sec": ParameterValue(
+                    LaunchConfiguration("target_prediction_sec"), value_type=float),
+                "odom_frame": LaunchConfiguration("odom_frame"),
                 "base_frame": base_frame,
                 "target_topic": target_topic,
                 "odom_topic": odom_topic,
@@ -150,6 +158,11 @@ def generate_launch_description() -> LaunchDescription:
         parameters=[
             planner_params_file,
             {
+                "use_target_state": ParameterValue(
+                    LaunchConfiguration("enable_target_estimation"), value_type=bool),
+                "target_state_topic": LaunchConfiguration("target_state_topic"),
+                "target_prediction_sec": ParameterValue(
+                    LaunchConfiguration("target_prediction_sec"), value_type=float),
                 "base_frame": base_frame,
                 "odom_frame": odom_frame,
                 "compensate_obstacle_motion": ParameterValue(
@@ -171,6 +184,9 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument("enable_target_estimation", default_value="true"),
+            DeclareLaunchArgument("target_state_topic", default_value="/uwb/target_state"),
+            DeclareLaunchArgument("target_prediction_sec", default_value="0.20"),
             DeclareLaunchArgument("compensate_obstacle_motion", default_value="true"),
             DeclareLaunchArgument("enforce_source_time", default_value="true"),
             DeclareLaunchArgument("enable_cycle_telemetry", default_value="true"),

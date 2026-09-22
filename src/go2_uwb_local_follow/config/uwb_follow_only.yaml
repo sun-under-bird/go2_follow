@@ -1,5 +1,6 @@
 uwb_target_adapter_node:
   ros__parameters:
+    preserve_source_stamp: true
     raw_topic: /libAoa_robot_publisher
     target_topic: /uwb/target_point
     target_frame: base_footprint
@@ -12,6 +13,39 @@ uwb_target_adapter_node:
 
 uwb_follow_controller_node:
   ros__parameters:
+    # 阶段二：统一坐标估计 + 人速前馈；完整 launch 的同名开关同步回退规划器。
+    enable_target_estimation: true
+    odom_frame: odom
+    target_state_topic: /uwb/target_state
+    target_prediction_sec: 0.20
+    target_window_sec: 0.40
+    target_reset_gap_sec: 0.60
+    target_minimum_span_sec: 0.18
+    target_minimum_samples: 3
+    target_max_human_speed: 3.0
+    target_jump_margin: 0.20
+    target_innovation_limit: 0.45
+    target_velocity_filter_sec: 0.12
+    target_stop_speed: 0.08
+    target_moving_speed: 0.16
+    target_turn_angle: 0.45
+    target_return_angle: 2.40
+    target_direction_history_sec: 1.50
+    target_direction_consistency_angle: 0.40
+    target_confirmation_samples: 3
+    walk_start_distance_error: 0.18
+    walk_stop_distance_error: 0.06
+    walk_close_distance_margin: 0.05
+    walk_stop_command_speed: 0.15
+    walk_approach_speed: 0.15
+    walk_confirmation_sec: 0.15
+    walk_minimum_hold_sec: 0.30
+    odom_buffer_duration_sec: 3.0
+    max_pose_extrapolation_sec: 0.05
+    max_pose_interpolation_gap_sec: 0.20
+    odom_jump_distance: 1.0
+    odom_jump_yaw: 0.8
+    odom_jump_check_interval_sec: 0.5
     base_frame: base_footprint
     target_topic: /uwb/target_point
     odom_topic: /odom_leg

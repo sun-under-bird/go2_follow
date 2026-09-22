@@ -20,7 +20,7 @@ source install/setup.bash
 ```bash
 ros2 launch go2_uwb_local_follow local_follow.launch.py \
   enable_motion:=false compensate_obstacle_motion:=false enforce_source_time:=false \
-  enable_cycle_telemetry:=true
+  enable_cycle_telemetry:=true enable_target_estimation:=false
 ```
 
 修正组：
@@ -28,7 +28,7 @@ ros2 launch go2_uwb_local_follow local_follow.launch.py \
 ```bash
 ros2 launch go2_uwb_local_follow local_follow.launch.py \
   enable_motion:=false compensate_obstacle_motion:=true enforce_source_time:=true \
-  enable_cycle_telemetry:=true
+  enable_cycle_telemetry:=true enable_target_estimation:=false
 ```
 
 `local_velocity_planner.launch.py` 也支持这三个开关。先隔离检查，再在固定场景中以
@@ -119,7 +119,8 @@ ros2 run go2_uwb_local_follow analyze_baseline.py \
 `control_interval_ms` 记录真实调度间隔。`cycle_sequence` 缺口可检测遥测缺失，不能当作所有
 相机/录制丢包的计数。正常/急停/阻塞/输入错误分支都产生逐周期记录。
 
-注意：UWB 适配器目前仍重新赋接收时间；本阶段不改变人的位置/速度估计。
+注意：以上命令显式关闭第二阶段，保持第一阶段 UWB 适配器重新赋接收时间的行为；
+本阶段不改变人的位置/速度估计。第二阶段的默认启动和回退方式见 [stage2_target_motion.md](stage2_target_motion.md)。
 源时间对齐仅补偿机器人自身运动，不预测行人的运动。相机/odom/ROS 时钟必须使用一致时间基准。
 
 ## 固定场景及验收

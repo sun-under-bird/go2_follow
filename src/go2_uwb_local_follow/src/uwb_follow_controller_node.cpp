@@ -40,6 +40,9 @@
 #include "tf2_ros/transform_listener.h"
 
 #include "go2_uwb_local_follow/follow_control_core.hpp"
+#include "go2_uwb_local_follow/target_motion_core.hpp"
+#include "go2_uwb_local_follow/rolling_obstacle_map_core.hpp"
+#include "go2_uwb_local_follow/observation_time.hpp"
 
 namespace go2_uwb_local_follow
 {
@@ -103,6 +106,88 @@ public:
     config_.max_linear_accel = declare_parameter<double>("max_linear_accel", 0.80);
     config_.max_linear_decel = declare_parameter<double>("max_linear_decel", 0.80);
     config_.max_angular_accel = declare_parameter<double>("max_angular_accel", 2.00);
+    enable_target_estimation_ = declare_parameter<bool>("enable_target_estimation", true);
+    odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
+    target_prediction_sec_ = declare_parameter<double>("target_prediction_sec", 0.20);
+    TargetMotionConfig tracking;
+    tracking.window_sec = declare_parameter<double>("target_window_sec", tracking.window_sec);
+    tracking.reset_gap_sec = declare_parameter<double>(
+      "target_reset_gap_sec",
+      tracking.reset_gap_sec);
+    tracking.max_human_speed = declare_parameter<double>(
+      "target_max_human_speed",
+      tracking.max_human_speed);
+    tracking.jump_margin = declare_parameter<double>("target_jump_margin", tracking.jump_margin);
+    tracking.innovation_limit = declare_parameter<double>(
+      "target_innovation_limit",
+      tracking.innovation_limit);
+    tracking.velocity_filter_sec = declare_parameter<double>(
+      "target_velocity_filter_sec",
+      tracking.velocity_filter_sec);
+    tracking.minimum_span_sec = declare_parameter<double>(
+      "target_minimum_span_sec",
+      tracking.minimum_span_sec);
+    tracking.stop_speed = declare_parameter<double>("target_stop_speed", tracking.stop_speed);
+    tracking.moving_speed = declare_parameter<double>("target_moving_speed", tracking.moving_speed);
+    tracking.turn_angle = declare_parameter<double>("target_turn_angle", tracking.turn_angle);
+    tracking.return_angle = declare_parameter<double>("target_return_angle", tracking.return_angle);
+    tracking.direction_history_sec = declare_parameter<double>(
+      "target_direction_history_sec",
+      tracking.direction_history_sec);
+    tracking.direction_consistency_angle = declare_parameter<double>(
+      "target_direction_consistency_angle", tracking.direction_consistency_angle);
+    tracking.minimum_samples = declare_parameter<int>(
+      "target_minimum_samples",
+      tracking.minimum_samples);
+    tracking.confirmation_samples = declare_parameter<int>(
+      "target_confirmation_samples",
+      tracking.confirmation_samples);
+    walk_config_.start_distance_error = declare_parameter<double>(
+      "walk_start_distance_error",
+      walk_config_.start_distance_error);
+    walk_config_.stop_distance_error = declare_parameter<double>(
+      "walk_stop_distance_error",
+      walk_config_.stop_distance_error);
+    walk_config_.close_distance_margin = declare_parameter<double>(
+      "walk_close_distance_margin",
+      walk_config_.close_distance_margin);
+    walk_config_.stop_command_speed = declare_parameter<double>(
+      "walk_stop_command_speed",
+      walk_config_.stop_command_speed);
+    walk_config_.approach_speed = declare_parameter<double>(
+      "walk_approach_speed",
+      walk_config_.approach_speed);
+    walk_config_.confirmation_sec = declare_parameter<double>(
+      "walk_confirmation_sec",
+      walk_config_.confirmation_sec);
+    walk_config_.minimum_hold_sec = declare_parameter<double>(
+      "walk_minimum_hold_sec",
+      walk_config_.minimum_hold_sec);
+
+    RollingMapConfig pose_config;
+    pose_config.odom_buffer_duration_sec = declare_parameter<double>(
+      "odom_buffer_duration_sec",
+      pose_config.odom_buffer_duration_sec);
+    pose_config.max_pose_extrapolation_sec = declare_parameter<double>(
+      "max_pose_extrapolation_sec",
+      pose_config.max_pose_extrapolation_sec);
+    pose_config.max_pose_interpolation_gap_sec = declare_parameter<double>(
+      "max_pose_interpolation_gap_sec", pose_config.max_pose_interpolation_gap_sec);
+    pose_config.odom_jump_distance = declare_parameter<double>(
+      "odom_jump_distance",
+      pose_config.odom_jump_distance);
+    pose_config.odom_jump_yaw =
+      declare_parameter<double>("odom_jump_yaw", pose_config.odom_jump_yaw);
+    pose_config.odom_jump_check_interval_sec = declare_parameter<double>(
+      "odom_jump_check_interval_sec", pose_config.odom_jump_check_interval_sec);
+    estimator_ = std::make_unique<TargetMotionEstimator>(tracking);
+    if (!validateRollingMapConfig(pose_config) || !validateWalkHysteresisConfig(walk_config_) ||
+      odom_frame_.empty() || !std::isfinite(target_prediction_sec_) ||
+      target_prediction_sec_ < 0.0 || target_prediction_sec_ > target_timeout_sec_)
+    {throw std::invalid_argument("invalid target estimation or walking configuration");}
+    pose_buffer_ = std::make_unique<OdomPoseBuffer>(pose_config);
+    target_state_pub_ = create_publisher<nav_msgs::msg::Odometry>(
+      declare_parameter<std::string>("target_state_topic", "/uwb/target_state"), 10);
     validateParameters();
 
     target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
@@ -148,7 +233,9 @@ private:
   {
     double x{0.0};
     double y{0.0};
-    builtin_interfaces::msg::Time source_stamp;
+    double vx{0.0};
+    double vy{0.0};
+    builtin_interfaces::msg::Time source_stamp{};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
@@ -156,6 +243,8 @@ private:
   struct OdomSnapshot
   {
     double angular_z{0.0};
+    double linear_x{0.0};
+    int64_t stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
     bool valid{false};
   };
@@ -183,9 +272,43 @@ private:
     }
   }
 
+  static int64_t stampNs(const builtin_interfaces::msg::Time & stamp)
+  {
+    if (stamp.sec < 0 || stamp.nanosec >= 1000000000U) {return 0;}
+    return static_cast<int64_t>(stamp.sec) * 1000000000LL + stamp.nanosec;
+  }
+
+  // All callbacks use the default mutually exclusive callback group.
+  void resetTracking(int64_t epoch)
+  {
+    estimator_->reset();
+    walk_state_ = WalkState{};
+    latest_target_ = TargetSnapshot{};
+    target_epoch_ns_ = epoch;
+    last_update_ = "RESET";
+  }
+
+  void checkClock()
+  {
+    if (!enable_target_estimation_) {return;}
+    const auto stamp = now().nanoseconds();
+    if (last_clock_ns_ > 0 && stamp < last_clock_ns_) {
+      resetTracking(stamp);
+      pose_buffer_->clear();
+      latest_odom_ = OdomSnapshot{};
+      last_odom_stamp_ns_ = 0;
+    }
+    last_clock_ns_ = stamp;
+  }
+
   // 将目标点按其自身时间戳转换到 base_footprint；回调只覆盖最新目标快照。
   void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr message)
   {
+    checkClock();
+    const auto source = stampNs(message->header.stamp);
+    if (enable_target_estimation_ &&
+      (source < target_epoch_ns_ || sourceAge(source, now().nanoseconds()) > target_timeout_sec_))
+    {last_update_ = "INVALID_SOURCE_TIME"; return;}
     if (!std::isfinite(message->point.x) || !std::isfinite(message->point.y) ||
       !std::isfinite(message->point.z) || message->header.frame_id.empty())
     {
@@ -228,6 +351,40 @@ private:
     snapshot.source_stamp = message->header.stamp;
     snapshot.receipt_time = std::chrono::steady_clock::now();
     snapshot.valid = std::isfinite(snapshot.x) && std::isfinite(snapshot.y);
+    if (enable_target_estimation_) {
+      TimedPose2D pose;
+      if (!pose_buffer_->lookup(source, &pose)) {last_update_ = "NO_SOURCE_POSE"; return;}
+      const auto world = transformRollingPointToOdom({snapshot.x, snapshot.y, 0.0, source}, pose);
+      const auto update = estimator_->observe(world.x, world.y, source);
+      last_update_ = targetUpdateName(update);
+      if (update == TargetUpdate::OUTLIER) {++outlier_count_;}
+      if (update == TargetUpdate::WARMING) {
+        latest_target_ = TargetSnapshot{};
+        walk_state_ = WalkState{};
+      }
+      if (update != TargetUpdate::ACCEPTED) {return;}
+      const auto & estimate = estimator_->estimate();
+      snapshot.x = estimate.x;
+      snapshot.y = estimate.y;
+      snapshot.vx = estimate.vx;
+      snapshot.vy = estimate.vy;
+      nav_msgs::msg::Odometry state;
+      state.header.stamp = message->header.stamp;
+      state.header.frame_id = odom_frame_;
+      state.child_frame_id = odom_frame_;  // Human velocity is in the fixed frame, too.
+      state.pose.pose.position.x = estimate.x;
+      state.pose.pose.position.y = estimate.y;
+      state.pose.pose.orientation.z = std::sin(estimate.heading / 2.0);
+      state.pose.pose.orientation.w = std::cos(estimate.heading / 2.0);
+      state.twist.twist.linear.x = estimate.vx;
+      state.twist.twist.linear.y = estimate.vy;
+      // This deterministic regression does not estimate covariance; do not claim certainty.
+      for (size_t i = 0; i < 6; ++i) {
+        state.pose.covariance[i * 7] = 1e6;
+        state.twist.covariance[i * 7] = 1e6;
+      }
+      target_state_pub_->publish(state);
+    }
     std::lock_guard<std::mutex> lock(target_mutex_);
     latest_target_ = snapshot;
   }
@@ -242,8 +399,31 @@ private:
   // 从 /odom_leg 保存未经命令死区处理的真实角速度，供动态停止角计算。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
+    checkClock();
     OdomSnapshot snapshot;
+    snapshot.stamp_ns = stampNs(message->header.stamp);
+    if (enable_target_estimation_) {
+      if (snapshot.stamp_ns <= last_odom_stamp_ns_) {return;}
+      const auto & q = message->pose.pose.orientation;
+      const double norm = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+      TimedPose2D pose{snapshot.stamp_ns, message->pose.pose.position.x,
+        message->pose.pose.position.y, 0.0};
+      if (message->header.frame_id != odom_frame_ || message->child_frame_id != base_frame_ ||
+        !std::isfinite(norm) || norm <= 1e-12 || !std::isfinite(pose.x) || !std::isfinite(pose.y) ||
+        !std::isfinite(message->twist.twist.angular.z) ||
+        !std::isfinite(message->twist.twist.linear.x) ||
+        sourceAge(snapshot.stamp_ns, now().nanoseconds()) > odom_timeout_sec_)
+      {latest_odom_ = snapshot; return;}
+      pose.yaw = std::atan2(
+        2.0 * (q.w * q.z + q.x * q.y) / norm,
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z) / norm);
+      const auto appended = pose_buffer_->append(pose);
+      if (appended == PoseAppendResult::kRejected) {latest_odom_ = snapshot; return;}
+      if (appended == PoseAppendResult::kResetDetected) {resetTracking(snapshot.stamp_ns);}
+      last_odom_stamp_ns_ = snapshot.stamp_ns;
+    }
     snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.linear_x = message->twist.twist.linear.x;
     snapshot.angular_z = message->twist.twist.angular.z;
     snapshot.valid = std::isfinite(snapshot.angular_z);
     std::lock_guard<std::mutex> lock(odom_mutex_);
@@ -260,6 +440,7 @@ private:
   // 固定频率计算名义速度、执行变化率限制并发布隔离跟随速度。
   void controlTick()
   {
+    checkClock();
     controlTickImpl();
     if (enable_cycle_telemetry_) {publishDiagnostic(true);}
   }
@@ -277,8 +458,12 @@ private:
       publishImmediateStop("WAIT_TARGET");
       return;
     }
-    const double target_age =
-      std::chrono::duration<double>(current_time - target.receipt_time).count();
+    const double target_age = std::max(
+      std::chrono::duration<double>(current_time - target.receipt_time).count(),
+      enable_target_estimation_ ? sourceAge(
+        stampNs(target.source_stamp),
+        now().nanoseconds()) : 0.0);
+    last_target_age_ = target_age;
     if (target_age > target_timeout_sec_) {
       publishImmediateStop("TARGET_LOST");
       return;
@@ -289,14 +474,37 @@ private:
       publishImmediateStop("WAIT_ODOM");
       return;
     }
-    const double odom_age =
-      std::chrono::duration<double>(current_time - odom.receipt_time).count();
+    const double odom_age = std::max(
+      std::chrono::duration<double>(current_time - odom.receipt_time).count(),
+      enable_target_estimation_ ? sourceAge(odom.stamp_ns, now().nanoseconds()) : 0.0);
+    last_odom_age_ = odom_age;
     if (odom_age > odom_timeout_sec_) {
       publishImmediateStop("ODOM_TIMEOUT");
       return;
     }
 
-    FollowResult result = computeFollowTarget(target.x, target.y, config_);
+    FollowResult result;
+    if (enable_target_estimation_) {
+      const auto control_stamp = now().nanoseconds();
+      TimedPose2D pose;
+      if (!pose_buffer_->lookup(control_stamp, &pose)) {
+        publishImmediateStop("TARGET_ALIGNMENT_FAILED"); return;
+      }
+      const double horizon = std::min(
+        target_prediction_sec_,
+        sourceAge(stampNs(target.source_stamp), control_stamp));
+      const auto local = transformRollingPointToBase(
+        {target.x + target.vx * horizon, target.y + target.vy * horizon, 0.0, 0}, pose);
+      const double c = std::cos(pose.yaw), s = std::sin(pose.yaw);
+      last_predictive_ = computePredictiveFollow(
+        local.x, local.y,
+        c * target.vx + s * target.vy, -s * target.vx + c * target.vy,
+        stampNs(
+          target.source_stamp), control_stamp, config_, walk_config_, walk_state_, odom.linear_x);
+      result = last_predictive_.follow;
+    } else {
+      result = computeFollowTarget(target.x, target.y, config_);
+    }
     const DynamicAngularBrakeResult brake = applyDynamicAngularBrake(
       result.heading, result.target_velocity.angular_z, odom.angular_z, config_, turn_direction_,
       angular_brake_latched_);
@@ -344,6 +552,7 @@ private:
   // 超时或无目标时绕过普通平滑，立即发布零速度并清除历史输出。
   void publishImmediateStop(const std::string & state)
   {
+    walk_state_ = WalkState{};
     publishVelocity(Velocity2D{});
     publishNominal(Velocity2D{});
     {
@@ -418,6 +627,28 @@ private:
     status.hardware_id = "go2_base";
     status.message = state;
     const std::pair<std::string, std::string> entries[] = {
+      {"enable_target_estimation", enable_target_estimation_ ? "true" : "false"},
+      {"target_update", last_update_},
+      {"target_state_stamp_ns", std::to_string(estimator_->estimate().stamp_ns)},
+      {"target_state_age_sec", formatDouble(
+          sourceAge(
+            estimator_->estimate().stamp_ns, now().nanoseconds()))},
+      {"target_estimate_valid", estimator_->estimate().valid && latest_target_.valid &&
+        sourceAge(estimator_->estimate().stamp_ns, now().nanoseconds()) <= target_timeout_sec_ ?
+        "true" : "false"},
+      {"target_outliers", std::to_string(outlier_count_)},
+      {"human_motion", humanMotionName(estimator_->estimate().motion)},
+      {"human_x_odom", formatDouble(estimator_->estimate().x)},
+      {"human_y_odom", formatDouble(estimator_->estimate().y)},
+      {"human_vx_odom", formatDouble(estimator_->estimate().vx)},
+      {"human_vy_odom", formatDouble(estimator_->estimate().vy)},
+      {"human_heading", formatDouble(estimator_->estimate().heading)},
+      {"direction_valid", estimator_->estimate().direction_valid ? "true" : "false"},
+      {"walking", walk_state_.walking ? "true" : "false"},
+      {"walk_reason", !enable_target_estimation_ ? "LEGACY_DISTANCE" :
+        have_result ? last_predictive_.reason : state},
+      {"feedforward_v", have_result ? formatDouble(last_predictive_.feedforward) : "0.000"},
+      {"desired_v", have_result ? formatDouble(last_predictive_.desired_speed) : "0.000"},
       {"within_follow_distance", have_result && result.within_follow_distance ? "true" : "false"},
       {"blind_rotation", have_result && result.blind_rotation ? "true" : "false"},
       {"have_result", have_result ? "true" : "false"},
@@ -447,6 +678,18 @@ private:
     if (cycle) {telemetry_pub_->publish(array);} else {diagnostics_pub_->publish(array);}
   }
 
+  bool enable_target_estimation_{true};
+  std::string odom_frame_;
+  double target_prediction_sec_{0.20};
+  std::unique_ptr<TargetMotionEstimator> estimator_;
+  std::unique_ptr<OdomPoseBuffer> pose_buffer_;
+  WalkHysteresisConfig walk_config_;
+  WalkState walk_state_;
+  PredictiveFollowResult last_predictive_;
+  int64_t target_epoch_ns_{0}, last_clock_ns_{0}, last_odom_stamp_ns_{0};
+  size_t outlier_count_{0};
+  std::string last_update_{"WAIT_TARGET"};
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr target_state_pub_;
   bool enable_cycle_telemetry_{true};
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr telemetry_pub_;
   std::string base_frame_;

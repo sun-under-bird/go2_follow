@@ -1,6 +1,7 @@
 # go2_uwb_local_follow
 
 第一阶段的时间对齐、基线录制与验收见 [stage1_baseline.md](docs/stage1_baseline.md)。
+第二阶段的目标运动估计、速度前馈、启停滞回及回退开关见 [stage2_target_motion.md](docs/stage2_target_motion.md)。
 当前运行参数以 YAML 和运行时参数快照为准，下文早期阶段的示例数值不代表实际生效配置。
 
 当前已实现五个可独立验收的阶段：
@@ -92,7 +93,7 @@ ros2 run tf2_ros tf2_echo base_footprint camera_infra1_optical_frame
 
 ## UWB 纯跟随阶段
 
-本阶段不缓存目标队列，也不做时间插值。厂家消息带驱动发布时间 Header，但适配节点目前仍在收到每一帧时重新赋本机时间戳；20 Hz 控制器只保存最新一帧并零阶保持，超过 0.50 秒立即停车。厂家 `state` 和 `pos_confidence` 只进入诊断，不阻断有限的 `x/y`。
+默认启用第二阶段：保留厂家消息源时间，按 odom 位姿将目标变换到统一坐标系，估计位置、速度和运动方向，再用人速前馈与距离修正跟随。目标过期 0.50 秒停车；跳点与重复源帧不续期。厂家 `state` 和 `pos_confidence` 只进入诊断，不阻断有限的 `x/y`。通过 `enable_target_estimation:=false` 回退到原有距离跟随。
 
 默认速度输出是隔离话题 `/cmd_vel_follow`：
 
@@ -265,7 +266,8 @@ ros2 topic echo /go2_uwb_local_follow/rolling_map_diagnostics
 
 ## 避障恢复与指令过渡预测
 
-规划器订阅 `target_topic`（默认 `/uwb/target_point`，`PointStamped`），只接受
+完整链路默认让规划器订阅 `/uwb/target_state`（odom 坐标的位置与速度），每周期转换到当前机身系。
+单独启动规划器默认兼容原始模式：订阅 `target_topic`（默认 `/uwb/target_point`，`PointStamped`），只接受
 `base_frame` 下的有限坐标及有效时间戳。目标缺失、过期或坐标系错误会停车；单独
 启动规划器时也必须提供该话题。名义角速度可能被跟随控制器的刹车逻辑置零，
 因此不以名义角速度代替目标方位。

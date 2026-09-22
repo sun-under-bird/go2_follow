@@ -24,7 +24,7 @@ import time
 
 PREFIX = '/go2_uwb_local_follow/'
 TOPICS = [
-    '/libAoa_robot_publisher', '/uwb/target_point', '/odom_leg',
+    '/libAoa_robot_publisher', '/uwb/target_point', '/uwb/target_state', '/odom_leg',
     '/local_grid_obstacle', '/local_depth_observation', '/local_rolling_obstacle',
     '/cmd_vel', '/tf', '/tf_static', '/clock', '/parameter_events',
     '/uwb/target_adapter_diagnostics', '/stereo/obstacle_diagnostics',

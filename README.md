@@ -134,3 +134,10 @@ src/
 ├── go2_uwb_local_follow/  # 跟随、双目障碍点云和局部速度规划
 └── uwb/                   # UWB 串口驱动与消息定义
 ```
+
+## 第二阶段目标运动估计
+
+完整跟随链路默认启用人速前馈与行走启停滞回；使用
+`enable_target_estimation:=false` 可同步回退控制器、规划器目标输入和 UWB 适配时间处理。
+实现、参数、对照方法及实机验收见
+[第二阶段说明](src/go2_uwb_local_follow/docs/stage2_target_motion.md)。

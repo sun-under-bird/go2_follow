@@ -61,6 +61,7 @@ public:
     diagnostics_topic_ = declare_parameter<std::string>(
       "diagnostics_topic", "/uwb/target_adapter_diagnostics");
     diagnostic_frequency_ = declare_parameter<double>("diagnostic_frequency", 2.0);
+    preserve_source_stamp_ = declare_parameter<bool>("preserve_source_stamp", true);
     validateParameters();
 
     raw_sub_ = create_subscription<uwb_aoa_pkg::msg::LibAoaRobotMsg>(
@@ -94,7 +95,7 @@ private:
     }
   }
 
-  // 接收厂家 x/y，每帧立即赋接收时间戳并转换到配置的机身二维坐标。
+  // 保留厂家源时间并转换到配置的机身二维坐标；源时间有效性由消费者检查。
   void rawTargetCallback(const uwb_aoa_pkg::msg::LibAoaRobotMsg::SharedPtr message)
   {
     if (!std::isfinite(message->x) || !std::isfinite(message->y)) {
@@ -112,8 +113,8 @@ private:
     const double target_y = sensor_offset_y_ + sine * message->x + cosine * message->y;
 
     geometry_msgs::msg::PointStamped target;
-    // 统一使用本节点接收时刻，避免驱动时钟与控制节点时钟不一致造成目标误判过期。
     target.header.stamp = now();
+    if (preserve_source_stamp_) {target.header.stamp = message->header.stamp;}
     target.header.frame_id = target_frame_;
     target.point.x = target_x;
     target.point.y = target_y;
@@ -166,6 +167,7 @@ private:
     diagnostics_pub_->publish(array);
   }
 
+  bool preserve_source_stamp_{true};
   std::string raw_topic_;
   std::string target_topic_;
   std::string target_frame_;

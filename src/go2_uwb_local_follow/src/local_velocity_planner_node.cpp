@@ -82,6 +82,14 @@ public:
   : Node("local_velocity_planner_node", options)
   {
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
+    use_target_state_ = declare_parameter<bool>("use_target_state", false);
+    target_prediction_sec_ = declare_parameter<double>("target_prediction_sec", 0.20);
+    if (!std::isfinite(target_prediction_sec_) || target_prediction_sec_ < 0.0 ||
+      target_prediction_sec_ > 0.50)
+    {throw std::invalid_argument("target_prediction_sec must be in [0, 0.50]");}
+    target_state_sub_ = create_subscription<nav_msgs::msg::Odometry>(
+      declare_parameter<std::string>("target_state_topic", "/uwb/target_state"), 10,
+      std::bind(&LocalVelocityPlannerNode::targetStateCallback, this, std::placeholders::_1));
     odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
     compensate_obstacle_motion_ = declare_parameter<bool>("compensate_obstacle_motion", true);
     enforce_source_time_ = declare_parameter<bool>("enforce_source_time", true);
@@ -313,6 +321,7 @@ private:
     double x{0.0};
     double y{0.0};
     double heading{0.0};
+    double vx{0.0}, vy{0.0};
     int64_t stamp_ns{0};
     int64_t receipt_stamp_ns{0};
     std::chrono::steady_clock::time_point receipt_time{};
@@ -468,8 +477,33 @@ private:
     }
   }
 
+  void targetStateCallback(const nav_msgs::msg::Odometry::SharedPtr message)
+  {
+    if (!use_target_state_) {return;}
+    checkClock();
+    TargetSnapshot snapshot;
+    snapshot.stamp_ns = messageStamp(message->header.stamp);
+    snapshot.receipt_stamp_ns = now().nanoseconds();
+    snapshot.receipt_time = std::chrono::steady_clock::now();
+    snapshot.x = message->pose.pose.position.x;
+    snapshot.y = message->pose.pose.position.y;
+    snapshot.vx = message->twist.twist.linear.x;
+    snapshot.vy = message->twist.twist.linear.y;
+    snapshot.valid = snapshot.stamp_ns >= epoch_start_ns_ &&
+      message->header.frame_id == odom_frame_ &&
+      message->child_frame_id == odom_frame_ &&
+      std::isfinite(snapshot.x) && std::isfinite(snapshot.y) &&
+      std::isfinite(snapshot.vx) && std::isfinite(snapshot.vy) &&
+      sourceAge(snapshot.stamp_ns, snapshot.receipt_stamp_ns) <= target_timeout_sec_;
+    std::lock_guard<std::mutex> lock(input_mutex_);
+    if (snapshot.stamp_ns <= last_target_accepted_stamp_) {return;}
+    if (snapshot.valid) {last_target_accepted_stamp_ = snapshot.stamp_ns;}
+    target_snapshot_ = snapshot;
+  }
+
   void targetCallback(const geometry_msgs::msg::PointStamped::SharedPtr message)
   {
+    if (use_target_state_) {return;}
     checkClock();
     TargetSnapshot snapshot;
     snapshot.receipt_time = std::chrono::steady_clock::now();
@@ -543,7 +577,7 @@ private:
     if (std::abs(angular_z) < odom_angular_deadband_) {
       angular_z = 0.0;
     }
-    if (compensate_obstacle_motion_) {
+    if (compensate_obstacle_motion_ || use_target_state_) {
       const auto & q = message->pose.pose.orientation;
       const double norm = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
       TimedPose2D pose{snapshot.stamp_ns, message->pose.pose.position.x,
@@ -1110,6 +1144,26 @@ private:
       return;
     }
 
+    if (use_target_state_) {
+      TimedPose2D pose;
+      if (!pose_buffer_->lookup(status.control_stamp_ns, &pose)) {
+        resetEmergencyRecovery();
+        publishStop(status, "TARGET_ALIGNMENT_FAILED", {});
+        return;
+      }
+      const double horizon = std::min(
+        target_prediction_sec_,
+        sourceAge(target.stamp_ns, status.control_stamp_ns));
+      const auto local = transformRollingPointToBase(
+        {target.x + target.vx * horizon, target.y + target.vy * horizon, 0.0, 0}, pose);
+      target.x = local.x;
+      target.y = local.y;
+      target.heading = std::atan2(target.y, target.x);
+      status.target_x = target.x;
+      status.target_y = target.y;
+      status.target_heading = target.heading;
+    }
+
     status.stabilized_nominal = correctNominalAngularVelocity(
       nominal.velocity, odom.velocity, angular_stabilization_config_, motion_limits_);
 
@@ -1376,6 +1430,7 @@ private:
       {"deadline_miss_count", std::to_string(deadline_miss_count_)},
       {"published_v", formatDouble(status.published_command.linear_x)},
       {"published_w", formatDouble(status.published_command.angular_z)},
+      {"use_target_state", use_target_state_ ? "true" : "false"},
       {"compensate_obstacle_motion", compensate_obstacle_motion_ ? "true" : "false"},
       {"enforce_source_time", enforce_source_time_ ? "true" : "false"},
       {"emergency_hit_count", std::to_string(emergency_hit_count_)},
@@ -1445,6 +1500,9 @@ private:
   RollingMapConfig pose_config_;
   std::unique_ptr<OdomPoseBuffer> pose_buffer_;
   std::string odom_frame_;
+  bool use_target_state_{false};
+  double target_prediction_sec_{0.20};
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr target_state_sub_;
   bool compensate_obstacle_motion_{true};
   bool enforce_source_time_{true};
   bool enable_cycle_telemetry_{true};
