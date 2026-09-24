@@ -1,0 +1,7 @@
+# 本 worktree 的 colcon build 默认参数（2026-09-21 加）
+# 为什么：CMAKE_BUILD_TYPE 为空时 CMake 不加任何 -O 标志（等于 -O0），实测局部规划器
+# 碰撞检查内环 77.8 ns/点·位姿，-O2 后 40.8 ns。不写在这里的话，下一次普通
+# `colcon build` 会把 Release 冲掉、又退回 -O0。
+build:
+  cmake-args:
+    - -DCMAKE_BUILD_TYPE=Release
