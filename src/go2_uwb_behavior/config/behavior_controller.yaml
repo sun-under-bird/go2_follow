@@ -1,0 +1,107 @@
+uwb_behavior_controller_node:
+  ros__parameters:
+    base_frame: base_footprint  # 机器人机身坐标系，用于目标、障碍及控制计算
+    odom_frame: odom  # 里程计局部连续坐标系，用于记录主人位置和漫游目标
+    target_topic: /uwb/target_point  # 转换到机器人坐标系的 UWB 目标点话题
+    odom_topic: /leg_odom2  # RK/Lite3 实际位姿与速度；/leg_odom 类型不兼容
+    obstacle_topic: /local_rolling_obstacle  # 局部障碍点云输入话题
+    nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # 跟随或漫游生成的名义速度话题，供下游规划器避障
+    planner_cmd_topic: /go2_uwb_behavior/planner_cmd_vel  # 局部规划器输出的避障速度输入话题
+    planner_diagnostics_topic: /go2_uwb_local_follow/planner_diagnostics  # 规划器诊断输入话题，用于识别规划受阻状态
+    cmd_vel_topic: /cmd_vel  # 最终底盘速度输出话题；实机连接由启动文件配置
+    diagnostics_topic: /go2/behavior_diagnostics  # 当前节点运行状态与异常诊断的输出话题
+    follow_diagnostics_topic: /go2_uwb_local_follow/follow_diagnostics  # FOLLOW 控制状态与距离、角度误差的诊断输出话题
+    roam_target_topic: /go2/random_roam/target  # 当前漫游目标点的可视化输出话题
+    play_center_topic: /go2/random_roam/play_center  # 经过迟滞处理的漫游采样中心输出话题
+    compute_enable_topic: /go2_uwb_behavior/compute_enable  # Action 执行期间开启双目点云重计算的门控话题
+    behavior_service_name: /go2/set_behavior  # 兼容 IDLE 与 STOP 的服务名；FOLLOW/ROAM 应使用 Action
+    follow_action_name: /go2/follow_uwb  # 启动、取消 UWB 持续跟随并接收反馈的 Action 名
+    roam_action_name: /go2/random_roam  # 启动、取消漫游并接收反馈和结果的 Action 名
+
+    default_mode: IDLE  # 空闲启动，收到 FollowUwb 或 RandomRoam Action 后才启用感知与运动
+    enable_motion: true  # 运动输出开关；false 时向底盘输出零速度
+    # 待机（IDLE/STOP）时是否继续以控制频率发零速度到 /cmd_vel。true 为原有行为；
+    # false 时只在运动阶段与"归零边沿"发布，待机时把 /cmd_vel 让给 Nav2、动作执行器
+    # 等其它发布者——否则本节点 20 Hz 的零速度会逐帧覆盖对方的速度，使其动作整体失效。
+    publish_idle_velocity: false
+    control_frequency: 20.0  # 控制循环频率（Hz）；增大可加快响应，但会增加计算负载
+    diagnostic_frequency: 2.0  # 诊断发布频率（Hz）；仅影响状态输出频率
+    feedback_frequency: 5.0  # 漫游 Action 进度反馈频率（Hz）
+    target_timeout_sec: 0.50  # UWB 目标有效时限（s）；超时停止使用，收到新鲜有效数据后恢复
+    odom_timeout_sec: 0.20  # 里程计有效时限（s）；增大更耐断流，但异常停车响应更慢
+    obstacle_timeout_sec: 0.70  # 障碍点云有效时限（s）；超时不允许继续运动
+    planner_cmd_timeout_sec: 0.20  # 规划器速度输出有效时限（s）；超时向底盘输出零速度
+    planner_diagnostics_timeout_sec: 0.75  # 规划器诊断有效时限（s），用于判断受阻信息是否仍可信
+    transform_timeout_sec: 0.10  # 等待 TF 坐标变换的最大时长（s）
+    readiness_timeout_sec: 2.0  # 漫游启动时等待传感器和规划器就绪的最大时长（s）
+    input_recovery_timeout_sec: 3.0  # 漫游输入超时后停车保留目标，窗口内恢复则自动继续；总 Action 超时仍有效
+    maximum_follow_timeout_sec: 3600.0  # 上层可指定的跟随最长时限（s）；Goal 为 0 时持续到 cancel
+
+    # FOLLOW 参数与现有实机配置保持一致，新启动链继续复用同一控制核心。
+    follow_distance: 1.0  # 期望跟随距离（m）；进入该距离及距离死区后不再前进
+    distance_deadband: 0.08  # 跟随距离外额外的停止死区（m）；增大可减少距离噪声导致的启停
+    angle_deadband: 0.08  # 静态停止转向的角度死区（rad）；动态制动可使转向更早停止
+    angle_reengage: 0.15  # 重新开始纠偏的基础角度门槛（rad），应大于 angle_deadband 以形成滞回
+    turn_response_delay: 0.60  # 估计的转向响应延迟（s）；增大将更早撤销转向命令
+    angular_braking_accel: 1.0  # 用于估算转向制动角度的减速度（rad/s²）；减小将更早制动
+    angular_brake_release_speed: 0.06  # 解除转向制动锁存的实测角速度门槛（rad/s）
+    angular_reverse_speed_threshold: 0.15  # 允许反向转向的实测角速度门槛（rad/s）；减小可抑制左右切换
+    linear_kp: 0.60  # 距离误差到前进速度的比例增益（1/s）；增大可加快跟随响应
+    angular_kp: 1.0  # 方位误差到转向速度的比例增益（1/s）；增大纠偏更积极，也更易摆头
+    min_linear_speed: 0.25  # Lite3 实机确认的最小有效迈步速度（m/s）
+    max_linear_speed: 0.80  # 前进速度上限（m/s）；增大跟随更快，但制动距离更长
+    max_angular_speed: 2.0  # 转向角速度上限（rad/s）；完整链路还受局部规划器限制
+    heading_slowdown_start: 0.30  # 与 RK 当前 develop 跟随配置一致，从约 17.2° 开始降速
+    heading_stop_angle: 1.55  # 与 RK 当前 develop 跟随配置一致，约 88.8° 后原地对准
+    blind_rotation_max_speed: 2.0  # 进入大角度对准后的角速度上限（rad/s），下游仍检查旋转碰撞
+    max_linear_accel: 0.80  # 兼容跟随配置的线加速度参数（m/s²）；本链路实际加速由局部规划器控制
+    max_linear_decel: 0.80  # 兼容跟随配置的线减速度参数（m/s²）；本链路实际减速由局部规划器控制
+    max_angular_accel: 1.0  # 兼容跟随配置的角加速度参数（rad/s²）；本链路实际转向限幅由局部规划器控制
+
+    # ROAM 只生成短距离、低速名义控制，最终速度仍必须经过原局部规划器。
+    roam_goal_tolerance: 0.30  # 判定到达漫游目标的距离容差（m）
+    roam_angle_deadband: 0.08  # 漫游控制停止转向的基础角度死区（rad）
+    roam_angle_reengage: 0.15  # 漫游控制重新纠偏的基础角度门槛（rad），应大于漫游角度死区
+    roam_max_linear_speed: 0.35  # 漫游名义前进速度上限（m/s），最终速度仍受规划器约束
+    roam_max_angular_speed: 1.0  # 漫游名义转向速度上限（rad/s），最终速度仍受规划器约束
+
+    # 实时主人位置用于围栏，迟滞中心只用于采样随机目标。
+    uwb_median_window: 5  # 主人位置中值滤波窗口长度（样本数）；增大更抗异常点，但响应更慢
+    uwb_filter_alpha: 0.25  # 指数滤波中新中值样本的权重（0～1，必须大于 0）；增大响应更快、抖动更明显
+    minimum_owner_samples: 5  # 漫游启动所需的最少有效主人位置样本数，不得大于中值窗口长度
+    play_center_deadband: 0.40  # 主人滤波位置偏离漫游中心后触发中心迁移确认的距离（m）
+    center_move_confirm_sec: 1.0  # 主人持续偏离中心后允许迁移的确认时间（s）
+    center_max_speed: 0.30  # 漫游采样中心的最大迁移速度（m/s），用于抑制目标区域突然跳变
+
+    owner_keepout_radius: 0.50  # 上层可指定的最小半径下限（m），Goal 两个半径均为 0 时也作为默认值
+    random_goal_radius_max: 2.00  # 上层可指定的最大半径上限（m），Goal 两个半径均为 0 时也作为默认值
+    random_step_min: 0.80  # 随机目标相对机器人当前位置的最小单步距离（m）
+    random_step_max: 0.80  # 随机目标相对机器人当前位置的最大单步距离（m）
+    goal_obstacle_clearance: 0.70  # 采样目标点到最近障碍点的最小距离（m），用于过滤贴近障碍的目标
+    max_sample_attempts: 50  # 每次生成随机目标的最大采样尝试次数（次）
+
+    return_trigger_radius: 5.00  # 机器人离实时滤波主人位置达到该距离时切换为返回（m）
+    return_release_radius: 4.50  # 返回到主人该距离以内后恢复随机漫游（m），应小于触发返回半径
+    restrictive_radius: 5.60  # 距离主人达到该半径后，拒绝预测轨迹中任何继续远离的运动（m）
+    absolute_radius: 6.00  # 主人围栏硬半径（m）；预测轨迹不得从内越界，已在界外时必须缩短距离
+    geofence_prediction_sec: 1.0  # 主人围栏速度检查的轨迹预测时长（s）
+    geofence_simulation_dt: 0.05  # 主人围栏轨迹预测步长（s）；减小检查更细，但计算量更大
+    geofence_reject_timeout_sec: 1.0  # 运动命令持续被围栏拒绝后终止漫游的时限（s）
+
+    default_roam_timeout_sec: 30.0  # 调用方未指定时采用的漫游总时限（s），包括输入暂停等等待时间
+    maximum_roam_timeout_sec: 120.0  # 允许调用方指定的最大漫游总时限（s）
+    required_progress: 0.15  # 认为取得有效进展所需的目标距离缩短量（m），达到后重置进度计时
+    progress_window_sec: 3.0  # 目标距离未取得足够进展时触发重选目标的时间窗口（s）
+    planner_blocked_timeout_sec: 1.0  # 规划器连续受阻后触发漫游重试的时限（s）
+    max_retries: 2  # 漫游受阻或无进展时最多重选目标的次数，不含首次目标
+    stop_linear_threshold: 0.04  # 确认底盘停稳的实测平面线速度门槛（m/s）
+    stop_angular_threshold: 0.08  # 确认底盘停稳的实测角速度门槛（rad/s）
+    stop_confirm_sec: 0.30  # 线速度和角速度连续满足停稳门槛的确认时长（s）
+    # 停车判定的第二条证据：里程计位姿在确认窗口内没有可观测变化也算停稳。
+    # RK/Lite3 的 /leg_odom2 静止时 twist 带常值偏置（实测约 0.097 m/s、逐位恒定），
+    # 只按速度门槛会让漫游永久卡在"等底盘停稳"。0.02 m / 0.30 s 约等于 0.067 m/s、
+    # 0.03 rad / 0.30 s 约等于 0.10 rad/s 的分辨能力，与上面的速度门槛同量级。
+    stop_position_epsilon: 0.02  # 位姿平移容差（m）；过大将无法分辨低速蠕动（最小迈步速度 0.25 m/s）
+    stop_yaw_epsilon: 0.03  # 位姿偏航容差（rad）；过大将无法分辨原地缓慢转向
+    stop_confirmation_timeout_sec: 2.0  # 等待底盘确认停稳的最大时长（s）；超时报告停车确认失败
+    robot_clearance_radius: 0.40  # 覆盖 Lite3 0.68×0.38 m 足迹的近似半径；碰撞仍以规划器矩形足迹为准
