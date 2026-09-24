@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""独立启动使用 /odom_leg 运动补偿的滚动局部障碍地图."""
+"""独立启动使用 /leg_odom2 运动补偿的滚动局部障碍地图."""
 
 from pathlib import Path
 
@@ -62,7 +62,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "output_obstacle_topic", default_value="/local_rolling_obstacle"
             ),
-            DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
+            DeclareLaunchArgument("odom_topic", default_value="/leg_odom2"),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
             DeclareLaunchArgument("odom_frame", default_value="odom"),
             rolling_map_node,

@@ -14,9 +14,10 @@ uwb_follow_controller_node:
   ros__parameters:
     base_frame: base_footprint
     target_topic: /uwb/target_point
-    odom_topic: /odom_leg
-    # 第一阶段默认隔离输出，实机验收时显式改为 /cmd_vel。
-    cmd_vel_topic: /cmd_vel_follow
+    odom_topic: /leg_odom2
+    # Lite3 的 /cmd_vel 会先过 lite3_twist_bridge(10Hz 补流 + 自动切 Vision/Joystick 模式)
+    # 再经 jetson2motion 到狗，所以这里直接发 /cmd_vel。
+    cmd_vel_topic: /cmd_vel
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd
     diagnostics_topic: /go2_uwb_local_follow/follow_diagnostics
     enable_motion: true

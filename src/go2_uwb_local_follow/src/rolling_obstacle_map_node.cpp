@@ -113,7 +113,8 @@ public:
       "input_observation_topic", "/local_depth_observation");
     output_obstacle_topic_ = declare_parameter<std::string>(
       "output_obstacle_topic", "/local_rolling_obstacle");
-    odom_topic_ = declare_parameter<std::string>("odom_topic", "/odom_leg");
+    // Lite3 上必须用 /leg_odom2：它是 nav_msgs/Odometry 且带 pose 时间戳。
+    odom_topic_ = declare_parameter<std::string>("odom_topic", "/leg_odom2");
     diagnostics_topic_ = declare_parameter<std::string>(
       "diagnostics_topic", "/go2_uwb_local_follow/rolling_map_diagnostics");
     input_timeout_sec_ = declare_parameter<double>("input_timeout_sec", 0.60);
@@ -218,7 +219,7 @@ private:
     }
   }
 
-  // 校验并缓存 /odom_leg 的二维位置和朝向，检测跳变后清空旧障碍地图。
+  // 校验并缓存 /leg_odom2 的二维位置和朝向，检测跳变后清空旧障碍地图。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
     if (!odom_stamp_tracker_.accept(

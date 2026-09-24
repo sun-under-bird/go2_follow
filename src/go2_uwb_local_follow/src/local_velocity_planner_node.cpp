@@ -81,7 +81,9 @@ public:
       "nominal_cmd_topic", "/go2_uwb_local_follow/nominal_cmd");
     obstacle_topic_ = declare_parameter<std::string>(
       "obstacle_topic", "/local_grid_obstacle");
-    odom_topic_ = declare_parameter<std::string>("odom_topic", "/odom_leg");
+    // Lite3 上必须用 /leg_odom2：它是 nav_msgs/Odometry 且带 twist；
+    // /leg_odom 是 PoseWithCovarianceStamped，类型对不上订不了。
+    odom_topic_ = declare_parameter<std::string>("odom_topic", "/leg_odom2");
     planned_cmd_topic_ = declare_parameter<std::string>(
       "planned_cmd_topic", "/go2_uwb_local_follow/planned_cmd");
     final_cmd_topic_ = declare_parameter<std::string>(
@@ -402,7 +404,7 @@ private:
     nominal_snapshot_ = snapshot;
   }
 
-  // 同时保存真实速度与带时间戳位姿；重复、积压或乱序里程计不能刷新有效期。
+  // 从 /leg_odom2 同时保存真实速度与带时间戳位姿；重复、积压或乱序里程计不能刷新有效期。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
     const auto stamp_ns = sourceStampNanoseconds(message->header.stamp);

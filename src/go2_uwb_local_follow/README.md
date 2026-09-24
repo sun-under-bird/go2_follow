@@ -5,8 +5,8 @@
 1. 双目视差与 `base_footprint` 障碍点云。
 2. 厂家 UWB 原始消息适配与不带避障的纯跟随控制。
 3. 名义轨迹预测、矩形足迹碰撞检查和紧急停车调试。
-4. 使用 `/odom_leg` 实测初始速度的 MPPI 时变控制序列与碰撞规划。
-5. 使用点云时间戳、`/odom_leg` 位姿补偿、时间衰减和深度射线清除的滚动局部障碍地图。
+4. 使用 `/leg_odom2` 实测初始速度的 MPPI 时变控制序列与碰撞规划。
+5. 使用点云时间戳、`/leg_odom2` 位姿补偿、时间衰减和深度射线清除的滚动局部障碍地图。
 
 ```text
 infra1/infra2 已校正图像
@@ -15,7 +15,7 @@ infra1/infra2 已校正图像
   -> stereo_obstacle_projector_node
   -> /local_grid_obstacle (过滤后的障碍点，兼容与调试输出)
   -> /local_depth_observation (障碍点 + 射线端点 + 相机视点)
-  -> rolling_obstacle_map_node + /odom_leg pose
+  -> rolling_obstacle_map_node + /leg_odom2 pose
   -> /local_rolling_obstacle (当前点云时刻 base_footprint)
 ```
 
@@ -31,7 +31,7 @@ infra1/infra2 已校正图像
 ## 编译
 
 ```bash
-cd /home/bird/go2_follow_rolling_map
+cd /home/cat/robot_ws/go2_follow_develop
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install --packages-up-to go2_uwb_local_follow
 source install/setup.bash
@@ -41,7 +41,7 @@ source install/setup.bash
 
 相机驱动和 `base_footprint -> camera_infra1_optical_frame` TF 必须已经存在。
 完整实机链路还需要厂家 UWB 话题 `/libAoa_robot_publisher`、里程计
-`/odom_leg` 和底盘 `/cmd_vel` 接收节点。
+`/leg_odom2` 和底盘 `/cmd_vel` 接收节点。
 
 一键启动完整感知、跟随和局部避障链路：
 
@@ -91,10 +91,13 @@ ros2 run tf2_ros tf2_echo base_footprint camera_infra1_optical_frame
 
 本阶段不缓存目标队列，也不做时间插值。厂家消息没有 Header，适配节点在收到每一帧时赋本机时间戳；20 Hz 控制器只保存最新一帧并零阶保持，超过 0.50 秒立即停车。厂家 `state` 和 `pos_confidence` 只进入诊断，不阻断有限的 `x/y`。
 
-默认速度输出是隔离话题 `/cmd_vel_follow`：
+速度输出默认直接接底盘 `/cmd_vel`。⚠️ Lite3 上 `/cmd_vel` 会先过
+`lite3_twist_bridge`（10 Hz 补流 + 自动切 Vision/Joystick 模式）再由 `jetson2motion`
+送到狗，**启动前必须确认 `/cmd_vel` 上没有其他发布者**（键盘 teleop 也发这个话题）。
+首次验收请显式关掉速度输出，只看诊断：
 
 ```bash
-ros2 launch go2_uwb_local_follow uwb_follow_only.launch.py
+ros2 launch go2_uwb_local_follow uwb_follow_only.launch.py enable_motion:=false
 ```
 
 查看目标、名义速度、限加速度输出和状态：
@@ -102,15 +105,15 @@ ros2 launch go2_uwb_local_follow uwb_follow_only.launch.py
 ```bash
 ros2 topic echo /uwb/target_point
 ros2 topic echo /go2_uwb_local_follow/nominal_cmd
-ros2 topic echo /cmd_vel_follow
+ros2 topic echo /cmd_vel
 ros2 topic echo /go2_uwb_local_follow/follow_diagnostics
 ```
 
-完成架空或安全区域验收并确认 `/cmd_vel` 没有其他发布者后，才切换真实底盘输出：
+架空或安全区域验收通过、且确认 `/cmd_vel` 没有其他发布者后，才显式打开真实底盘输出：
 
 ```bash
 ros2 launch go2_uwb_local_follow uwb_follow_only.launch.py \
-  cmd_vel_topic:=/cmd_vel
+  enable_motion:=true
 ```
 
 UWB 角速度随目标方位误差连续增大，最大限制为 `2.00 rad/s`；线速度随目标
@@ -161,7 +164,7 @@ ros2 topic echo /cmd_vel_avoidance
 
 ## 完整局部速度规划阶段
 
-UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角：
+UWB 名义转向使用 `/leg_odom2.twist.twist.angular.z` 计算动态停止角：
 `angle_deadband + |actual_wz| * turn_response_delay + actual_wz² /
 (2 * angular_braking_accel)`。实际角速度越高越早撤销名义角速度；进入动态刹车区后
 不会再执行角速度 P 补偿。再次转向仍使用 `angle_reengage` 滞回，并在实际角速度
@@ -169,7 +172,7 @@ UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角�
 动态刹车触发后会锁存零名义角速度，直到实测角速度低于
 `angular_brake_release_speed`，防止停止角随速度下降后过早恢复同方向转向。
 
-`local_velocity_planner_node` 仍只读取 `/odom_leg` 的 `twist.twist.linear.x` 和
+`local_velocity_planner_node` 仍只读取 `/leg_odom2` 的 `twist.twist.linear.x` 和
 `twist.twist.angular.z` 作为当前真实速度。新增的 `rolling_obstacle_map_node` 独立
 读取同一话题的带时间戳 pose：每帧 `/local_depth_observation` 先按观测时间戳插值
 `odom -> base_footprint` 位姿并转换到局部 `odom` 二维体素地图，再把全部保留障碍补偿到
@@ -203,7 +206,7 @@ UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角�
 种子；每轮对无碰撞序列按总代价进行指数加权，默认执行 `48` 条、`2` 轮更新。
 普通规划仍禁止负线速度，急停倒退继续由独立状态机负责。
 
-每条序列从 `/odom_leg` 实测速度开始，展开过程直接包含线/角加速度限制和 Go2
+每条序列从 `/leg_odom2` 实测速度开始，展开过程直接包含线/角加速度限制和 Go2
 `0.25 m/s` 线速度执行死区，并在预测时域末尾追加到完全停止的制动尾段。硬碰撞
 序列直接淘汰；运动序列还必须满足基础净空和保守 TTC，只有全部安全运动序列失败
 后才允许选择停车。MPPI 加权平均后的序列会再次执行独立碰撞校验，若平均结果失去
@@ -213,11 +216,11 @@ UWB 名义转向使用 `/odom_leg.twist.twist.angular.z` 计算动态停止角�
 
 当前版本仍直接使用滚动障碍点云，没有增加 OccupancyGrid、距离场、A* 或局部路径
 引导，因此 MPPI 提升的是时变控制能力，不保证单独解决所有 U 型拓扑陷阱。
-UWB 名义角速度使用 `/odom_leg` 实测角速度进行 P 反馈修正，默认
+UWB 名义角速度使用 `/leg_odom2` 实测角速度进行 P 反馈修正，默认
 `angular_velocity_tracking_kp=1.0`，同时保留小命令死区、反向停稳保护和最大角速度
 限幅；不再叠加原角速度阻尼，也不强制抬升跟随角速度。普通 MPPI 控制序列使用
 `1.50 rad/s` 最大角速度，并在调整后重新预测碰撞轨迹。
-`/odom_leg`、名义速度或障碍点云任一超时都会故障停车。
+`/leg_odom2`、名义速度或障碍点云任一超时都会故障停车。
 正前方紧急区默认需要连续 `3` 个新点云帧命中才锁存急停，连续 `3` 个新帧清空
 才解除；同一帧不会因控制循环重复执行而被重复计数。确认期间普通轨迹碰撞检查
 仍然有效，可通过 `emergency_confirm_frames` 调整确认帧数。急停锁存后立即发布零速，
@@ -234,8 +237,9 @@ ros2 launch go2_uwb_local_follow uwb_follow_only.launch.py enable_motion:=false
 ros2 launch go2_uwb_local_follow local_velocity_planner.launch.py
 ```
 
-规划器默认 `enable_motion:=false`，所以 `/cmd_vel_planned` 始终为零。MPPI 首个控制量
-和限幅结果分别发布到：
+规划器在这个 launch 里默认 `enable_motion:=false`，所以它只往 `/cmd_vel` 发零速度。
+⚠️ 这也意味着它是 `/cmd_vel` 的一个发布者：跑这一路时不要再开键盘 teleop，
+否则两路指令在同一条话题上互相覆盖。MPPI 首个控制量和限幅结果分别发布到：
 
 ```bash
 ros2 topic echo /go2_uwb_local_follow/planned_cmd

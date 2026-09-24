@@ -21,11 +21,11 @@ UWB 串口
   -> /go2_uwb_local_follow/nominal_cmd
                                       \
 矫正双目图像 -> stereo_image_proc/BM -> 深度观测（障碍点 + 自由空间射线）
-                                      -> rolling_obstacle_map_node + /odom_leg pose
+                                      -> rolling_obstacle_map_node + /leg_odom2 pose
                                       -> local_velocity_planner_node -> /cmd_vel
 ```
 
-局部规划器使用自研 MPPI 优化时变速度序列，并读取 `/odom_leg` 的线速度和角速度
+局部规划器使用自研 MPPI 优化时变速度序列，并读取 `/leg_odom2` 的线速度和角速度
 作为轨迹预测初值；独立的滚动障碍地图
 节点使用同一里程计的位置和朝向补偿历史障碍。局部规划和滚动地图均为二维，不需要
 全局地图或全局路径。
@@ -39,7 +39,7 @@ UWB 串口
 /camera/camera/infra1/image_rect_raw
 /camera/camera/infra2/camera_info
 /camera/camera/infra2/image_rect_raw
-/odom_leg
+/leg_odom2
 base_footprint -> camera optical frame 的 TF
 ```
 
@@ -48,7 +48,7 @@ base_footprint -> camera optical frame 的 TF
 ## 编译
 
 ```bash
-cd /home/bird/go2_follow_rolling_map
+cd /home/cat/robot_ws/go2_follow_develop
 source /opt/ros/humble/setup.bash
 rosdep install --from-paths src --ignore-src -r -y
 colcon build --symlink-install --packages-up-to go2_uwb_local_follow
@@ -67,13 +67,13 @@ ros2 launch uwb_aoa_pkg uwb_source.launch.py \
   serial_port:=/dev/ttyUSB0
 ```
 
-确认 UWB、双目图像、TF 和 `/odom_leg` 正常后，启动完整跟随避障链路：
+确认 UWB、双目图像、TF 和 `/leg_odom2` 正常后，启动完整跟随避障链路：
 
 ```bash
 ros2 launch go2_uwb_local_follow local_follow.launch.py \
   enable_motion:=true \
   cmd_vel_topic:=/cmd_vel \
-  odom_topic:=/odom_leg
+  odom_topic:=/leg_odom2
 ```
 
 第一次调试建议使用隔离输出：

@@ -68,7 +68,8 @@ public:
   {
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     target_topic_ = declare_parameter<std::string>("target_topic", "/uwb/target_point");
-    odom_topic_ = declare_parameter<std::string>("odom_topic", "/odom_leg");
+    // Lite3 上必须用 /leg_odom2：它是 nav_msgs/Odometry 且带 twist。
+    odom_topic_ = declare_parameter<std::string>("odom_topic", "/leg_odom2");
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_follow");
     nominal_cmd_topic_ = declare_parameter<std::string>(
       "nominal_cmd_topic", "/go2_uwb_local_follow/nominal_cmd");
@@ -246,7 +247,7 @@ private:
     return latest_target_;
   }
 
-  // 从 /odom_leg 保存未经命令死区处理的真实角速度，供动态停止角计算。
+  // 从 /leg_odom2 保存未经命令死区处理的真实角速度，供动态停止角计算。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
     const std::int64_t stamp_ns = sourceStampNanoseconds(message->header.stamp);

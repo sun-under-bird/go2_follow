@@ -20,8 +20,9 @@ local_collision_monitor_node:
     prediction_time: 1.20
     simulation_dt: 0.05
 
-    # Go2 采用保守矩形足迹；安全边界在长宽两侧分别膨胀 0.08 m。
-    robot_length: 0.70
+    # Lite3 采用保守矩形足迹；安全边界在长宽两侧分别膨胀 0.08 m。
+    # 长取产品手册外包络 680 mm(站立 610、趴地 680)；宽 0.40 已覆盖 Lite3 的 370 mm。
+    robot_length: 0.68
     robot_width: 0.40
     safety_margin: 0.08
     emergency_front_distance: 0.25

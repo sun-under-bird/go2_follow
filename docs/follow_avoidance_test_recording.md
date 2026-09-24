@@ -102,5 +102,5 @@ ros2 bag play /path/to/test_record/rosbag2
 1. `raw_angle` 与融合目标 `x/y` 是否同时变化。
 2. `/go2_uwb_local_follow/nominal_cmd` 是否符合 UWB 目标。
 3. `planned_cmd` 与 `final_cmd` 是否因障碍或加速度限制改变。
-4. `/odom_leg` 实际速度是否跟随最终下发速度。
+4. `/leg_odom2` 实际速度是否跟随最终下发速度。
 5. 障碍诊断、滚动地图诊断是否在事件附近出现点数或状态突变。

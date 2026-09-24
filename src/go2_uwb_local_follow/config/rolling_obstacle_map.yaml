@@ -1,11 +1,11 @@
 rolling_obstacle_map_node:
   ros__parameters:
     base_frame: base_footprint  # 输入和输出点云使用的当前机器人机身坐标系
-    odom_frame: odom  # /odom_leg pose 所在的局部连续坐标系，不要求全局定位
-    odom_child_frame: base_footprint  # /odom_leg 表示的机器人机身坐标系
+    odom_frame: odom  # /leg_odom2 pose 所在的局部连续坐标系，不要求全局定位
+    odom_child_frame: base_footprint  # /leg_odom2 表示的机器人机身坐标系
     input_observation_topic: /local_depth_observation  # 同帧障碍、有效深度射线和相机原点
     output_obstacle_topic: /local_rolling_obstacle  # 运动补偿和时间衰减后的局部点云
-    odom_topic: /odom_leg  # 只使用带时间戳的 pose，不改变规划器原有速度输入
+    odom_topic: /leg_odom2  # 只使用带时间戳的 pose，不改变规划器原有速度输入
     diagnostics_topic: /go2_uwb_local_follow/rolling_map_diagnostics
 
     voxel_size: 0.05  # odom 局部地图二维体素尺寸，应不小于输入点云分辨率
@@ -26,5 +26,5 @@ rolling_obstacle_map_node:
     odom_jump_check_interval_sec: 0.50  # 仅在该时间范围内把大位移视为里程计跳变
 
     input_timeout_sec: 0.60  # 只诊断真实输入点云；历史地图发布不会掩盖传感器断流
-    odom_timeout_sec: 0.15  # /odom_leg 超时后不再生成新的补偿点云
+    odom_timeout_sec: 0.15  # /leg_odom2 超时后不再生成新的补偿点云
     diagnostic_frequency: 2.0

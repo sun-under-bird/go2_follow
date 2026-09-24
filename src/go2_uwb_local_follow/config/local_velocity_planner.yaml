@@ -5,7 +5,8 @@ local_velocity_planner_node:
     odom_child_frame: base_footprint  # 里程计表示的机身坐标系，同时校验 pose 与 twist
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # UWB 名义速度输入话题
     obstacle_topic: /local_rolling_obstacle  # 里程计补偿和时间衰减后的滚动局部障碍点云
-    odom_topic: /odom_leg  # 实际初始速度输入话题
+    odom_topic: /leg_odom2  # 实际初始速度输入话题。⚠️ 必须用 /leg_odom2：它是 nav_msgs/Odometry
+                            # 且带 twist；/leg_odom 是 PoseWithCovarianceStamped，类型对不上订不了
     planned_cmd_topic: /go2_uwb_local_follow/planned_cmd  # MPPI 最优序列的首个目标速度
     final_cmd_topic: /go2_uwb_local_follow/final_cmd  # 加速度限幅后的最终速度
     cmd_vel_topic: /cmd_vel_planned  # 实机验收时由 launch 覆盖为 /cmd_vel
@@ -29,7 +30,7 @@ local_velocity_planner_node:
     prediction_time: 1.5  # ↑预测远、更保守/计算多；↓更灵活/晚发现碰撞；步长 0.10 s
     simulation_dt: 0.05  # 与 20 Hz 控制周期一致，MPPI 每周期将最优序列前移一个时间步
 
-    robot_length: 0.70  # ↑前后硬碰撞足迹更大、更保守；↓更贴近障碍；步长 0.02 m
+    robot_length: 0.68  # Lite3 外包络长(产品手册:站立 610、趴地 680 mm)；↑前后硬碰撞足迹更大、更保守；↓更贴近障碍；步长 0.02 m
     robot_width: 0.38  # ↑左右硬碰撞足迹更大、更保守；↓侧向通过性高；步长 0.02 m
     safety_margin: 0.02  # ↑四周安全余量更大；↓通过性高但风险增大；步长 0.01 m
 

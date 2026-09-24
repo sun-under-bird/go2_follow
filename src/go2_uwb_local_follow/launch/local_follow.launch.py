@@ -207,7 +207,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("target_topic", default_value="/uwb/target_point"),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
             DeclareLaunchArgument("odom_frame", default_value="odom"),
-            DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
+            DeclareLaunchArgument("odom_topic", default_value="/leg_odom2"),
             DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
             DeclareLaunchArgument("enable_motion", default_value="true"),
             DeclareLaunchArgument("publish_debug_depth", default_value="false"),

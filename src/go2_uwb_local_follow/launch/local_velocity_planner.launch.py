@@ -96,11 +96,11 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument(
                 "rolling_obstacle_topic", default_value="/local_rolling_obstacle"
             ),
-            DeclareLaunchArgument("odom_topic", default_value="/odom_leg"),
+            DeclareLaunchArgument("odom_topic", default_value="/leg_odom2"),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
             DeclareLaunchArgument("odom_frame", default_value="odom"),
             DeclareLaunchArgument(
-                "cmd_vel_topic", default_value="/cmd_vel_planned"
+                "cmd_vel_topic", default_value="/cmd_vel"
             ),
             DeclareLaunchArgument("enable_motion", default_value="false"),
             rolling_map_node,
