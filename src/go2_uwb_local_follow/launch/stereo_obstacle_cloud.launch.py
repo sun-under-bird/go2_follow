@@ -38,6 +38,8 @@ def generate_launch_description() -> LaunchDescription:
     ray_observation_topic = LaunchConfiguration("ray_observation_topic")
     base_frame = LaunchConfiguration("base_frame")
     publish_debug_depth = LaunchConfiguration("publish_debug_depth")
+    compute_enable_topic = LaunchConfiguration("compute_enable_topic")
+    start_enabled = LaunchConfiguration("start_enabled")
 
     disparity_node = Node(
         package="stereo_image_proc",
@@ -70,6 +72,8 @@ def generate_launch_description() -> LaunchDescription:
                 "publish_debug_depth": ParameterValue(
                     publish_debug_depth, value_type=bool
                 ),
+                "compute_enable_topic": compute_enable_topic,
+                "start_enabled": ParameterValue(start_enabled, value_type=bool),
             },
         ],
     )
@@ -102,6 +106,12 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),
             DeclareLaunchArgument("publish_debug_depth", default_value="false"),
+            DeclareLaunchArgument(
+                "compute_enable_topic",
+                default_value="/go2_uwb_behavior/compute_enable",
+            ),
+            # 独立启动感知链时保持原行为；统一行为启动文件会覆盖为 false。
+            DeclareLaunchArgument("start_enabled", default_value="true"),
             disparity_node,
             projector_node,
         ]

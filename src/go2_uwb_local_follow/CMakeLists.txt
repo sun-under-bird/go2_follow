@@ -17,6 +17,7 @@ find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(stereo_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(uwb_aoa_pkg REQUIRED)
@@ -72,6 +73,7 @@ ament_target_dependencies(stereo_obstacle_projector_node
   rclcpp
   sensor_msgs
   stereo_msgs
+  std_msgs
   tf2
   tf2_ros
 )

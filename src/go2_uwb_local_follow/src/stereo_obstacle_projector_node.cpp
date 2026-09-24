@@ -39,6 +39,7 @@
 #include "sensor_msgs/msg/point_field.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include "stereo_msgs/msg/disparity_image.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/LinearMath/Vector3.h"
@@ -178,6 +179,9 @@ public:
       "diagnostics_topic", "/stereo/obstacle_diagnostics");
     depth_debug_topic_ = declare_parameter<std::string>(
       "depth_debug_topic", "/stereo/depth_debug");
+    compute_enable_topic_ = declare_parameter<std::string>(
+      "compute_enable_topic", "/go2_uwb_behavior/compute_enable");
+    start_enabled_ = declare_parameter<bool>("start_enabled", true);
 
     publish_debug_depth_ = declare_parameter<bool>("publish_debug_depth", false);
     pixel_stride_ = static_cast<std::size_t>(std::max<std::int64_t>(
@@ -210,13 +214,6 @@ public:
 
     auto sensor_qos = rclcpp::SensorDataQoS();
     sensor_qos.keep_last(1);
-    camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
-      camera_info_topic_, sensor_qos,
-      std::bind(&StereoObstacleProjectorNode::cameraInfoCallback, this, std::placeholders::_1));
-    disparity_sub_ = create_subscription<stereo_msgs::msg::DisparityImage>(
-      disparity_topic_, sensor_qos,
-      std::bind(&StereoObstacleProjectorNode::disparityCallback, this, std::placeholders::_1));
-
     obstacle_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
       obstacle_cloud_topic_, sensor_qos);
     ray_observation_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
@@ -226,6 +223,12 @@ public:
     if (publish_debug_depth_) {
       depth_debug_pub_ = create_publisher<sensor_msgs::msg::Image>(depth_debug_topic_, 1);
     }
+
+    const auto enable_qos = rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local();
+    compute_enable_sub_ = create_subscription<std_msgs::msg::Bool>(
+      compute_enable_topic_, enable_qos,
+      std::bind(&StereoObstacleProjectorNode::computeEnableCallback, this, std::placeholders::_1));
+    setProcessingEnabled(start_enabled_);
 
     watchdog_timer_ = create_wall_timer(
       std::chrono::milliseconds(500),
@@ -239,6 +242,44 @@ public:
   }
 
 private:
+  // 根据任务门控动态创建或销毁视差订阅；销毁后上游 disparity 会因无订阅者而停止计算。
+  void setProcessingEnabled(bool enabled)
+  {
+    if (enabled == processing_enabled_) {
+      return;
+    }
+    processing_enabled_ = enabled;
+    if (processing_enabled_) {
+      auto sensor_qos = rclcpp::SensorDataQoS();
+      sensor_qos.keep_last(1);
+      camera_info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
+        camera_info_topic_, sensor_qos,
+        std::bind(&StereoObstacleProjectorNode::cameraInfoCallback, this, std::placeholders::_1));
+      disparity_sub_ = create_subscription<stereo_msgs::msg::DisparityImage>(
+        disparity_topic_, sensor_qos,
+        std::bind(&StereoObstacleProjectorNode::disparityCallback, this, std::placeholders::_1));
+      RCLCPP_INFO(get_logger(), "Stereo obstacle computation enabled");
+      return;
+    }
+
+    // 先断开视差订阅，确保空闲状态不再触发双目匹配和点云投影。
+    disparity_sub_.reset();
+    camera_info_sub_.reset();
+    {
+      std::lock_guard<std::mutex> lock(receipt_mutex_);
+      have_disparity_message_ = false;
+      have_valid_cloud_ = false;
+    }
+    publishDiagnostic(diagnostic_msgs::msg::DiagnosticStatus::OK, "disabled by task gate");
+    RCLCPP_INFO(get_logger(), "Stereo obstacle computation disabled");
+  }
+
+  // 接收行为层的瞬态本地计算开关，后启动节点也能取得最近一次门控状态。
+  void computeEnableCallback(const std_msgs::msg::Bool::SharedPtr message)
+  {
+    setProcessingEnabled(message->data);
+  }
+
   // 检查启动参数，避免以不一致的过滤边界运行。
   void validateParameters()
   {
@@ -396,6 +437,9 @@ private:
   // 接收一帧视差，完成稀疏反投影、TF、高度过滤和当前帧点云发布。
   void disparityCallback(const stereo_msgs::msg::DisparityImage::SharedPtr message)
   {
+    if (!processing_enabled_) {
+      return;
+    }
     const auto processing_start = std::chrono::steady_clock::now();
     {
       std::lock_guard<std::mutex> lock(receipt_mutex_);
@@ -686,6 +730,10 @@ private:
   // 周期检查视差输入和有效障碍帧是否已经超时。
   void watchdogTick()
   {
+    if (!processing_enabled_) {
+      publishDiagnostic(diagnostic_msgs::msg::DiagnosticStatus::OK, "disabled by task gate");
+      return;
+    }
     const auto current = std::chrono::steady_clock::now();
     bool have_disparity = false;
     bool have_valid_cloud = false;
@@ -732,6 +780,9 @@ private:
   std::string ray_observation_topic_;
   std::string diagnostics_topic_;
   std::string depth_debug_topic_;
+  std::string compute_enable_topic_;
+  bool start_enabled_{true};
+  bool processing_enabled_{false};
 
   bool publish_debug_depth_{false};
   std::size_t pixel_stride_{2U};
@@ -760,6 +811,7 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   rclcpp::Subscription<stereo_msgs::msg::DisparityImage>::SharedPtr disparity_sub_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr compute_enable_sub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_cloud_pub_;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr ray_observation_pub_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_pub_;
