@@ -1,0 +1,38 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Ground
+      Enabled: true
+      Cell Size: 0.2
+      Plane Cell Count: 20
+      Offset: {X: 0, Y: 0, Z: -0.3}
+    - Class: rviz_default_plugins/RobotModel
+      Name: Go2
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Durability Policy: Transient Local
+      Visual Enabled: true
+      Collision Enabled: false
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: false
+  Global Options:
+    Fixed Frame: base_link
+    Background Color: 35; 39; 48
+    Frame Rate: 30
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 1.8
+      Pitch: 0.35
+      Yaw: 0.7
+      Focal Point: {X: 0, Y: 0, Z: 0}
+Window Geometry:
+  Width: 1100
+  Height: 750

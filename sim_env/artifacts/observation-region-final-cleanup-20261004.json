@@ -1,0 +1,13 @@
+{
+  "checked_at_utc": "2026-10-04T04:03:03.7617920+00:00",
+  "matching_processes": {
+    "demo_or_check": [],
+    "owned_nav2": []
+  },
+  "mppi_manifest_exists": false,
+  "http_alive": false,
+  "scope": "only go2-follow app/check commands and dedicated /go2_follow_mppi processes; no WSL or Docker shutdown",
+  "all_stopped": true,
+  "last_windows_wsl_wrapper_pid": 5628,
+  "last_windows_wsl_wrapper_exists": false
+}

@@ -1,0 +1,131 @@
+test_bad_measurement_does_not_refresh_validity (test_controller.ControllerTests)
+NaN 与不合理跳点不能覆盖有效目标或刷新数据年龄。 ... ok
+test_delayed_measurement_uses_capture_pose (test_controller.ControllerTests)
+机器人运动时，同一静止目标不应因传输延迟被估计成移动目标。 ... ok
+test_heading_interpolation_crosses_pi (test_controller.ControllerTests)
+跨 ±π 插值应沿短弧，不应错误地转到零度。 ... ok
+test_input_loss_clears_previous_command (test_controller.ControllerTests)
+在运动中断开目标数据，下一次输出必须为零，恢复不能残留旧加速度。 ... ok
+test_nominal_acceleration_and_velocity_are_bounded (test_controller.ControllerTests)
+普通起步不能突破速度或加速度限制，不把低速提升到最低步行速度。 ... ok
+test_smoothing_cannot_exceed_output_limit_when_target_slows (test_controller.ControllerTests)
+接近速度上限时目标停下，残余正加速度也不能突破输出硬限制。 ... ok
+test_stale_data_cannot_keep_robot_moving (test_controller.ControllerTests)
+有最新里程计但没有新目标时，历史目标不能无限外推。 ... ok
+test_actual_position_requires_original_frontier_overlap (test_navigation.NavigationTests)
+位置安全且附近仍有未知，也不能用看向另一侧的收益完成原前沿观察。 ... ok
+test_arrival_cannot_be_claimed_through_wall (test_navigation.NavigationTests)
+直线距离足够近但中间有墙，仍不能把隔墙位置判作成功跟随。 ... ok
+test_arrival_uses_region_and_controller_tolerance (test_navigation.NavigationTests)
+人在舒适区边缘停下时进入保持，不因厘米级短路径反复启动 MPPI。 ... ok
+test_braking_reserves_space_before_boundary (test_navigation.NavigationTests)
+起点虽然可通行，高速所需的停车轨迹越界时仍必须被拒绝。 ... ok
+test_confirm_cannot_clear_observed_obstacle (test_navigation.NavigationTests)
+操作者确认不能覆盖相机已经观测到的近身障碍。 ... ok
+test_depth_loss_overrides_old_motion (test_navigation.NavigationTests)
+深度中断时，有效 UWB 和旧路线也不能维持运动。 ... ok
+test_expiration_never_erases_obstacles (test_navigation.NavigationTests)
+自由空间过期后回到未知，但障碍不能因超时被清除。 ... ok
+test_forward_limit_preserves_safe_observation_turn (test_navigation.NavigationTests)
+前方停车空间不足时应减小前进，同时保留在已确认包络内的安全转向。 ... ok
+test_front_depth_does_not_reveal_rear (test_navigation.NavigationTests)
+前方平面的理想深度可以确认前方，却不能生成相机后方自由空间。 ... ok
+test_ground_with_no_sky_return_remains_usable (test_navigation.NavigationTests)
+天空无返回不应阻断平地确认；但看见地面不能清掉已经存在的悬空障碍。 ... ok
+test_hidden_goal_only_gets_known_observation_position (test_navigation.NavigationTests)
+目标在未观察区域时，允许先观察；路径终点及连线均必须在已知包络内。 ... ok
+test_invalid_depth_does_not_create_free_space (test_navigation.NavigationTests)
+空洞、NaN 和超距不能作为清障观测。 ... ok
+test_invalid_mppi_cannot_enter_smoother (test_navigation.NavigationTests)
+非有限候选不能经平滑器或裁剪函数变成任意运动命令。 ... ok
+test_moving_person_does_not_trigger_stationary_hold (test_navigation.NavigationTests)
+跟随距离已经合适但人仍在走时，继续跟踪前方移动通道。 ... ok
+test_near_wall_blocks_observation_before_gain_range (test_navigation.NavigationTests)
+0.7 m 收益起点以前的已知墙同样必须遮挡，不能跨过近墙预测后方未知。 ... ok
+test_no_progress_cannot_resume_due_to_later_map_growth (test_navigation.NavigationTests)
+探索失败后新栅格或旧候选不能自动启动，只有明确暂停才重新允许尝试。 ... ok
+test_observation_candidates_include_noncoarse_nearby_viewpoint (test_navigation.NavigationTests)
+高净空近身视点不能被粗采样相位遗漏，边缘点不能挤占有界观察预算。 ... ok
+test_observation_info_separates_wall_from_traversable_growth (test_navigation.NavigationTests)
+新障碍属于相关已知信息，但只有完整自由邻域才可计入可通行增长。 ... ok
+test_observation_overlap_survives_subgoal_translation (test_navigation.NavigationTests)
+开阔前沿平移 0.11 m 仍应覆盖原前沿，不能因稀疏射线采样相位而失效。 ... ok
+test_observation_region_has_safe_related_views (test_navigation.NavigationTests)
+区域每个视点都需完整净空和相关收益，不能把任意到达圆当成可观察区域。 ... ok
+test_path_goes_around_long_wall (test_navigation.NavigationTests)
+已观察到障碍两端时，搜索应绕端点，不能因目标偏角大而改为直追目标。 ... ok
+test_refined_observation_does_not_repeat_tried_pose (test_navigation.NavigationTests)
+细化生成更多近身视点后，已执行位置和相近朝向仍不能重复占据观察任务。 ... ok
+test_refined_observation_keeps_distant_corridor_representatives (test_navigation.NavigationTests)
+近身细化不能挤掉已知较远通道，否则绕长墙会退化成不断换近身短终点。 ... ok
+test_revealed_frontier_remains_visible_without_predicted_new_gain (test_navigation.NavigationTests)
+相关格变已知后几何重叠仍保留，实际新增信息要与预测剩余收益分开。 ... ok
+test_rolling_window_preserves_world_locations (test_navigation.NavigationTests)
+窗口平移后旧墙仍处于相同世界位置，不能随机器人一起移动。 ... ok
+test_safe_corridor_without_turning_room_cannot_be_observation_goal (test_navigation.NavigationTests)
+通行净空足够但转向漂移空间不足时等待，不能放松未知或改写路径安全地图。 ... ok
+test_safe_narrow_corridor_is_not_disconnected_by_comfort_margin (test_navigation.NavigationTests)
+已验证的窄通道应可搜索，舒适偏好不能把安全路线误判为完全不可达。 ... ok
+test_stale_mppi_cannot_replay_previous_command (test_navigation.NavigationTests)
+动作仍存活但候选速度过期时立即归零，同时允许重新获取控制输出。 ... ok
+test_static_history_is_not_unknown_and_never_clears_obstacles (test_navigation.NavigationTests)
+静态模式保留旧净空，但从未观察区域和障碍仍禁止进入。 ... ok
+test_stationary_hold_does_not_require_robot_footprint_at_person (test_navigation.NavigationTests)
+原地保持时不驶向人的旁边未知格；当前包络和人与机器人间的自由视线仍必需。 ... ok
+test_turning_person_does_not_send_robot_behind_itself (test_navigation.NavigationTests)
+人刚向左走时，机器人应接近可达跟随区域，不为抢占正后方而反向绕圈。 ... ok
+test_unknown_is_not_drivable (test_navigation.NavigationTests)
+没有深度也没有人工确认时，未知地图不能产生可执行路线。 ... ok
+test_unobserved_rotation_is_rejected (test_navigation.NavigationTests)
+原地转身同样要求包络净空，不能绕过地图有效性。 ... ok
+test_blocked_future_cannot_replace_valid_plan_or_begin_observation (test_navigation_lifecycle.NavigationLifecycleTests)
+候选接入前必须通过新地图校验，拒绝过程不能破坏仍有效的执行任务。 ... ok
+test_input_interruptions_revoke_observation_and_mppi_candidate (test_navigation_lifecycle.NavigationLifecycleTests)
+暂停及各类关键输入中断都不能留下 IDLE 观察器和可执行旧观察路径。 ... ok
+test_operator_transport_loss_revokes_observation_and_old_future (test_navigation_lifecycle.NavigationLifecycleTests)
+ROS 通信看门狗直接调用 halt 时也需撤销任务，并隔离中断前运行中的搜索。 ... ok
+test_path_invalid_cannot_replay_observation_path_or_late_candidate (test_navigation_lifecycle.NavigationLifecycleTests)
+新障碍切断路线后，残留观察路径和冲突前搜索结果都不能再次驱动动作。 ... ok
+test_resume_rejects_pre_interruption_future_but_accepts_new_search (test_navigation_lifecycle.NavigationLifecycleTests)
+即使旧搜索仍满足普通时效门槛，恢复后也不能将它当作新一轮观察任务。 ... ok
+test_actual_pose_and_related_new_frames_are_required (test_observation.ObservationTests)
+旧帧和空帧不能完成观察，相关未知格必须在朝向到位后获得真实证据。 ... ok
+test_collapse_does_not_mutate_search_plan (test_observation.ObservationTests)
+实际观察位置锚定不能污染搜索线程的路线或区域。 ... ok
+test_drifted_heading_cannot_complete_with_new_depth (test_observation.ObservationTests)
+实际朝向偏离时重新看向，即使相关新信息已到达也不能假完成。 ... ok
+test_leaving_region_restores_move_reference (test_observation.ObservationTests)
+残余位移离开有效区域时恢复移动，不能在旧锚点状态下完成观察。 ... ok
+test_missing_region_never_uses_distance_fallback (test_observation.ObservationTests)
+缺少区域和前沿元数据时闭锁，不能回退到旧距离完成逻辑。 ... ok
+test_new_near_wall_can_reduce_roi_without_leaving_region (test_observation.ObservationTests)
+姿态未动，新墙遮住原预测前沿时应识别真实障碍收益，不能恢复厘米级移动。 ... ok
+test_new_wall_is_information_but_not_free_space (test_observation.ObservationTests)
+新看到的障碍可完成取景，但不会被统计为自由或可行驶通道。 ... ok
+test_no_turn_progress_fails_without_changing_velocity (test_observation.ObservationTests)
+实际朝向长期不变必须失败，不通过最低角速度或无限重发强推。 ... ok
+test_region_allows_useful_actual_position_short_of_reference (test_observation.ObservationTests)
+距参考点大于旧容差但实际视野有效时可以观察，无需追厘米级终点。 ... ok
+test_short_of_region_cannot_finish_move (test_observation.ObservationTests)
+距终点很近但尚未进入验证区域时不能提前宣告到达。 ... ok
+test_stopping_space_is_required_for_region_entry (test_observation.ObservationTests)
+几何位置有收益也必须先确认当前实测运动有停车空间。 ... ok
+test_unrelated_new_map_and_empty_frames_fail (test_observation.ObservationTests)
+全图新增格和新帧计数不能代替目标前沿信息。 ... ok
+test_finish_preserves_original_region_for_later_exclusion (test_observation_attempts.ObservationAttemptTests)
+无收益终止记录原观察区域，实际停点不能缩小任务身份或放过原参考点。 ... ok
+test_future_cannot_restart_tried_region_but_new_views_remain_allowed (test_observation_attempts.ObservationAttemptTests)
+排除记录产生后才到达的旧候选，也必须在 begin 与 revision 修改前被拒绝。 ... ok
+test_future_exclusion_uses_current_map_resolution (test_observation_attempts.ObservationAttemptTests)
+接入判定必须使用控制器地图的分辨率，不能依赖 helper 的 0.1 m 默认值。 ... ok
+test_legacy_record_and_map_resolution_keep_distinct_semantics (test_observation_attempts.ObservationAttemptTests)
+旧记录继续按 0.2 m 邻域判断；区域记录按提供的地图分辨率判断。 ... ok
+test_planner_uses_region_exclusion_but_keeps_different_view (test_observation_attempts.ObservationAttemptTests)
+一个位置曾按原视向观察后，搜索可选择该位置的新视向，不能重复原视向。 ... ok
+test_same_world_region_and_heading_are_attempted_without_expansion (test_observation_attempts.ObservationAttemptTests)
+同一世界格的参考点和非中心点被排除，区域外及不同朝向仍可尝试。 ... ok
+
+----------------------------------------------------------------------
+Ran 63 tests in 0.423s
+
+OK

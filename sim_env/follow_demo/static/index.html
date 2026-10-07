@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Go2 · 跟随实验台</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#131e30;--line:#26354a;--muted:#9baec6;--text:#edf4ff;--cyan:#5ce0d5;--orange:#ffad69;--blue:#6aa8ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif}main{max-width:1560px;margin:auto;padding:24px 28px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}h1{font-size:25px;letter-spacing:.5px;margin:0}h1 span{color:var(--cyan);font-weight:400}p{margin:4px 0;color:var(--muted)}.tag{border:1px solid var(--line);padding:6px 12px;border-radius:20px;color:var(--muted);font-size:12px}.tag.good{color:var(--cyan)}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}.metric{background:var(--panel);border:1px solid var(--line);padding:14px 18px;border-radius:12px}.metric label{color:var(--muted);font-size:12px;display:block}.value{font-size:27px;font-variant-numeric:tabular-nums;margin-top:3px}.value small{font-size:13px;color:var(--muted);margin-left:5px}.layout{display:grid;grid-template-columns:minmax(400px,1.25fr) minmax(350px,1fr);gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden}.cardhead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}.cardhead strong{font-size:14px}.hint{color:var(--muted);font-size:12px}.scene{width:100%;aspect-ratio:16/9;display:block;object-fit:cover;background:#101a29}.mapwrap{height:330px;position:relative}canvas{display:block;width:100%;height:100%}#map{cursor:crosshair}.legend{display:flex;gap:17px;padding:10px 16px;color:var(--muted);font-size:12px}.legend span:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cyan);margin-right:6px}.legend .target:before{background:var(--orange)}.legend .estimate:before{background:var(--blue)}.cameras{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}.camera{position:relative}.camera img{width:100%;aspect-ratio:424/240;background:#0b1320;border-radius:7px;display:block}.camera label{position:absolute;top:7px;left:9px;background:#0b1220c9;padding:2px 8px;border-radius:4px;font-size:11px}.bottom{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-top:16px}.controls{padding:14px 16px}.buttons{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:13px}button,a.button{border:1px solid #3a4e68;background:#203149;color:var(--text);border-radius:7px;padding:8px 13px;cursor:pointer;font:inherit;text-decoration:none;white-space:nowrap}button:hover,a.button:hover{background:#2d4360}button.primary{background:#194d49;border-color:#3c9d92;color:#99fff1}button.danger{background:#502933;border-color:#a85060;color:#ffb4bc}button.active{outline:2px solid var(--cyan);outline-offset:1px}button:disabled{opacity:.4;cursor:wait}.labelrow{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:12px 0}input{accent-color:var(--cyan);flex:1}.reason{border-left:3px solid var(--cyan);background:#0f1828;padding:11px 13px;border-radius:4px;margin-top:13px;min-height:68px}.reason strong{display:block;font-size:14px;margin-bottom:2px}.reason span{color:var(--muted);font-size:12px}.chartwrap{height:196px}.foot{display:flex;justify-content:space-between;gap:15px;padding:15px 0;color:var(--muted);font-size:12px}.error{display:none;background:#572a32;border:1px solid #a54c5a;border-radius:8px;padding:12px;margin-bottom:14px;white-space:pre-wrap}.note{font-size:11px;color:var(--muted);padding:0 14px 12px}.state{font-size:17px;line-height:40px;white-space:nowrap}a{color:var(--cyan)}@media(max-width:950px){main{padding:16px}.layout,.bottom{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(3,1fr)}header{gap:12px}.mapwrap{height:330px}}@media(max-width:550px){.metrics{grid-template-columns:repeat(2,1fr)}h1{font-size:20px}.foot{flex-direction:column}.tag{max-width:140px;text-align:center}.value{font-size:23px}}
+</style>
+</head>
+<body><main>
+<header><div><h1>Go2 <span> / 跟随实验台</span></h1><p>静态平地 · 前视历史地图 · Nav2 MPPI 连续跟随</p></div><span class="tag" id="connection">正在连接仿真</span></header>
+<div class="buttons"><select id="scenario" aria-label="选择验收场景" style="background:#203149;color:#edf4ff;border:1px solid #3a4e68;border-radius:7px;padding:8px"><option value="open">平地开阔通道</option><option value="long_wall">长横向障碍</option><option value="consecutive">连续交错障碍</option><option value="corner">直角盲弯</option><option value="blocked">前方通道封闭</option></select><button id="loadscenario">载入场景并重置</button><button data-action="confirm_clearance">确认起始周围 1.2 m 净空</button><button data-action="route">目标沿场景路线行走</button><button id="depth">中断深度</button></div>
+<p style="margin-bottom:14px">启动顺序：载入场景 → 姿态就绪后，在暂停状态确认起始净空 → 开始跟随 → 目标沿路线行走。净空确认仅限本轮起点；深色未知区域不可通行。</p>
+<p id="routeinfo" style="margin-bottom:10px">场景路线尚未启动。</p>
+<div class="labelrow"><label><input id="showroute" type="checkbox"> 查看完整测试路线</label><span>灰色虚线是目标的测试路线，仅用于显示，不参与机器狗规划。</span></div>
+<div class="error" id="error"></div>
+<div class="metrics">
+<div class="metric"><label>跟随状态</label><div class="value state" id="state">等待启动</div></div>
+<div class="metric"><label>人与机器狗间距</label><div class="value"><span id="distance">—</span><small>m</small></div></div>
+<div class="metric"><label>指令 / 实际前进速度</label><div class="value" style="font-size:23px"><span id="velocity">—</span><small>m/s</small></div></div>
+<div class="metric"><label>目标数据年龄</label><div class="value"><span id="age">—</span><small>ms</small></div></div>
+<div class="metric"><label>仿真时间 / 实时倍率</label><div class="value" style="font-size:23px"><span id="simtime">—</span></div></div>
+</div>
+<div class="layout">
+<section class="card"><div class="cardhead"><strong>物理场景</strong><span class="hint">真实关节力矩驱动</span></div><img class="scene" id="scene" alt="Go2 与虚拟目标的物理场景"><div class="cameras"><div class="camera"><label>D435i · 左红外</label><img id="left" alt="左目相机实时画面"></div><div class="camera"><label>D435i · 右红外</label><img id="right" alt="右目相机实时画面"></div></div><div class="note">D435i 几何近似 + 前视理想深度；安装外参待测。地图仅来自相机观测及起始净空确认，深度孔洞与真实材质尚未建模。</div></section>
+<section class="card"><div class="cardhead"><strong>轨迹与目标</strong><span class="hint">点击地图，设置目标行走终点</span></div><div class="mapwrap"><canvas id="map" aria-label="机器人轨迹与目标地图"></canvas></div><div class="legend"><span>机器狗</span><span class="target">目标真值</span><span class="estimate">UWB 估计</span></div><div class="controls"><div class="buttons"><button class="primary" data-action="resume">开始 / 恢复跟随</button><button data-action="pause">暂停跟随</button><button class="danger" data-action="estop">急停</button></div><div class="buttons"><button data-action="straight">目标直行</button><button data-action="circle">目标绕弧行走</button><button data-action="hold">目标停下</button></div><div class="labelrow"><label for="speed">目标速度</label><input id="speed" type="range" min="0.05" max="0.80" step="0.05" value="0.80"><span id="speedtext">0.80 m/s</span></div><div class="buttons"><button id="signal">中断 UWB</button><button data-action="reset">重置场景</button><a class="button" href="/api/log.csv">下载 CSV</a></div><div class="reason"><strong id="reason">等待传感器与控制节点启动</strong><span id="details">初始化后点击“开始 / 恢复跟随”，再让目标行走。</span></div></div></section>
+</div>
+<div class="bottom"><section class="card"><div class="cardhead"><strong>速度曲线</strong><span class="hint">最近 25 秒 · m/s</span></div><div class="chartwrap"><canvas id="chart" aria-label="指令速度、实际速度和目标速度曲线"></canvas></div><div class="legend"><span>指令速度</span><span class="estimate">实际速度</span><span class="target">目标速度</span></div></section><section class="card"><div class="cardhead"><strong>本轮观测</strong><span class="hint">定位来源：仿真真值</span></div><div class="controls"><p id="position">机器人位置 —</p><p id="targetpos">目标位置 —</p><p id="heading">实际角速度 —</p><p id="samples">UWB 接收 —</p><p id="log">记录文件 —</p><div class="reason"><strong>本版验证有限视野局部规划</strong><span>静态平地历史地图 + Nav2 MPPI。目标默认 0.80 m/s，实际效果以验收为准。尚未验证侧后方动态侵入、实机定位及 RK3588；不做低速死区补偿。</span></div></div></section></div>
+<div class="foot"><span>仿真 DDS 域 42 · 仅本机运行 · 真实物理轨迹与命令分别记录</span><button id="shutdown">结束演示服务</button></div>
+</main>
+<script>
+let latest=null, viewport=null, connected=false, fetching=false, imagesLoading=false, shownEpoch=-1;
+const names={WAITING:'等待安全条件',PAUSED:'跟随暂停',INITIALIZING:'姿态准备',TARGET_LOST:'目标失联',ODOM_LOST:'定位失联',INPUT_LOST:'输入中断',TOO_CLOSE:'近距离停车',HOLDING:'保持间距',FOLLOWING:'沿路径跟随',DETOUR:'沿通道绕行',OBSERVING:'接近并观察',ESTOP:'急停',FACING:'原地平滑看向目标'};
+// 按 ID 获取显示元素；非有限数值显示占位符，避免误报为正常读数。
+const $=id=>document.getElementById(id);
+const fixed=(value,digits=2)=>Number.isFinite(value)?value.toFixed(digits):'—';
+
+// 发送有限的场景操作，错误直接显示在面板上。
+async function send(action,extra={}){
+ try{const moving=['straight','circle','route','waypoint','speed'].includes(action);const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(moving?{speed:Number($('speed').value)}:{}),...extra})});if(!response.ok)throw new Error(await response.text());}
+ catch(error){showError('操作失败：'+error.message);}
+}
+// 显示运行或通信错误，避免页面停在旧数据却看起来仍正常。
+function showError(message){$('error').textContent=message||'';$('error').style.display=message?'block':'none';}
+document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>send(button.dataset.action)));
+$('signal').addEventListener('click',()=>send(latest?.signal?'signal_off':'signal_on'));
+$('depth').addEventListener('click',()=>send(latest?.depth_enabled?'depth_off':'depth_on'));
+$('loadscenario').addEventListener('click',()=>send('scenario',{scenario:$('scenario').value}));
+$('speed').addEventListener('input',()=>{$('speedtext').textContent=Number($('speed').value).toFixed(2)+' m/s';});
+$('speed').addEventListener('change',()=>send('speed'));
+$('shutdown').addEventListener('click',async()=>{await fetch('/api/shutdown',{method:'POST'});$('connection').textContent='演示已结束';});
+
+// 为高像素密度屏幕设置 Canvas 绘图尺寸。
+function prepare(canvas){const box=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1;canvas.width=Math.round(box.width*ratio);canvas.height=Math.round(box.height*ratio);const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);return[ctx,box.width,box.height];}
+
+// 地图显示控制器实际使用的有限观测；橙色目标真值仅供验收比较。
+function drawMap(state){
+ const[ctx,w,h]=prepare($('map'));ctx.fillStyle='#101a29';ctx.fillRect(0,0,w,h);
+ let center=[(state.x+state.target[0])/2,(state.y+state.target[1])/2],span=Math.max(8,Math.abs(state.x-state.target[0])+4,Math.abs(state.y-state.target[1])+4);
+ // 完整视图只改变显示范围，地图仍是机器人实际观测到的滚动地图。
+ const testRoute=state.scenario_route_points||[];
+ if($('showroute').checked&&testRoute.length){const xs=[state.x,state.target[0],...testRoute.map(p=>p[0])],ys=[state.y,state.target[1],...testRoute.map(p=>p[1])];center=[(Math.min(...xs)+Math.max(...xs))/2,(Math.min(...ys)+Math.max(...ys))/2];span=Math.max(8,Math.max(...xs)-Math.min(...xs)+4,Math.max(...ys)-Math.min(...ys)+4);}
+ const scale=Math.min(w,h)/span;viewport={center,scale,w,h};
+ const point=(x,y)=>[w/2+(x-center[0])*scale,h/2-(y-center[1])*scale];
+ const navigation=state.control.navigation,grid=navigation?.map;
+ if(grid){const colors=['#101a29','#304356','#c47866','#214f4d','#655847'];for(let row=0;row<grid.size;row++){for(let col=0;col<grid.size;col++){const code=Number(grid.cells[row*grid.size+col]);if(!code)continue;const[x,y]=point(grid.origin[0]+col*grid.resolution,grid.origin[1]+(row+1)*grid.resolution);ctx.fillStyle=colors[code];ctx.fillRect(x,y,grid.resolution*scale+.5,grid.resolution*scale+.5);}}}
+ // 有效观察区域由有限地图计算；格子可供取景，实际进入后还会重新检查视野和停车空间。
+ for(const location of navigation?.observation?.region||[]){const[x,y]=point(...location),size=(grid?.resolution||.1)*scale;ctx.fillStyle='#7cbaff55';ctx.fillRect(x-size/2,y-size/2,size,size);ctx.strokeStyle='#7cbaff';ctx.strokeRect(x-size/2,y-size/2,size,size);}
+ ctx.strokeStyle='#263448';ctx.lineWidth=1;
+ for(let i=Math.floor(center[0]-w/scale);i<center[0]+w/scale;i++){const[x]=point(i,0);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+ for(let i=Math.floor(center[1]-h/scale);i<center[1]+h/scale;i++){const[,y]=point(0,i);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+ if($('showroute').checked&&testRoute.length){ctx.strokeStyle='#a0acbc';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);ctx.beginPath();testRoute.forEach((p,i)=>{const[x,y]=point(...p);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();ctx.setLineDash([]);}
+ for(const[keyx,keyy,color]of[['x','y','#5ce0d5'],['tx','ty','#ffad69']]){ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=2;state.history.forEach((p,i)=>{const[x,y]=point(p[keyx],p[keyy]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
+ const[rx,ry]=point(state.x,state.y);ctx.beginPath();ctx.moveTo(rx,ry);for(let a=-(state.camera_hfov||88.8)*Math.PI/360;a<=(state.camera_hfov||88.8)*Math.PI/360;a+=.04){const[p,q]=point(state.x+3.5*Math.cos(state.yaw+a),state.y+3.5*Math.sin(state.yaw+a));ctx.lineTo(p,q);}ctx.closePath();ctx.fillStyle='#5ce0d515';ctx.fill();
+ ctx.save();ctx.translate(rx,ry);ctx.rotate(-state.yaw);ctx.fillStyle='#5ce0d5';const body=grid?.footprint||{length:.7,width:.32};ctx.fillRect(-body.length/2*scale,-body.width/2*scale,body.length*scale,body.width*scale);ctx.beginPath();ctx.moveTo(.5*scale,0);ctx.lineTo(.22*scale,-.12*scale);ctx.lineTo(.22*scale,.12*scale);ctx.fill();ctx.restore();
+ const[tx,ty]=point(...state.target);ctx.fillStyle='#ffad69';ctx.beginPath();ctx.arc(tx,ty,7,0,Math.PI*2);ctx.fill();
+ if(state.control.estimated_target){const[x,y]=point(...state.control.estimated_target);ctx.strokeStyle='#6aa8ff';ctx.beginPath();ctx.arc(x,y,10,0,Math.PI*2);ctx.stroke();}
+ for(const[route,color]of[[navigation?.path,'#f8e092'],[navigation?.safety_path,'#ba9cff']]){if(!route?.length)continue;ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=3;route.forEach((p,i)=>{const[x,y]=point(...p);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();const[x,y]=point(...route[route.length-1]);ctx.strokeRect(x-4,y-4,8,8);}
+ for(const[key,color]of[['path_heading','#f8e092'],['target_bearing','#6aa8ff']]){const angle=navigation?.heading?.[key];if(!Number.isFinite(angle))continue;const[x,y]=point(state.x+.8*Math.cos(angle),state.y+.8*Math.sin(angle));ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(x,y);ctx.stroke();}
+ ctx.fillStyle='#c9d5e4';ctx.font='11px Segoe UI';ctx.fillText('深色未知 · 绿：某朝向可容纳矩形 · 红：障碍 · 蓝：观察区',12,h-28);ctx.fillText('黄线路径 · 紫线停车 · 棕色历史 · 网格 1 m',12,h-12);
+}
+$('map').addEventListener('click',event=>{if(!viewport)return;const box=$('map').getBoundingClientRect(),v=viewport;send('waypoint',{x:Math.max(-18,Math.min(18,v.center[0]+(event.clientX-box.left-v.w/2)/v.scale)),y:Math.max(-18,Math.min(18,v.center[1]-(event.clientY-box.top-v.h/2)/v.scale))});});
+
+// 同屏绘制命令与真实运动速度，不把发出的命令当作机器人已经执行的速度。
+function drawChart(state){
+ const[ctx,w,h]=prepare($('chart')),left=42,right=w-18,top=17,bottom=h-25;
+ const history=state.history.filter(row=>row.t>=state.t-25),low=-.1,high=Math.max(.6,...history.map(row=>Math.max(row.v,row.cv,row.tv)+.05));
+ const point=(t,v)=>[left+(t-(state.t-25))/25*(right-left),bottom-(v-low)/(high-low)*(bottom-top)];
+ ctx.clearRect(0,0,w,h);ctx.font='10px Segoe UI';ctx.fillStyle='#9baec6';ctx.strokeStyle='#26354a';
+ for(let v=0;v<=high;v+=.2){const[,y]=point(0,v);ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.fillText(v.toFixed(1),10,y+3);}
+ ctx.fillText('-25 s',left,bottom+18);ctx.fillText('现在',right-22,bottom+18);
+ for(const[key,color]of[['cv','#5ce0d5'],['v','#6aa8ff'],['tv','#ffad69']]){ctx.strokeStyle=color;ctx.lineWidth=1.8;ctx.beginPath();history.forEach((row,i)=>{const[x,y]=point(row.t,row[key]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();}
+}
+
+// 更新页面文字与曲线，所有数值都来自后端实测记录。
+function render(state){
+ if(!state.target)return;latest=state;const control=state.control;
+ // 场景目录由后端提供，新增场景不再依赖手写前端选项。
+ if(Object.keys(state.scenarios||{}).length!==$('scenario').options.length){$('scenario').replaceChildren();for(const[id,name]of Object.entries(state.scenarios||{})){const option=document.createElement('option');option.value=id;option.textContent=name;$('scenario').append(option);}}
+ if(shownEpoch!==state.epoch){shownEpoch=state.epoch;$('scenario').value=state.scenario;$('showroute').checked=state.scenario.endsWith('_loop');}
+ const route=state.target_route;$('routeinfo').textContent=(state.scenario_description||'')+' · '+(route?`${route.loop?'循环路线':'有限路线'}：目标已完成 ${route.laps} 圈，路段 ${route.segment}/${route.segments}，本圈 ${fixed(route.lap_progress_m,1)} / ${fixed(route.lap_length_m,1)} m${route.approach_remaining_m>.01?' · 正在返回路线起点':''}`:'点击“目标沿场景路线行走”开始。');
+ $('connection').textContent=state.ros_alive&&state.physics_alive&&state.mppi_alive?'仿真已连接':'仿真异常';$('connection').className='tag '+(state.ros_alive&&state.physics_alive&&state.mppi_alive?'good':'');
+ $('state').textContent=names[control.state]||control.state;$('distance').textContent=fixed(state.distance);$('velocity').textContent=fixed(control.command[0])+' / '+fixed(state.vx);
+ $('age').textContent=control.target_age===null?'—':fixed(control.target_age*1000,0);$('simtime').textContent=fixed(state.episode_t,1)+' s / '+fixed(state.rtf)+'×';
+ $('reason').textContent=control.reason;const navigation=control.navigation;$('details').textContent=navigation?`${navigation.code} · 深度年龄 ${fixed(navigation.map.depth_age,2)} s · 规划 ${fixed(navigation.plan_ms,1)} ms · MPPI ${fixed(navigation.raw_command?.[0])} / 限速 ${fixed(navigation.speed_limit)} m/s · 观察 ${navigation.observation?.stage||'IDLE'} · 起始净空${navigation.map.confirmed?'已确认':'未确认'}`:'等待导航诊断';
+ // 展示相关新信息的实际数量，便于分清已到观察区域与已获得有效新深度。
+ if(navigation?.observation?.stage!=='IDLE'&&navigation?.observation){const observation=navigation.observation;$('details').textContent+=` · 观察区域 ${observation.region_check?.valid?'有效':'待验证'} · 新前沿 ${observation.relevant_fresh_gain||0}/${observation.minimum_relevant_gain||3}`;}
+ $('position').textContent=`机器人位置：x ${fixed(state.x)} m，y ${fixed(state.y)} m，高度 ${fixed(state.z)} m`;
+ $('targetpos').textContent=`目标位置：x ${fixed(state.target[0])} m，y ${fixed(state.target[1])} m`;
+ $('heading').textContent=`角速度：指令 ${fixed(control.command[1])} / 实际 ${fixed(state.wz)} rad/s`;
+ const angle=navigation?.heading;if(angle){const deg=v=>Number.isFinite(v)?fixed(v*180/Math.PI,1)+'°':'—';$('heading').textContent+=` · 机身 ${deg(angle.body_yaw)} / 人方位 ${deg(angle.target_bearing)} / 路径 ${deg(angle.path_heading)} · 路径偏差 ${deg(angle.path_error)} · 看向 ${navigation.facing?.status||'IDLE'}`;}
+ $('samples').textContent=`UWB：接收 ${control.accepted||0}，拒绝 ${control.rejected||0}；${state.signal?'信号正常':'信号中断'}`;
+ $('log').textContent='记录：'+state.log_file;$('signal').textContent=state.signal?'中断 UWB':'恢复 UWB';
+ $('depth').textContent=state.depth_enabled?'中断深度':'恢复深度';$('log').textContent+=` · 障碍接触采样 ${state.obstacle_contacts||0}`;
+ document.querySelector('[data-action="confirm_clearance"]').disabled=state.enabled||!state.ready||!!navigation?.map.confirmed;
+ document.querySelectorAll('[data-action]').forEach(button=>button.classList.toggle('active',button.dataset.action===state.target_mode||(button.dataset.action==='resume'&&state.enabled)));
+ showError(state.error);drawMap(state);drawChart(state);
+}
+
+// 有界轮询避免页面离线后累积请求。
+async function poll(){if(fetching)return;fetching=true;try{const response=await fetch('/api/state',{cache:'no-store',signal:AbortSignal.timeout(2000)});if(!response.ok)throw new Error('状态读取失败');render(await response.json());connected=true;}catch(error){connected=false;$('connection').className='tag';$('connection').textContent='连接已断开';}finally{fetching=false;}}
+// 图像独立刷新，网络或渲染延迟不会阻塞控制状态显示。
+async function refreshImages(){if(imagesLoading||!connected)return;imagesLoading=true;try{await Promise.all(['scene','left','right'].map(async name=>{const response=await fetch('/api/frame/'+name,{cache:'no-store',signal:AbortSignal.timeout(2000)});if(response.status!==200)return;const url=URL.createObjectURL(await response.blob()),img=$(name),old=img.dataset.url;img.src=url;img.dataset.url=url;if(old)URL.revokeObjectURL(old);}));}catch(error){}finally{imagesLoading=false;}}
+setInterval(poll,150);setInterval(refreshImages,200);window.addEventListener('resize',()=>{if(latest){drawMap(latest);drawChart(latest);}});poll();
+$('showroute').addEventListener('change',()=>{if(latest)drawMap(latest);});
+</script>
+</body></html>

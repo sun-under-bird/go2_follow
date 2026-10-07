@@ -1,0 +1,163 @@
+{
+  "kind": "physical_yaw_rate_benchmark",
+  "schema_version": 1,
+  "pid": 424,
+  "started_at_utc": "2026-10-05T11:16:35.361208+00:00",
+  "cases": [
+    {
+      "case": "requested-in-place-capability",
+      "execution_mode": "rate",
+      "requested_forward": 0.0,
+      "requested_turn": 1.0,
+      "phases": {
+        "positive": {
+          "requested_wz": 1.0,
+          "raw_rate_rmse": 0.5570128456027776,
+          "late_mean_wz": 0.4427016325351568,
+          "late_mean_vx": -0.00865638456514247,
+          "late_mean_vy": -0.05453426603667846,
+          "settled_response_s": null,
+          "direction_response_s": 0.12199999999976807,
+          "model_input_saturated_ratio": 0.9975,
+          "peak_abs_vy": 0.14353534871368898,
+          "max_initial_body_lateral_displacement_m": 0.06333677221929801,
+          "phase_displacement_m": 0.21394661371665513
+        },
+        "negative": {
+          "requested_wz": -1.0,
+          "raw_rate_rmse": 0.40150177154118954,
+          "late_mean_wz": -0.6206323465711316,
+          "late_mean_vx": 0.05787171406698559,
+          "late_mean_vy": 0.016506647499743864,
+          "settled_response_s": null,
+          "direction_response_s": 0.1420000000007242,
+          "model_input_saturated_ratio": 1.0,
+          "peak_abs_vy": 0.1763169465135911,
+          "max_initial_body_lateral_displacement_m": 0.22169772651627462,
+          "phase_displacement_m": 0.20341788570822308
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.05964052308863205,
+          "late_mean_wz": -9.962703853989092e-05,
+          "late_mean_vx": 0.0006139050617891829,
+          "late_mean_vy": 0.00020584977691904115,
+          "settled_response_s": 0.24199999999965982,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.005,
+          "peak_abs_vy": 0.05016616602129486,
+          "max_initial_body_lateral_displacement_m": 0.006549149703751591,
+          "phase_displacement_m": 0.00813723411472988
+        }
+      },
+      "all_zero_command_at_s": 24.0,
+      "stop_checks_begin_s": 20.0,
+      "stop_time_s": 0.2219999999996709,
+      "stop_displacement_m": 0.007449977096719462,
+      "stop_final_motion": {
+        "vx": 0.0004994283588712705,
+        "vy": 7.360129406453612e-05,
+        "wz": -0.00021857393993289758
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.4299465749999989,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": false
+    },
+    {
+      "case": "requested-moving-capability",
+      "execution_mode": "rate",
+      "requested_forward": 0.8,
+      "requested_turn": 1.0,
+      "phases": {
+        "positive": {
+          "requested_wz": 1.0,
+          "raw_rate_rmse": 0.25190490425744444,
+          "late_mean_wz": 0.7855203168573115,
+          "late_mean_vx": 0.738316682157403,
+          "late_mean_vy": -0.04372491578751485,
+          "settled_response_s": null,
+          "direction_response_s": 0.12199999999976807,
+          "model_input_saturated_ratio": 0.9975,
+          "peak_abs_vy": 0.13854942371446793,
+          "max_initial_body_lateral_displacement_m": 1.8890455066656993,
+          "phase_displacement_m": 0.17716349404696005
+        },
+        "negative": {
+          "requested_wz": -1.0,
+          "raw_rate_rmse": 0.30937827541450863,
+          "late_mean_wz": -0.7444089264799295,
+          "late_mean_vx": 0.7318668994190582,
+          "late_mean_vy": 0.02803992095707202,
+          "settled_response_s": null,
+          "direction_response_s": 0.18200000000073757,
+          "model_input_saturated_ratio": 1.0,
+          "peak_abs_vy": 0.12596710393515226,
+          "max_initial_body_lateral_displacement_m": 1.9580656820159479,
+          "phase_displacement_m": 0.3421834558257255
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.12452286302747619,
+          "late_mean_wz": 0.005716971685372968,
+          "late_mean_vx": 0.7097817773667768,
+          "late_mean_vy": 0.004648879068373048,
+          "settled_response_s": null,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.005,
+          "peak_abs_vy": 0.06150823607306748,
+          "max_initial_body_lateral_displacement_m": 0.03856557469125088,
+          "phase_displacement_m": 2.826268281134093
+        }
+      },
+      "all_zero_command_at_s": 24.0,
+      "stop_checks_begin_s": 24.0,
+      "stop_time_s": 0.3219999999973986,
+      "stop_displacement_m": 0.10487993158119235,
+      "stop_final_motion": {
+        "vx": 0.0006277828012401781,
+        "vy": 0.00032671598437182076,
+        "wz": -0.0003611973912684374
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.4286945189999987,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": false
+    }
+  ],
+  "rate_configuration": {
+    "kp": 0.35,
+    "ki": 0.5,
+    "filter_tau_s": 0.08,
+    "input_limit": 1.0,
+    "integral_limit": 2.0,
+    "feedforward_gain_at_zero": 2.4,
+    "feedforward_gain_at_vx_point5": 1.6,
+    "evidence": "execution-region-20261004.json及逐帧heading基准；中间前速插值和反馈参数待独立验收",
+    "validated_requested_rates": null
+  },
+  "source_sha256": {
+    "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+    "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+    "simulation.py": "62a028ba211187a525356b4549370c416b20a920046ac504b411a9a95f159b99",
+    "tests/check_yaw_rate.py": "f02ae8ff846ff83a0492c0270186b5602574f445651f6c90261f0b154f30a8de",
+    "tests/check_execution.py": "f8f7027dd0abd00dd2069f8e09b2ba4cec400b3e44a415767a6a149b012f15a5"
+  },
+  "model_sha256": "1b3261d32f1c7b157a98a4f66ac689c89ec10a5032ad9a9a67bd96d4556d6901",
+  "input_profile": {
+    "stand_until_s": 4.0,
+    "positive_until_s": 12.0,
+    "negative_until_s": 20.0,
+    "zero_turn_until_s": 24.0,
+    "all_zero_command_at_s": 24.0,
+    "all_zero_until_s": 30.0,
+    "sample_period_s": 0.02,
+    "response_rate_average_window_s": 0.2,
+    "sustained_response_window_s": 0.5
+  },
+  "note": "有限物理对照，角速度PI和前馈是独立实验；通过不等于导航或实机SDK认证。",
+  "finished_at_utc": "2026-10-05T11:16:39.067545+00:00",
+  "completed_cases": 2,
+  "posture_and_stop_checks_passed": true,
+  "exit_code": 0
+}

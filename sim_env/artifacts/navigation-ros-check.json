@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "checks": {
+    "all_topics_received": true,
+    "stereo_identical_capture_stamp": true,
+    "images_share_imu_clock": true,
+    "d435i_nominal_simulation_baseline": true,
+    "depth_shares_stereo_capture_stamp": true,
+    "depth_has_matching_intrinsic_stamp": true,
+    "finite_and_monotonic": true
+  },
+  "counts": {
+    "clock": 788,
+    "right": 32,
+    "right_info": 32,
+    "depth": 32,
+    "depth_info": 32,
+    "odom": 787,
+    "imu": 787,
+    "lowstate": 787,
+    "command": 454,
+    "left": 31,
+    "left_info": 31
+  },
+  "stereo_pairs": 31,
+  "camera_profile": "D435i 红外双目几何近似",
+  "image_format": "424x240 mono8",
+  "baseline_m": 0.05,
+  "errors": [],
+  "imu_acceleration_norm_mean": 9.809998029502038
+}

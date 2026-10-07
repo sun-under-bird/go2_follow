@@ -1,0 +1,32 @@
+[
+  {
+    "scenario": "open",
+    "recorded_files": 17,
+    "current_source_mismatches": [],
+    "match": true
+  },
+  {
+    "scenario": "long_wall",
+    "recorded_files": 17,
+    "current_source_mismatches": [],
+    "match": true
+  },
+  {
+    "scenario": "consecutive",
+    "recorded_files": 17,
+    "current_source_mismatches": [],
+    "match": true
+  },
+  {
+    "scenario": "corner",
+    "recorded_files": 17,
+    "current_source_mismatches": [],
+    "match": true
+  },
+  {
+    "scenario": "blocked",
+    "recorded_files": 17,
+    "current_source_mismatches": [],
+    "match": true
+  }
+]

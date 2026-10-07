@@ -1,0 +1,79 @@
+{
+  "evidence_valid": true,
+  "all_navigation_passed": false,
+  "scenarios": [
+    {
+      "scenario": "square_loop",
+      "report_sha256": "dfc7f1c1ee9c1334a8e01443c188eb44a5fedbc578773f8235959c4285d02899",
+      "samples_sha256": "fee9a8dd146d21e3149c359d36008b78e8913b43ddb5423b09f9a46a5ed9ff04",
+      "source_matches": true,
+      "source_mismatches": [],
+      "configuration_matches": true,
+      "source_file_count": 26,
+      "samples": 458,
+      "stimulus_valid": true,
+      "basic_checks_passed": true,
+      "robot_laps": 2,
+      "human_laps": 2,
+      "navigation_passed": true,
+      "mean_actual_vx": 0.39533215439487074,
+      "slow_ratio": 0.04808469965444504,
+      "longest_slow_s": 1.4300000000017477,
+      "maximum_follow_distance_m": 2.8602800423728545,
+      "obstacle_contacts": 0,
+      "failure_reasons": []
+    },
+    {
+      "scenario": "slalom_loop",
+      "report_sha256": "2233f9d12d82e8abbf2a8cf94fbb60a4c7ecbdd89e3c007e7b7e70d1c1e683d2",
+      "samples_sha256": "c1204d92ce99727135ad07319f5ea7feff6cc9520b11d13918a0f8097d7fbd27",
+      "source_matches": true,
+      "source_mismatches": [],
+      "configuration_matches": true,
+      "source_file_count": 26,
+      "samples": 533,
+      "stimulus_valid": true,
+      "basic_checks_passed": true,
+      "robot_laps": 1,
+      "human_laps": 2,
+      "navigation_passed": false,
+      "mean_actual_vx": 0.2834924765689245,
+      "slow_ratio": 0.23984093450985589,
+      "longest_slow_s": 8.920000000042592,
+      "maximum_follow_distance_m": 5.942696972632679,
+      "obstacle_contacts": 0,
+      "failure_reasons": [
+        "任务完成未通过：robot_completed_required_laps",
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：slow_time_ratio_bounded",
+        "流畅性未通过：longest_slow_spell_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：FOLLOW_REGION_REACHABLE；路径点数=2；地图模式=static_history；深度年龄=0.19000000000002615"
+      ]
+    },
+    {
+      "scenario": "wall_loop",
+      "report_sha256": "9ce83d4835fa950fe899a2c3b2a9a89a154c09e8f153acc7d523f2c9e4693a70",
+      "samples_sha256": "c7ad96776eab04d490374a3db75588ee26ccb4ef289f97913b4157ec0f30dc5a",
+      "source_matches": true,
+      "source_mismatches": [],
+      "configuration_matches": true,
+      "source_file_count": 26,
+      "samples": 521,
+      "stimulus_valid": true,
+      "basic_checks_passed": true,
+      "robot_laps": 2,
+      "human_laps": 2,
+      "navigation_passed": false,
+      "mean_actual_vx": 0.3588927162456145,
+      "slow_ratio": 0.14976122254066784,
+      "longest_slow_s": 8.590000000041016,
+      "maximum_follow_distance_m": 3.305117265356694,
+      "obstacle_contacts": 0,
+      "failure_reasons": [
+        "流畅性未通过：longest_slow_spell_bounded",
+        "最后导航状态：FOLLOW_REGION_REACHABLE；路径点数=3；地图模式=static_history；深度年龄=0.35000000000002274"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,298 @@
+[
+  {
+    "elapsed_s": 26.609999999994177,
+    "x": 5.782574187732991,
+    "y": -0.3794934308485804,
+    "target": [
+      10.665207805439206,
+      4.0
+    ],
+    "vx": 0.009449501104185472,
+    "wz": 0.0404670556979,
+    "code": "GOAL_UNOBSERVED",
+    "command": [
+      0.0,
+      0.10196399999999972
+    ],
+    "raw_command": [
+      -3.370029298821464e-05,
+      0.22537893056869507
+    ],
+    "controller_age": 0.0,
+    "mppi_error": "",
+    "mppi_action": {
+      "controller": "Observe",
+      "sequence": 70,
+      "generation": 21,
+      "pending": false,
+      "accepted": true,
+      "wanted": true,
+      "last_result": {
+        "status": 4,
+        "t": 6.3100000000000005
+      }
+    },
+    "search_pending": false,
+    "search_error": "",
+    "rejected_plan_reason": ""
+  },
+  {
+    "elapsed_s": 29.979999999995652,
+    "x": 5.849860975756964,
+    "y": -0.39817361932890105,
+    "target": [
+      7.969207805439503,
+      4.0
+    ],
+    "vx": 0.00178496737510178,
+    "wz": -0.002750519928244776,
+    "code": "PLAN_PENDING",
+    "command": [
+      0.0,
+      0.0
+    ],
+    "raw_command": [
+      -0.0006512985564768314,
+      0.330368310213089
+    ],
+    "controller_age": null,
+    "mppi_error": "",
+    "mppi_action": {
+      "controller": "Observe",
+      "sequence": 72,
+      "generation": 24,
+      "pending": false,
+      "accepted": false,
+      "wanted": false,
+      "last_result": {
+        "status": 4,
+        "t": 6.3100000000000005
+      }
+    },
+    "search_pending": true,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  },
+  {
+    "elapsed_s": 42.030000000010375,
+    "x": 5.962582195598063,
+    "y": -0.2747595361509831,
+    "target": [
+      0.0,
+      2.3292078054367664
+    ],
+    "vx": 0.04143669731203955,
+    "wz": 0.5251422941810887,
+    "code": "FOLLOW_REGION_REACHABLE",
+    "command": [
+      0.13174515962600708,
+      0.5402239999999974
+    ],
+    "raw_command": [
+      0.13174515962600708,
+      0.6199154853820801
+    ],
+    "controller_age": 0.0,
+    "mppi_error": "",
+    "mppi_action": {
+      "controller": "FollowPath",
+      "sequence": 120,
+      "generation": 48,
+      "pending": false,
+      "accepted": true,
+      "wanted": true,
+      "last_result": {
+        "status": 4,
+        "t": 6.3100000000000005
+      }
+    },
+    "search_pending": false,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  },
+  {
+    "elapsed_s": 48.97000000001886,
+    "x": 4.825645352737045,
+    "y": -0.0801878288909645,
+    "target": [
+      2.1204076531258753,
+      1.1240815306251752
+    ],
+    "vx": 0.014725589453767762,
+    "wz": -0.003075419039821341,
+    "code": "CONTROLLER_STALE",
+    "command": [
+      0.0,
+      0.0
+    ],
+    "raw_command": [
+      0.0,
+      0.0
+    ],
+    "controller_age": 0.28999999999999915,
+    "mppi_error": "MPPI 动作结束状态 6",
+    "mppi_action": {
+      "controller": "FollowPath",
+      "sequence": 139,
+      "generation": 55,
+      "pending": false,
+      "accepted": false,
+      "wanted": true,
+      "last_result": {
+        "status": 6,
+        "t": 54.050000000000004
+      }
+    },
+    "search_pending": false,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  },
+  {
+    "elapsed_s": 53.04000000002383,
+    "x": 4.815363776224062,
+    "y": -0.07928143115895953,
+    "target": [
+      4.0,
+      0.1608156108552925
+    ],
+    "vx": 0.001365016679277581,
+    "wz": -3.611135903265825e-05,
+    "code": "CONTROLLER_STALE",
+    "command": [
+      0.0,
+      0.0
+    ],
+    "raw_command": [
+      0.0,
+      0.0
+    ],
+    "controller_age": 0.05000000000000426,
+    "mppi_error": "MPPI 动作结束状态 6",
+    "mppi_action": {
+      "controller": "FollowPath",
+      "sequence": 157,
+      "generation": 64,
+      "pending": false,
+      "accepted": false,
+      "wanted": true,
+      "last_result": {
+        "status": 6,
+        "t": 58.32
+      }
+    },
+    "search_pending": false,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  },
+  {
+    "elapsed_s": 58.03000000002993,
+    "x": 4.807851638247074,
+    "y": -0.0802781396404653,
+    "target": [
+      6.0,
+      0.631184389153132
+    ],
+    "vx": 0.0023046349808109466,
+    "wz": -0.00042045745243017303,
+    "code": "CONTROLLER_STALE",
+    "command": [
+      0.0,
+      0.0
+    ],
+    "raw_command": [
+      0.0,
+      0.0
+    ],
+    "controller_age": 0.03999999999999915,
+    "mppi_error": "MPPI 动作结束状态 6",
+    "mppi_action": {
+      "controller": "FollowPath",
+      "sequence": 169,
+      "generation": 72,
+      "pending": false,
+      "accepted": false,
+      "wanted": true,
+      "last_result": {
+        "status": 6,
+        "t": 63.230000000000004
+      }
+    },
+    "search_pending": false,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  },
+  {
+    "elapsed_s": 63.970000000023425,
+    "x": 4.716594510950918,
+    "y": -0.0577010037281197,
+    "target": [
+      8.0,
+      -0.3831843891631608
+    ],
+    "vx": 0.0004887637686507224,
+    "wz": 0.00017660696834225135,
+    "code": "PLAN_PENDING",
+    "command": [
+      0.0,
+      0.0
+    ],
+    "raw_command": [
+      0.16060671210289001,
+      -0.3900291919708252
+    ],
+    "controller_age": null,
+    "mppi_error": "",
+    "mppi_action": {
+      "controller": "FollowPath",
+      "sequence": 188,
+      "generation": 80,
+      "pending": false,
+      "accepted": false,
+      "wanted": false,
+      "last_result": {
+        "status": 6,
+        "t": 67.19
+      }
+    },
+    "search_pending": true,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  },
+  {
+    "elapsed_s": 70.09000000000917,
+    "x": 4.717515699093381,
+    "y": -0.05878298381519762,
+    "target": [
+      11.0,
+      1.0791843891734922
+    ],
+    "vx": -0.00014070615336378978,
+    "wz": 0.00011961189831193348,
+    "code": "NO_PROGRESS",
+    "command": [
+      0.0,
+      0.0
+    ],
+    "raw_command": [
+      0.16060671210289001,
+      -0.3900291919708252
+    ],
+    "controller_age": null,
+    "mppi_error": "",
+    "mppi_action": {
+      "controller": "FollowPath",
+      "sequence": 188,
+      "generation": 80,
+      "pending": false,
+      "accepted": false,
+      "wanted": false,
+      "last_result": {
+        "status": 6,
+        "t": 67.19
+      }
+    },
+    "search_pending": true,
+    "search_error": "",
+    "rejected_plan_reason": "SEARCH_RESULT_STALE"
+  }
+]

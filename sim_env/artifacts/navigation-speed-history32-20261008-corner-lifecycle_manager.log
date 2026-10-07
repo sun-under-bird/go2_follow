@@ -1,0 +1,9 @@
+[INFO] [1791399521.832461037] [go2_follow_mppi.lifecycle_manager]: Creating
+[INFO] [1791399521.834412966] [go2_follow_mppi.lifecycle_manager]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[INFO] [1791399521.842781492] [go2_follow_mppi.lifecycle_manager]: [34m[1mStarting managed nodes bringup...[0m[0m
+[INFO] [1791399521.842849440] [go2_follow_mppi.lifecycle_manager]: [34m[1mConfiguring controller_server[0m[0m
+[INFO] [1791399521.876643123] [go2_follow_mppi.lifecycle_manager]: [34m[1mActivating controller_server[0m[0m
+[INFO] [1791399521.931574648] [go2_follow_mppi.lifecycle_manager]: [34m[1mManaged nodes are active[0m[0m
+[INFO] [1791399618.440836120] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1791399618.440937294] [go2_follow_mppi.lifecycle_manager]: Running Nav2 LifecycleManager rcl preshutdown (lifecycle_manager)
+[INFO] [1791399618.443800215] [go2_follow_mppi.lifecycle_manager]: Destroying lifecycle_manager

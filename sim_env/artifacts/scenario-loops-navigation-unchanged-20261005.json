@@ -1,0 +1,66 @@
+[
+  {
+    "file": "controller.py",
+    "unchanged": true
+  },
+  {
+    "file": "local_map.py",
+    "unchanged": true
+  },
+  {
+    "file": "local_planner.py",
+    "unchanged": true
+  },
+  {
+    "file": "navigation.py",
+    "unchanged": true
+  },
+  {
+    "file": "policy.py",
+    "unchanged": true
+  },
+  {
+    "file": "mppi_bridge.py",
+    "unchanged": true
+  },
+  {
+    "file": "mppi_runtime.py",
+    "unchanged": true
+  },
+  {
+    "file": "observation.py",
+    "unchanged": true
+  },
+  {
+    "file": "observation_geometry.py",
+    "unchanged": true
+  },
+  {
+    "file": "navigation_config.py",
+    "unchanged": true
+  },
+  {
+    "file": "camera_profile.py",
+    "unchanged": true
+  },
+  {
+    "file": "yaw_rate.py",
+    "unchanged": true
+  },
+  {
+    "file": "follow_intent.py",
+    "unchanged": true
+  },
+  {
+    "file": "executor_pulse.py",
+    "unchanged": true
+  },
+  {
+    "file": "footprint.py",
+    "unchanged": true
+  },
+  {
+    "file": "heading_guide.py",
+    "unchanged": true
+  }
+]

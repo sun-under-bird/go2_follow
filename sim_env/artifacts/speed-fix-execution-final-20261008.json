@@ -1,0 +1,340 @@
+{
+  "kind": "physical_execution_benchmark",
+  "benchmark_schema_version": 3,
+  "pid": 406,
+  "command_line": [
+    "/home/chy/go2_sim/follow_demo/tests/check_execution.py",
+    "--prefix",
+    "speed-fix-execution-final-20261008",
+    "--cases",
+    "rate-straight-0.4",
+    "rate-straight-0.6",
+    "rate-straight-0.8",
+    "rate-turn-left-0.8",
+    "rate-turn-right-0.8"
+  ],
+  "started_at_utc": "2026-10-07T17:56:10.052158+00:00",
+  "cases": [
+    {
+      "case": "rate-straight-0.4",
+      "yaw_mode": "rate",
+      "command": [
+        0.4,
+        0.0
+      ],
+      "mean_model_forward_input": 0.4587461207507516,
+      "mean_vx": 0.3982075466019094,
+      "mean_vy": -0.007090612495296349,
+      "mean_wz": 0.003034165404823631,
+      "std_vx": 0.04548490176140918,
+      "std_wz": 0.06750195590892565,
+      "early_mean_vx": 0.4076065036464383,
+      "early_mean_wz": 0.0006379944053854581,
+      "moving_yaw_change_rad": 0.09888612540137585,
+      "translation_response_s": 0.06199999999977468,
+      "turning_response_s": null,
+      "stop_time_s": 0.3419999999996044,
+      "stop_displacement_m": 0.056809079082430686,
+      "stop_path_length_m": 0.05750373915656485,
+      "stop_final_motion": {
+        "vx": 0.00043519298932350917,
+        "vy": 0.0005231269327046398,
+        "wz": 0.0003659977763191483
+      },
+      "posture_ready": true,
+      "policy_inference_count": 1149,
+      "physics_timestep_s": 0.002,
+      "wall_elapsed_s": 1.214814761999996,
+      "outside_upstream_documented_linear_range": false,
+      "forward_response_ratio": 0.9955188665047734,
+      "angular_response_ratio": null,
+      "speed_tracking": {
+        "applicable": true,
+        "linear_tolerance_mps": 0.04,
+        "angular_tolerance_radps": 0.08,
+        "passed": true
+      }
+    },
+    {
+      "case": "rate-straight-0.6",
+      "yaw_mode": "rate",
+      "command": [
+        0.6,
+        0.0
+      ],
+      "mean_model_forward_input": 0.6776458408165367,
+      "mean_vx": 0.6002619065333703,
+      "mean_vy": 0.005106693575424557,
+      "mean_wz": 0.0024313094726310445,
+      "std_vx": 0.04121027592905027,
+      "std_wz": 0.08001586711991973,
+      "early_mean_vx": 0.6114830195518915,
+      "early_mean_wz": -0.003321605363170965,
+      "moving_yaw_change_rad": 0.01824690731160212,
+      "translation_response_s": 0.06199999999977468,
+      "turning_response_s": null,
+      "stop_time_s": 0.40199999999957114,
+      "stop_displacement_m": 0.11364564791904293,
+      "stop_path_length_m": 0.11381803468602503,
+      "stop_final_motion": {
+        "vx": 0.00033917795613046795,
+        "vy": 0.0011166994589955914,
+        "wz": -0.0004739641867029646
+      },
+      "posture_ready": true,
+      "policy_inference_count": 1149,
+      "physics_timestep_s": 0.002,
+      "wall_elapsed_s": 1.179296979,
+      "outside_upstream_documented_linear_range": true,
+      "forward_response_ratio": 1.0004365108889506,
+      "angular_response_ratio": null,
+      "speed_tracking": {
+        "applicable": true,
+        "linear_tolerance_mps": 0.04,
+        "angular_tolerance_radps": 0.08,
+        "passed": true
+      }
+    },
+    {
+      "case": "rate-straight-0.8",
+      "yaw_mode": "rate",
+      "command": [
+        0.8,
+        0.0
+      ],
+      "mean_model_forward_input": 0.89929197292766,
+      "mean_vx": 0.8020597429633457,
+      "mean_vy": 0.001707706175807712,
+      "mean_wz": -6.88368262701361e-05,
+      "std_vx": 0.04824372954106666,
+      "std_wz": 0.08482765941948062,
+      "early_mean_vx": 0.8098772250668447,
+      "early_mean_wz": -0.0018185081530788598,
+      "moving_yaw_change_rad": -0.003813938789541862,
+      "translation_response_s": 0.06199999999977468,
+      "turning_response_s": null,
+      "stop_time_s": 0.38199999999958223,
+      "stop_displacement_m": 0.13703447204261673,
+      "stop_path_length_m": 0.137353950967578,
+      "stop_final_motion": {
+        "vx": 0.0003137590064793636,
+        "vy": 0.00019437741627319094,
+        "wz": -0.00021612296649425397
+      },
+      "posture_ready": true,
+      "policy_inference_count": 1149,
+      "physics_timestep_s": 0.002,
+      "wall_elapsed_s": 1.177810583000003,
+      "outside_upstream_documented_linear_range": true,
+      "forward_response_ratio": 1.002574678704182,
+      "angular_response_ratio": null,
+      "speed_tracking": {
+        "applicable": true,
+        "linear_tolerance_mps": 0.04,
+        "angular_tolerance_radps": 0.08,
+        "passed": true
+      }
+    },
+    {
+      "case": "rate-turn-left-0.8",
+      "yaw_mode": "rate",
+      "command": [
+        0.8,
+        0.3
+      ],
+      "mean_model_forward_input": 0.917113263965947,
+      "mean_vx": 0.8008514043303083,
+      "mean_vy": 0.003916884384120428,
+      "mean_wz": 0.29810875067740455,
+      "std_vx": 0.040854828638647714,
+      "std_wz": 0.09256324126144758,
+      "early_mean_vx": 0.8050355470882496,
+      "early_mean_wz": 0.30401924921392914,
+      "moving_yaw_change_rad": 4.8597567415893375,
+      "translation_response_s": 0.06199999999977468,
+      "turning_response_s": 0.44199999999973283,
+      "stop_time_s": 0.5419999999994936,
+      "stop_displacement_m": 0.15162391446407472,
+      "stop_path_length_m": 0.15295669336469062,
+      "stop_final_motion": {
+        "vx": 0.0005405085697652718,
+        "vy": 0.0004913668499548677,
+        "wz": 0.00035500419027931245
+      },
+      "posture_ready": true,
+      "policy_inference_count": 1149,
+      "physics_timestep_s": 0.002,
+      "wall_elapsed_s": 1.2320701169999992,
+      "outside_upstream_documented_linear_range": true,
+      "forward_response_ratio": 1.0010642554128852,
+      "angular_response_ratio": 0.9936958355913486,
+      "speed_tracking": {
+        "applicable": true,
+        "linear_tolerance_mps": 0.04,
+        "angular_tolerance_radps": 0.08,
+        "passed": true
+      }
+    },
+    {
+      "case": "rate-turn-right-0.8",
+      "yaw_mode": "rate",
+      "command": [
+        0.8,
+        -0.3
+      ],
+      "mean_model_forward_input": 0.9134008708226756,
+      "mean_vx": 0.80066634943786,
+      "mean_vy": -0.026811424193889665,
+      "mean_wz": -0.3005150763605339,
+      "std_vx": 0.03509655980467583,
+      "std_wz": 0.10441877392907405,
+      "early_mean_vx": 0.8066420100417813,
+      "early_mean_wz": -0.30082926452411274,
+      "moving_yaw_change_rad": -4.796477815915988,
+      "translation_response_s": 0.06199999999977468,
+      "turning_response_s": 0.6019999999997152,
+      "stop_time_s": 0.4819999999995268,
+      "stop_displacement_m": 0.17432518715228668,
+      "stop_path_length_m": 0.17477224514531514,
+      "stop_final_motion": {
+        "vx": 3.205591386290271e-05,
+        "vy": 0.0006468995741913079,
+        "wz": -0.0006376003766299912
+      },
+      "posture_ready": true,
+      "policy_inference_count": 1149,
+      "physics_timestep_s": 0.002,
+      "wall_elapsed_s": 1.1643491319999981,
+      "outside_upstream_documented_linear_range": true,
+      "forward_response_ratio": 1.000832936797325,
+      "angular_response_ratio": 1.0017169212017796,
+      "speed_tracking": {
+        "applicable": true,
+        "linear_tolerance_mps": 0.04,
+        "angular_tolerance_radps": 0.08,
+        "passed": true
+      }
+    }
+  ],
+  "input_profile": {
+    "case_duration_s": 26.0,
+    "stand_until_s": 4.0,
+    "motion_until_s": 20.0,
+    "steady_window_s": [
+      16.0,
+      20.0
+    ],
+    "sample_interval_s": 0.02,
+    "stop_velocity_limits": {
+      "vx": 0.03,
+      "vy": 0.03,
+      "wz": 0.05
+    },
+    "stop_hold_s": 0.5
+  },
+  "interface_audit": {
+    "basis": "锁定部署C++源码与MuJoCo XML；原始NP3O训练配置未随此部署仓库提供，训练范围仅引用部署源码说明",
+    "no_observation_layout_bug_found": true,
+    "observation_layout": [
+      {
+        "indices": "0:3",
+        "meaning": "机体系IMU陀螺仪",
+        "scale": 0.25
+      },
+      {
+        "indices": "3:6",
+        "meaning": "机体系投影重力，wxyz四元数",
+        "scale": 1.0
+      },
+      {
+        "indices": "6:9",
+        "meaning": "vx、vy、模型角速度命令",
+        "scale": [
+          2.0,
+          2.0,
+          0.25
+        ]
+      },
+      {
+        "indices": "9:21",
+        "meaning": "SDK顺序关节角减默认姿态",
+        "scale": 1.0
+      },
+      {
+        "indices": "21:33",
+        "meaning": "SDK顺序关节速度",
+        "scale": 0.05
+      },
+      {
+        "indices": "33:45",
+        "meaning": "上次未滤波策略动作",
+        "scale": 1.0
+      }
+    ],
+    "joint_order": "FR、FL、RR、RL；每腿hip、thigh、calf",
+    "input_shapes": {
+      "obs": [
+        1,
+        45
+      ],
+      "hist": [
+        1,
+        10,
+        45
+      ]
+    },
+    "history": "首拍推理接收零历史；推理之后首帧填满10拍历史，随后移位后加入当前观测，两实现相同",
+    "action_filter": {
+      "new_weight": 0.8,
+      "previous_filtered_weight": 0.2,
+      "action_scale": 0.25,
+      "hip_reduction": 0.5
+    },
+    "pd": {
+      "kp": 40.0,
+      "kd": 1.0,
+      "target_velocity": 0.0,
+      "feedforward_torque": 0.0
+    },
+    "policy_period_s": 0.02,
+    "upstream_source_lines": {
+      "layout": "15-28、304-336",
+      "history": "339-350、500-504",
+      "yaw": "455-478",
+      "constant_yaw_warning": "456-460",
+      "action_filter_pd": "483-498"
+    },
+    "real_differences": [
+      "上游所有模式先维护航向目标，再由clip(0.5*wrap(目标航向-实测yaw),±1)生成模型wz；当前velocity模式直接给模型wz。",
+      "上游源码记录恒定wz曾转约0.56rad后停止；这是上游经验说明，本次独立对照才用于验证当前仿真响应。",
+      "上游有3秒线速度淡入；本基准所有模式都用相同阶跃，不增加起步或死区补偿。",
+      "当前heading模式在全零速度时重置航向目标，上游在普通零指令时保留旧航向；停车结果不能冒充完整上游停车行为。",
+      "当前物理步长来自MuJoCo模型，推理50Hz；部署C++仅通过DDS发送PD参数，当前每物理步直接重算同一PD力矩。"
+    ],
+    "conclusion": "未发现布局、历史或动作PD错接；转向命令生成契约确有差异，模式优劣由本次有限时长物理对照评估。"
+  },
+  "source_sha256": {
+    "policy.py": "e10a17caf0acf2f802401a5d6cb57ac263ece627e64991bc0c0a7ef9a954fbb1",
+    "forward_speed.py": "4feb9e3dd2b4e579dad79b81490b93043c2835c29a349ab8b7b2fbfd6c135482",
+    "simulation.py": "975025da91f1e3ccb7c34d570d43fe6ae8a66c22f9273a099364be97451a9996",
+    "camera_profile.py": "2556c943027389b326ccbef0feb7f141ae439efd7913a839a87ac227db62c017",
+    "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+    "tests/check_execution.py": "153bb0aea89154e9d1fa35d7ce3111485514eba2be87521c300776b3bcf3c9f2"
+  },
+  "asset_sha256": {
+    "third_party/capo-sim-assets/sim_patch/models/go2_policy.onnx": "1b3261d32f1c7b157a98a4f66ac689c89ec10a5032ad9a9a67bd96d4556d6901",
+    "third_party/capo-sim-assets/sim_patch/example_cpp/policy_runner.cpp": "c048d57c691d3cb913d3b45b172035471e22c47348a3b609ec1744572630869a",
+    "third_party/capo-sim-assets/sim_patch/scripts/export_onnx.py": "d5e716b5f76649abaee15eb386ba27f0506a6d413fcba3af4c82bc0354f2da26",
+    "third_party/unitree_mujoco/unitree_robots/go2/go2.xml": "2014a3d76e30f17ab9447d8a67bd015291f74fa4d71ae30d005f1a32bd693d4b",
+    "third_party/unitree_mujoco/unitree_robots/go2/scene.xml": "f5e897b886476e3946ff3f9b33dc440c0e114b0ffe8b137c6b591bdb9ad93aac"
+  },
+  "note": "有限时长开环模型输入基准；姿态/停车通过不等于速度跟踪、导航绕障或实机接口认证。",
+  "upstream_commit": "ca12af336e3a87158b7158b6632509307e2ba669",
+  "finished_at_utc": "2026-10-07T17:56:17.120174+00:00",
+  "completed_cases": 5,
+  "planned_cases": 5,
+  "all_cases_completed": true,
+  "posture_and_stop_checks_passed": true,
+  "all_selected_checks_passed": true,
+  "exit_code": 0
+}

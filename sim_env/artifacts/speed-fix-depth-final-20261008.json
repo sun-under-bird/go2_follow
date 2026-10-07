@@ -1,0 +1,47 @@
+{
+  "4": {
+    "half_size": {
+      "pixel_count": 7776,
+      "error_quantiles_m": [
+        0.04861008873676653,
+        0.19433298518703568,
+        0.3265644074052769
+      ],
+      "observed_free_route_m": 1.7000000000000002,
+      "obstacle_cells": 0
+    },
+    "pixel_center": {
+      "pixel_count": 7793,
+      "error_quantiles_m": [
+        0.020840737384096863,
+        0.08573072172080494,
+        0.14439282202154327
+      ],
+      "observed_free_route_m": 3.0000000000000004,
+      "obstacle_cells": 0
+    }
+  },
+  "0": {
+    "half_size": {
+      "pixel_count": 7776,
+      "error_quantiles_m": [
+        0.028398264622003677,
+        0.11496342913123803,
+        0.19475314622821394
+      ],
+      "observed_free_route_m": 2.5000000000000004,
+      "obstacle_cells": 0
+    },
+    "pixel_center": {
+      "pixel_count": 7793,
+      "error_quantiles_m": [
+        3.179139960840516e-05,
+        0.00017900967745489992,
+        0.0004501908855468883
+      ],
+      "observed_free_route_m": 4.1,
+      "obstacle_cells": 0
+    }
+  },
+  "passed": true
+}

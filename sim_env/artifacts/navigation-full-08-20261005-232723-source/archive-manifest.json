@@ -1,0 +1,15 @@
+{
+  "layout": "workspace_relative",
+  "archives": [
+    {
+      "file": "follow-demo-source.zip",
+      "sha256": "52288e26fdde725766e71a407ede40c563f4ebdcc98f0ba92440abf50b8998f5",
+      "files": 72
+    },
+    {
+      "file": "environment-scripts-and-locks.zip",
+      "sha256": "616b489a712b35d5c4acf8416babf7905f4c10fa029c02314f3f98b05e0658cf",
+      "files": 13
+    }
+  ]
+}

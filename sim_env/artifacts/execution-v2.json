@@ -1,0 +1,75 @@
+{
+  "kind": "physical_execution_benchmark",
+  "cases": [
+    {
+      "yaw_mode": "heading",
+      "command": [
+        0.5,
+        0.3
+      ],
+      "mean_vx": 0.43616573270294867,
+      "mean_wz": 0.2521884318554698,
+      "std_wz": 0.07023986899766595,
+      "stop_time_s": 0.2420000000007576,
+      "stop_displacement_m": 0.037114095890389436,
+      "posture_ready": true
+    },
+    {
+      "yaw_mode": "velocity",
+      "command": [
+        0.5,
+        0.3
+      ],
+      "mean_vx": 0.4352493271832411,
+      "mean_wz": 0.18632770912931668,
+      "std_wz": 0.06498707701163373,
+      "stop_time_s": 0.2420000000007576,
+      "stop_displacement_m": 0.037509542918217585,
+      "posture_ready": true
+    },
+    {
+      "yaw_mode": "velocity",
+      "command": [
+        0.5,
+        0
+      ],
+      "mean_vx": 0.43881977935727323,
+      "mean_wz": 0.018084941073017724,
+      "std_wz": 0.07159607331906831,
+      "stop_time_s": 0.28200000000077097,
+      "stop_displacement_m": 0.054024385334122016,
+      "posture_ready": true
+    },
+    {
+      "yaw_mode": "velocity",
+      "command": [
+        0.7,
+        0
+      ],
+      "mean_vx": 0.6210731186756209,
+      "mean_wz": 0.004516600711701404,
+      "std_wz": 0.08940485348605254,
+      "stop_time_s": 0.342000000000791,
+      "stop_displacement_m": 0.08527679783540619,
+      "posture_ready": true
+    },
+    {
+      "yaw_mode": "velocity",
+      "command": [
+        0,
+        0.4
+      ],
+      "mean_vx": 0.00029288790188760976,
+      "mean_wz": 0.007797470957756672,
+      "std_wz": 0.00045768505395529644,
+      "stop_time_s": 0.00200000000067746,
+      "stop_displacement_m": 0.0,
+      "posture_ready": true
+    }
+  ],
+  "source_sha256": {
+    "policy.py": "6acd2d7ee175eb407bc4df540b59bd9684621555caba2583a47decb978c6a57e",
+    "simulation.py": "09b2ff1959f188966ceece8afeee32294ffc15b50ed347d2d1937b5243458869"
+  },
+  "note": "直接在模型输入端测试给定速度，不经过导航；只证明仿真执行响应。"
+}

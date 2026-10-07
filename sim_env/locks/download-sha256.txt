@@ -1,0 +1,2 @@
+049204172901afad251070385a6badf46d795ebe47403d093f8469557eeeab5a  /home/chy/go2_sim/downloads/mujoco-3.3.6-linux-x86_64.tar.gz
+1b3261d32f1c7b157a98a4f66ac689c89ec10a5032ad9a9a67bd96d4556d6901  /home/chy/go2_sim/third_party/capo-sim-assets/sim_patch/models/go2_policy.onnx

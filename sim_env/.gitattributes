@@ -1,0 +1,6 @@
+# 保留验收源码字节，避免换行转换改变SHA256；文本仍可显示差异。
+* -text whitespace=cr-at-eol
+# 图表、原始日志及补丁上下文保留原字节，不按普通源码检查末尾空格。
+*.svg -whitespace
+*.log -whitespace
+locks/*.patch -whitespace

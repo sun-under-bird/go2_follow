@@ -1,0 +1,3058 @@
+{
+  "kind": "isolated_mppi_speed_diagnostic",
+  "pid": 305,
+  "started_at_utc": "2026-10-05T16:27:13.064080+00:00",
+  "plant": "理想积分底盘，不包含步态、相机、UWB与统一执行保护",
+  "geometry": "全自由地图，仅供隔离基准；没有改生产导航地图",
+  "cases": [
+    {
+      "case": "short",
+      "profile": {
+        "reference_m": 1.5,
+        "overrides": {}
+      },
+      "parameters": {
+        "/go2_follow_mppi/controller_server": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "controller_frequency": 30.0,
+            "odom_topic": "/follow_demo/odom",
+            "min_x_velocity_threshold": 0.001,
+            "min_y_velocity_threshold": 0.001,
+            "min_theta_velocity_threshold": 0.001,
+            "failure_tolerance": 0.3,
+            "progress_checker_plugin": "progress",
+            "goal_checker_plugins": [
+              "follow_goal",
+              "observe_goal",
+              "face_goal"
+            ],
+            "controller_plugins": [
+              "FollowPath",
+              "Observe"
+            ],
+            "progress": {
+              "plugin": "nav2_controller::SimpleProgressChecker",
+              "required_movement_radius": 0.15,
+              "movement_time_allowance": 20.0
+            },
+            "follow_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 6.28,
+              "stateful": false
+            },
+            "observe_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.2,
+              "stateful": false
+            },
+            "face_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.06,
+              "stateful": false
+            },
+            "FollowPath": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 0.35
+              }
+            },
+            "Observe": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 8.0,
+                "threshold_to_consider": 0.35
+              }
+            }
+          }
+        },
+        "/go2_follow_mppi/local_costmap/local_costmap": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "update_frequency": 10.0,
+            "publish_frequency": 2.0,
+            "global_frame": "odom",
+            "robot_base_frame": "base_footprint",
+            "rolling_window": true,
+            "width": 12,
+            "height": 12,
+            "resolution": 0.1,
+            "footprint": "[[0.35, 0.16], [-0.35, 0.16], [-0.35, -0.16], [0.35, -0.16]]",
+            "footprint_padding": 0.0,
+            "track_unknown_space": true,
+            "always_send_full_costmap": true,
+            "transform_tolerance": 0.2,
+            "plugins": [
+              "geometry",
+              "inflation"
+            ],
+            "geometry": {
+              "plugin": "nav2_costmap_2d::StaticLayer",
+              "map_topic": "/follow_demo/local_geometry",
+              "map_subscribe_transient_local": true,
+              "subscribe_to_updates": false
+            },
+            "inflation": {
+              "plugin": "nav2_costmap_2d::InflationLayer",
+              "inflation_radius": 0.8,
+              "cost_scaling_factor": 5.0
+            }
+          }
+        },
+        "/go2_follow_mppi/lifecycle_manager": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "autostart": true,
+            "node_names": [
+              "controller_server"
+            ],
+            "bond_timeout": 0.0
+          }
+        }
+      },
+      "samples": 289,
+      "source_sha256": {
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "tests/check_mppi_speed.py": "393550b05626f181a961c41865cb602ab0d91ecffeecd0408aa1eff1f2403349"
+      },
+      "owned_nav2_processes": [
+        {
+          "pid": 409,
+          "start_ticks": "8197",
+          "command": ""
+        },
+        {
+          "pid": 410,
+          "start_ticks": "8197",
+          "command": ""
+        }
+      ],
+      "observed_steady_seconds": 8.99703586599999,
+      "mean_raw_vx": 0.7043368372206532,
+      "mean_actual_vx": 0.7043368372206532,
+      "inactive_ratio": 0.0,
+      "final_position": [
+        10.94228101002458,
+        -0.0023161127856233797
+      ],
+      "final_yaw": 0.00019793951395454646,
+      "completed": true,
+      "action_results": [
+        {
+          "t": 0.8005455979999994,
+          "sequence": 1,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.2003252149999923,
+          "sequence": 2,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.5980262899999929,
+          "sequence": 3,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.999841062999991,
+          "sequence": 4,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.3979781319999915,
+          "sequence": 5,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.8005302899999975,
+          "sequence": 6,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.1978904449999987,
+          "sequence": 7,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.5998703779999914,
+          "sequence": 8,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.031699609,
+          "sequence": 9,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.431351300000003,
+          "sequence": 10,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.835380443999995,
+          "sequence": 11,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.231120947999997,
+          "sequence": 12,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.631101923000003,
+          "sequence": 13,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.033719912999999,
+          "sequence": 14,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.467306377,
+          "sequence": 15,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.866607537999997,
+          "sequence": 16,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.265453254999997,
+          "sequence": 17,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.665936942999991,
+          "sequence": 18,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.065137284000002,
+          "sequence": 19,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.467087475999989,
+          "sequence": 20,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.898543121999992,
+          "sequence": 21,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.300747584999996,
+          "sequence": 22,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.699843203,
+          "sequence": 23,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.100698442999999,
+          "sequence": 24,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.500282300999999,
+          "sequence": 25,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.901764189999994,
+          "sequence": 26,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.297698064000002,
+          "sequence": 27,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.699678942999995,
+          "sequence": 28,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.134151275999997,
+          "sequence": 29,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.534269320999996,
+          "sequence": 30,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.931272909,
+          "sequence": 31,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.33391246699999,
+          "sequence": 32,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.731913281999994,
+          "sequence": 33,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.131239913999991,
+          "sequence": 34,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.53128241799999,
+          "sequence": 35,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.93125886499999,
+          "sequence": 36,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.367004795,
+          "sequence": 37,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.766962385,
+          "sequence": 38,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 16.165365492999996,
+          "sequence": 39,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        }
+      ],
+      "wall_elapsed_s": 16.755147430999997,
+      "lifecycle_state": 3,
+      "rejected_goals": 0,
+      "sent_goals": 40,
+      "pending_goal": false,
+      "server_ready": false
+    },
+    {
+      "case": "long",
+      "profile": {
+        "reference_m": 3.5,
+        "overrides": {}
+      },
+      "parameters": {
+        "/go2_follow_mppi/controller_server": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "controller_frequency": 30.0,
+            "odom_topic": "/follow_demo/odom",
+            "min_x_velocity_threshold": 0.001,
+            "min_y_velocity_threshold": 0.001,
+            "min_theta_velocity_threshold": 0.001,
+            "failure_tolerance": 0.3,
+            "progress_checker_plugin": "progress",
+            "goal_checker_plugins": [
+              "follow_goal",
+              "observe_goal",
+              "face_goal"
+            ],
+            "controller_plugins": [
+              "FollowPath",
+              "Observe"
+            ],
+            "progress": {
+              "plugin": "nav2_controller::SimpleProgressChecker",
+              "required_movement_radius": 0.15,
+              "movement_time_allowance": 20.0
+            },
+            "follow_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 6.28,
+              "stateful": false
+            },
+            "observe_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.2,
+              "stateful": false
+            },
+            "face_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.06,
+              "stateful": false
+            },
+            "FollowPath": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 0.35
+              }
+            },
+            "Observe": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 8.0,
+                "threshold_to_consider": 0.35
+              }
+            }
+          }
+        },
+        "/go2_follow_mppi/local_costmap/local_costmap": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "update_frequency": 10.0,
+            "publish_frequency": 2.0,
+            "global_frame": "odom",
+            "robot_base_frame": "base_footprint",
+            "rolling_window": true,
+            "width": 12,
+            "height": 12,
+            "resolution": 0.1,
+            "footprint": "[[0.35, 0.16], [-0.35, 0.16], [-0.35, -0.16], [0.35, -0.16]]",
+            "footprint_padding": 0.0,
+            "track_unknown_space": true,
+            "always_send_full_costmap": true,
+            "transform_tolerance": 0.2,
+            "plugins": [
+              "geometry",
+              "inflation"
+            ],
+            "geometry": {
+              "plugin": "nav2_costmap_2d::StaticLayer",
+              "map_topic": "/follow_demo/local_geometry",
+              "map_subscribe_transient_local": true,
+              "subscribe_to_updates": false
+            },
+            "inflation": {
+              "plugin": "nav2_costmap_2d::InflationLayer",
+              "inflation_radius": 0.8,
+              "cost_scaling_factor": 5.0
+            }
+          }
+        },
+        "/go2_follow_mppi/lifecycle_manager": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "autostart": true,
+            "node_names": [
+              "controller_server"
+            ],
+            "bond_timeout": 0.0
+          }
+        }
+      },
+      "samples": 288,
+      "source_sha256": {
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "tests/check_mppi_speed.py": "393550b05626f181a961c41865cb602ab0d91ecffeecd0408aa1eff1f2403349"
+      },
+      "owned_nav2_processes": [
+        {
+          "pid": 456,
+          "start_ticks": "9878",
+          "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+        },
+        {
+          "pid": 457,
+          "start_ticks": "9878",
+          "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+        }
+      ],
+      "observed_steady_seconds": 9.000114980000006,
+      "mean_raw_vx": 0.7350540758354043,
+      "mean_actual_vx": 0.7350540758354043,
+      "inactive_ratio": 0.0,
+      "final_position": [
+        11.422032777547331,
+        -0.00040941125014646624
+      ],
+      "final_yaw": -0.00010682591978357733,
+      "completed": true,
+      "action_results": [
+        {
+          "t": 0.7778029119999985,
+          "sequence": 1,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.1760301740000045,
+          "sequence": 2,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.5765012359999986,
+          "sequence": 3,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.9776346559999922,
+          "sequence": 4,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.3759549690000057,
+          "sequence": 5,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.7775982839999926,
+          "sequence": 6,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.2093384970000045,
+          "sequence": 7,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.608786729000002,
+          "sequence": 8,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.011825912000006,
+          "sequence": 9,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.410608495000005,
+          "sequence": 10,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.810108193999994,
+          "sequence": 11,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.2092745140000005,
+          "sequence": 12,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.643018687999998,
+          "sequence": 13,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.042581299999995,
+          "sequence": 14,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.443017033000004,
+          "sequence": 15,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.842448853999997,
+          "sequence": 16,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.242454316999996,
+          "sequence": 17,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.643434901999996,
+          "sequence": 18,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.042222623,
+          "sequence": 19,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.444881375999998,
+          "sequence": 20,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.842101455999995,
+          "sequence": 21,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.244341355000003,
+          "sequence": 22,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.677160810000004,
+          "sequence": 23,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.076260873999999,
+          "sequence": 24,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.476988582000004,
+          "sequence": 25,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.877830259999996,
+          "sequence": 26,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.275722298999995,
+          "sequence": 27,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.679046847999999,
+          "sequence": 28,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.111026843000005,
+          "sequence": 29,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.509607373999998,
+          "sequence": 30,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.908983858,
+          "sequence": 31,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.308805164000006,
+          "sequence": 32,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.708734989999996,
+          "sequence": 33,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.108503267999993,
+          "sequence": 34,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.508619374000006,
+          "sequence": 35,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.944501867,
+          "sequence": 36,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.344618142000002,
+          "sequence": 37,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.743193320999993,
+          "sequence": 38,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 16.142168821,
+          "sequence": 39,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        }
+      ],
+      "wall_elapsed_s": 16.734804421999996,
+      "lifecycle_state": 3,
+      "rejected_goals": 0,
+      "sent_goals": 40,
+      "pending_goal": false,
+      "server_ready": false
+    },
+    {
+      "case": "matched_dt",
+      "profile": {
+        "reference_m": 3.5,
+        "overrides": {
+          "model_dt": 0.03333333333333333,
+          "time_steps": 72
+        }
+      },
+      "parameters": {
+        "/go2_follow_mppi/controller_server": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "controller_frequency": 30.0,
+            "odom_topic": "/follow_demo/odom",
+            "min_x_velocity_threshold": 0.001,
+            "min_y_velocity_threshold": 0.001,
+            "min_theta_velocity_threshold": 0.001,
+            "failure_tolerance": 0.3,
+            "progress_checker_plugin": "progress",
+            "goal_checker_plugins": [
+              "follow_goal",
+              "observe_goal",
+              "face_goal"
+            ],
+            "controller_plugins": [
+              "FollowPath",
+              "Observe"
+            ],
+            "progress": {
+              "plugin": "nav2_controller::SimpleProgressChecker",
+              "required_movement_radius": 0.15,
+              "movement_time_allowance": 20.0
+            },
+            "follow_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 6.28,
+              "stateful": false
+            },
+            "observe_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.2,
+              "stateful": false
+            },
+            "face_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.06,
+              "stateful": false
+            },
+            "FollowPath": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 72,
+              "model_dt": 0.03333333333333333,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 0.35
+              }
+            },
+            "Observe": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 8.0,
+                "threshold_to_consider": 0.35
+              }
+            }
+          }
+        },
+        "/go2_follow_mppi/local_costmap/local_costmap": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "update_frequency": 10.0,
+            "publish_frequency": 2.0,
+            "global_frame": "odom",
+            "robot_base_frame": "base_footprint",
+            "rolling_window": true,
+            "width": 12,
+            "height": 12,
+            "resolution": 0.1,
+            "footprint": "[[0.35, 0.16], [-0.35, 0.16], [-0.35, -0.16], [0.35, -0.16]]",
+            "footprint_padding": 0.0,
+            "track_unknown_space": true,
+            "always_send_full_costmap": true,
+            "transform_tolerance": 0.2,
+            "plugins": [
+              "geometry",
+              "inflation"
+            ],
+            "geometry": {
+              "plugin": "nav2_costmap_2d::StaticLayer",
+              "map_topic": "/follow_demo/local_geometry",
+              "map_subscribe_transient_local": true,
+              "subscribe_to_updates": false
+            },
+            "inflation": {
+              "plugin": "nav2_costmap_2d::InflationLayer",
+              "inflation_radius": 0.8,
+              "cost_scaling_factor": 5.0
+            }
+          }
+        },
+        "/go2_follow_mppi/lifecycle_manager": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "autostart": true,
+            "node_names": [
+              "controller_server"
+            ],
+            "bond_timeout": 0.0
+          }
+        }
+      },
+      "samples": 289,
+      "source_sha256": {
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "tests/check_mppi_speed.py": "393550b05626f181a961c41865cb602ab0d91ecffeecd0408aa1eff1f2403349"
+      },
+      "owned_nav2_processes": [
+        {
+          "pid": 498,
+          "start_ticks": "11556",
+          "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+        },
+        {
+          "pid": 499,
+          "start_ticks": "11556",
+          "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+        }
+      ],
+      "observed_steady_seconds": 9.001733858999998,
+      "mean_raw_vx": 0.582500907739223,
+      "mean_actual_vx": 0.582500907739223,
+      "inactive_ratio": 0.0,
+      "final_position": [
+        9.103126942235114,
+        0.0001312342698205182
+      ],
+      "final_yaw": 0.0004734112289708145,
+      "completed": true,
+      "action_results": [
+        {
+          "t": 0.792336301000006,
+          "sequence": 1,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.1927748499999922,
+          "sequence": 2,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.5921546889999973,
+          "sequence": 3,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.9923071239999928,
+          "sequence": 4,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.3922615700000023,
+          "sequence": 5,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.792590739000005,
+          "sequence": 6,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.1922214370000006,
+          "sequence": 7,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.6255761120000045,
+          "sequence": 8,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.025475111999995,
+          "sequence": 9,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.423627410999998,
+          "sequence": 10,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.824518432000005,
+          "sequence": 11,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.257300146999995,
+          "sequence": 12,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.656882589000006,
+          "sequence": 13,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.057689737000004,
+          "sequence": 14,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.457515228000005,
+          "sequence": 15,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.858669376999998,
+          "sequence": 16,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.257391929999997,
+          "sequence": 17,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.657999336999993,
+          "sequence": 18,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.057531220000001,
+          "sequence": 19,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.456836526000004,
+          "sequence": 20,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.857251672000004,
+          "sequence": 21,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.290185554000004,
+          "sequence": 22,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.690041407999999,
+          "sequence": 23,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.090022343000001,
+          "sequence": 24,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.491297899000003,
+          "sequence": 25,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.890153201000004,
+          "sequence": 26,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.290422828000004,
+          "sequence": 27,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.724371808,
+          "sequence": 28,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.124372166,
+          "sequence": 29,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.523233603000008,
+          "sequence": 30,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.925653610999987,
+          "sequence": 31,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.323847275000006,
+          "sequence": 32,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.724568316000003,
+          "sequence": 33,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.124341919999992,
+          "sequence": 34,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.524569238000012,
+          "sequence": 35,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.925915880999995,
+          "sequence": 36,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.324810478999993,
+          "sequence": 37,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.72624518100001,
+          "sequence": 38,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 16.12487727099999,
+          "sequence": 39,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        }
+      ],
+      "wall_elapsed_s": 16.751450762000005,
+      "lifecycle_state": 3,
+      "rejected_goals": 0,
+      "sent_goals": 40,
+      "pending_goal": false,
+      "server_ready": false
+    },
+    {
+      "case": "smaller_noise",
+      "profile": {
+        "reference_m": 3.5,
+        "overrides": {
+          "vx_std": 0.1
+        }
+      },
+      "parameters": {
+        "/go2_follow_mppi/controller_server": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "controller_frequency": 30.0,
+            "odom_topic": "/follow_demo/odom",
+            "min_x_velocity_threshold": 0.001,
+            "min_y_velocity_threshold": 0.001,
+            "min_theta_velocity_threshold": 0.001,
+            "failure_tolerance": 0.3,
+            "progress_checker_plugin": "progress",
+            "goal_checker_plugins": [
+              "follow_goal",
+              "observe_goal",
+              "face_goal"
+            ],
+            "controller_plugins": [
+              "FollowPath",
+              "Observe"
+            ],
+            "progress": {
+              "plugin": "nav2_controller::SimpleProgressChecker",
+              "required_movement_radius": 0.15,
+              "movement_time_allowance": 20.0
+            },
+            "follow_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 6.28,
+              "stateful": false
+            },
+            "observe_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.2,
+              "stateful": false
+            },
+            "face_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.06,
+              "stateful": false
+            },
+            "FollowPath": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.1,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 0.35
+              }
+            },
+            "Observe": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 8.0,
+                "threshold_to_consider": 0.35
+              }
+            }
+          }
+        },
+        "/go2_follow_mppi/local_costmap/local_costmap": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "update_frequency": 10.0,
+            "publish_frequency": 2.0,
+            "global_frame": "odom",
+            "robot_base_frame": "base_footprint",
+            "rolling_window": true,
+            "width": 12,
+            "height": 12,
+            "resolution": 0.1,
+            "footprint": "[[0.35, 0.16], [-0.35, 0.16], [-0.35, -0.16], [0.35, -0.16]]",
+            "footprint_padding": 0.0,
+            "track_unknown_space": true,
+            "always_send_full_costmap": true,
+            "transform_tolerance": 0.2,
+            "plugins": [
+              "geometry",
+              "inflation"
+            ],
+            "geometry": {
+              "plugin": "nav2_costmap_2d::StaticLayer",
+              "map_topic": "/follow_demo/local_geometry",
+              "map_subscribe_transient_local": true,
+              "subscribe_to_updates": false
+            },
+            "inflation": {
+              "plugin": "nav2_costmap_2d::InflationLayer",
+              "inflation_radius": 0.8,
+              "cost_scaling_factor": 5.0
+            }
+          }
+        },
+        "/go2_follow_mppi/lifecycle_manager": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "autostart": true,
+            "node_names": [
+              "controller_server"
+            ],
+            "bond_timeout": 0.0
+          }
+        }
+      },
+      "samples": 289,
+      "source_sha256": {
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "tests/check_mppi_speed.py": "393550b05626f181a961c41865cb602ab0d91ecffeecd0408aa1eff1f2403349"
+      },
+      "owned_nav2_processes": [
+        {
+          "pid": 538,
+          "start_ticks": "13235",
+          "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+        },
+        {
+          "pid": 539,
+          "start_ticks": "13235",
+          "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+        }
+      ],
+      "observed_steady_seconds": 9.042446928999993,
+      "mean_raw_vx": 0.1598672268115404,
+      "mean_actual_vx": 0.1598672268115404,
+      "inactive_ratio": 0.0,
+      "final_position": [
+        2.4728241641059308,
+        0.10177527974713893
+      ],
+      "final_yaw": 0.016190198200499932,
+      "completed": true,
+      "action_results": [
+        {
+          "t": 0.7863025689999859,
+          "sequence": 1,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.1847622120000096,
+          "sequence": 2,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.5860751390000019,
+          "sequence": 3,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.984499363999987,
+          "sequence": 4,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.4181775859999846,
+          "sequence": 5,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.8195825479999996,
+          "sequence": 6,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.2180304119999903,
+          "sequence": 7,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.6203815119999945,
+          "sequence": 8,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.017949749999985,
+          "sequence": 9,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.417696707999994,
+          "sequence": 10,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.819623758999995,
+          "sequence": 11,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.251311589000011,
+          "sequence": 12,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.653300386000012,
+          "sequence": 13,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.051503684000011,
+          "sequence": 14,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.453732929000012,
+          "sequence": 15,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.855084223000006,
+          "sequence": 16,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.2535626179999895,
+          "sequence": 17,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.654209557999991,
+          "sequence": 18,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.051740402999997,
+          "sequence": 19,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.451390046,
+          "sequence": 20,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.85322120699999,
+          "sequence": 21,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.28564437899999,
+          "sequence": 22,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.685685425000003,
+          "sequence": 23,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.087558949999988,
+          "sequence": 24,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.485107776000007,
+          "sequence": 25,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.885459141000013,
+          "sequence": 26,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.284644227000001,
+          "sequence": 27,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.687018486,
+          "sequence": 28,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.086898678000011,
+          "sequence": 29,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.486718829000012,
+          "sequence": 30,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.922321960000005,
+          "sequence": 31,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.320917478000013,
+          "sequence": 32,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.720338343000009,
+          "sequence": 33,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.12091622700001,
+          "sequence": 34,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.521407554999996,
+          "sequence": 35,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.920926465999997,
+          "sequence": 36,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.318683988999993,
+          "sequence": 37,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.752239712999994,
+          "sequence": 38,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 16.152186078,
+          "sequence": 39,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        }
+      ],
+      "wall_elapsed_s": 16.843893261000005,
+      "lifecycle_state": 3,
+      "rejected_goals": 0,
+      "sent_goals": 40,
+      "pending_goal": false,
+      "server_ready": false
+    },
+    {
+      "case": "no_effort_cost",
+      "profile": {
+        "reference_m": 3.5,
+        "overrides": {
+          "gamma": 0.0
+        }
+      },
+      "parameters": {
+        "/go2_follow_mppi/controller_server": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "controller_frequency": 30.0,
+            "odom_topic": "/follow_demo/odom",
+            "min_x_velocity_threshold": 0.001,
+            "min_y_velocity_threshold": 0.001,
+            "min_theta_velocity_threshold": 0.001,
+            "failure_tolerance": 0.3,
+            "progress_checker_plugin": "progress",
+            "goal_checker_plugins": [
+              "follow_goal",
+              "observe_goal",
+              "face_goal"
+            ],
+            "controller_plugins": [
+              "FollowPath",
+              "Observe"
+            ],
+            "progress": {
+              "plugin": "nav2_controller::SimpleProgressChecker",
+              "required_movement_radius": 0.15,
+              "movement_time_allowance": 20.0
+            },
+            "follow_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 6.28,
+              "stateful": false
+            },
+            "observe_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.2,
+              "stateful": false
+            },
+            "face_goal": {
+              "plugin": "nav2_controller::SimpleGoalChecker",
+              "xy_goal_tolerance": 0.08,
+              "yaw_goal_tolerance": 0.06,
+              "stateful": false
+            },
+            "FollowPath": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.0,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 0.35
+              }
+            },
+            "Observe": {
+              "plugin": "nav2_mppi_controller::MPPIController",
+              "time_steps": 48,
+              "model_dt": 0.05,
+              "batch_size": 800,
+              "iteration_count": 1,
+              "vx_std": 0.25,
+              "vy_std": 0.0,
+              "wz_std": 0.2,
+              "vx_max": 0.8,
+              "vx_min": 0.0,
+              "vy_max": 0.0,
+              "wz_max": 1.0,
+              "motion_model": "DiffDrive",
+              "prune_distance": 3.5,
+              "transform_tolerance": 0.2,
+              "temperature": 0.3,
+              "gamma": 0.015,
+              "visualize": false,
+              "retry_attempt_limit": 1,
+              "reset_period": 1.0,
+              "critics": [
+                "ConstraintCritic",
+                "CostCritic",
+                "GoalCritic",
+                "PathFollowCritic",
+                "PathAlignCritic",
+                "PathAngleCritic",
+                "GoalAngleCritic"
+              ],
+              "ConstraintCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 4.0
+              },
+              "CostCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 3.81,
+                "critical_cost": 300.0,
+                "consider_footprint": true,
+                "collision_cost": 1000000.0,
+                "near_goal_distance": 0.3
+              },
+              "GoalCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "threshold_to_consider": 1.4
+              },
+              "PathFollowCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 5,
+                "threshold_to_consider": 0.15
+              },
+              "PathAlignCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 6.0,
+                "offset_from_furthest": 8,
+                "threshold_to_consider": 0.3,
+                "trajectory_point_step": 3,
+                "max_path_occupancy_ratio": 0.05
+              },
+              "PathAngleCritic": {
+                "enabled": false,
+                "cost_power": 1,
+                "cost_weight": 5.0,
+                "offset_from_furthest": 4,
+                "threshold_to_consider": 0.08,
+                "max_angle_to_furthest": 0.15,
+                "forward_preference": true
+              },
+              "GoalAngleCritic": {
+                "enabled": true,
+                "cost_power": 1,
+                "cost_weight": 8.0,
+                "threshold_to_consider": 0.35
+              }
+            }
+          }
+        },
+        "/go2_follow_mppi/local_costmap/local_costmap": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "update_frequency": 10.0,
+            "publish_frequency": 2.0,
+            "global_frame": "odom",
+            "robot_base_frame": "base_footprint",
+            "rolling_window": true,
+            "width": 12,
+            "height": 12,
+            "resolution": 0.1,
+            "footprint": "[[0.35, 0.16], [-0.35, 0.16], [-0.35, -0.16], [0.35, -0.16]]",
+            "footprint_padding": 0.0,
+            "track_unknown_space": true,
+            "always_send_full_costmap": true,
+            "transform_tolerance": 0.2,
+            "plugins": [
+              "geometry",
+              "inflation"
+            ],
+            "geometry": {
+              "plugin": "nav2_costmap_2d::StaticLayer",
+              "map_topic": "/follow_demo/local_geometry",
+              "map_subscribe_transient_local": true,
+              "subscribe_to_updates": false
+            },
+            "inflation": {
+              "plugin": "nav2_costmap_2d::InflationLayer",
+              "inflation_radius": 0.8,
+              "cost_scaling_factor": 5.0
+            }
+          }
+        },
+        "/go2_follow_mppi/lifecycle_manager": {
+          "ros__parameters": {
+            "use_sim_time": true,
+            "autostart": true,
+            "node_names": [
+              "controller_server"
+            ],
+            "bond_timeout": 0.0
+          }
+        }
+      },
+      "samples": 289,
+      "source_sha256": {
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "tests/check_mppi_speed.py": "393550b05626f181a961c41865cb602ab0d91ecffeecd0408aa1eff1f2403349"
+      },
+      "owned_nav2_processes": [
+        {
+          "pid": 578,
+          "start_ticks": "14924",
+          "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+        },
+        {
+          "pid": 579,
+          "start_ticks": "14924",
+          "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+        }
+      ],
+      "observed_steady_seconds": 8.997899925000013,
+      "mean_raw_vx": 0.8000000119209288,
+      "mean_actual_vx": 0.8000000000000003,
+      "inactive_ratio": 0.0,
+      "final_position": [
+        12.5293888416241,
+        -0.026628556119991712
+      ],
+      "final_yaw": -0.0005289648495444197,
+      "completed": true,
+      "action_results": [
+        {
+          "t": 0.7956374990000086,
+          "sequence": 1,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.1922342200000173,
+          "sequence": 2,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.5923885790000156,
+          "sequence": 3,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 1.9946178470000007,
+          "sequence": 4,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.3941387810000094,
+          "sequence": 5,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 2.7943042320000018,
+          "sequence": 6,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.194168499,
+          "sequence": 7,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 3.5957579020000026,
+          "sequence": 8,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.027735067999998,
+          "sequence": 9,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.427976360000002,
+          "sequence": 10,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 4.828871571999997,
+          "sequence": 11,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.228203363999995,
+          "sequence": 12,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 5.627962025000016,
+          "sequence": 13,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.027564239000014,
+          "sequence": 14,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.427933150999991,
+          "sequence": 15,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 6.826767953000001,
+          "sequence": 16,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.226797618999996,
+          "sequence": 17,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 7.626604114999992,
+          "sequence": 18,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.060406779999994,
+          "sequence": 19,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.460181927999997,
+          "sequence": 20,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 8.859868653999996,
+          "sequence": 21,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.260661805000012,
+          "sequence": 22,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 9.661587166999993,
+          "sequence": 23,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.0597664,
+          "sequence": 24,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.459741564000012,
+          "sequence": 25,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 10.893591575000016,
+          "sequence": 26,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.293499311000005,
+          "sequence": 27,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 11.693503081000017,
+          "sequence": 28,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.094041884000006,
+          "sequence": 29,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.493412328000005,
+          "sequence": 30,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 12.893391921000017,
+          "sequence": 31,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.292718508000007,
+          "sequence": 32,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 13.692817823000013,
+          "sequence": 33,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.127077737999997,
+          "sequence": 34,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.527569115000006,
+          "sequence": 35,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 14.928608142999991,
+          "sequence": 36,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.327622965000018,
+          "sequence": 37,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 15.729145891000002,
+          "sequence": 38,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        },
+        {
+          "t": 16.127790113000003,
+          "sequence": 39,
+          "current": false,
+          "status": 6,
+          "error_code": null,
+          "error_msg": null
+        }
+      ],
+      "wall_elapsed_s": 16.746415829,
+      "lifecycle_state": 3,
+      "rejected_goals": 0,
+      "sent_goals": 40,
+      "pending_goal": false,
+      "server_ready": false
+    }
+  ],
+  "finished_at_utc": "2026-10-05T16:28:31.504271+00:00",
+  "all_completed": true
+}

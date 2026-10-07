@@ -1,0 +1,20 @@
+{
+  "checked_at": "2026-10-05T13:14:51.3248386Z",
+  "simulation_http_unreachable": true,
+  "simulation_pgrep_exit": 1,
+  "mppi_pgrep_exit": 1,
+  "search_worker_ids": [
+    536,
+    544,
+    822,
+    840,
+    1160,
+    1205
+  ],
+  "search_worker_ps_exit": 1,
+  "preview_pid": 8892,
+  "preview_stopped": true,
+  "preview_port_listening": false,
+  "all_task_services_stopped": true,
+  "scope": "只核对本轮启动的仿真、MPPI、搜索进程及8776预览服务"
+}

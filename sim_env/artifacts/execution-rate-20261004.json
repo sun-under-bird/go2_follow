@@ -1,0 +1,390 @@
+{
+  "kind": "physical_yaw_rate_benchmark",
+  "schema_version": 1,
+  "pid": 309,
+  "started_at_utc": "2026-10-04T13:06:34.623505+00:00",
+  "cases": [
+    {
+      "case": "moving-reversal",
+      "execution_mode": "heading",
+      "requested_forward": 0.5,
+      "requested_turn": 0.3,
+      "phases": {
+        "positive": {
+          "requested_wz": 0.3,
+          "raw_rate_rmse": 0.14875357232135195,
+          "late_mean_wz": 0.26447488199475355,
+          "late_mean_vx": 0.43675234481508,
+          "late_mean_vy": -0.00821857115185773,
+          "settled_response_s": null,
+          "direction_response_s": 1.5819999999996073,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.1380267118597229,
+          "max_initial_body_lateral_displacement_m": 1.7602681507313889,
+          "phase_displacement_m": 3.0842119133354395
+        },
+        "negative": {
+          "requested_wz": -0.3,
+          "raw_rate_rmse": 0.27752030595355953,
+          "late_mean_wz": -0.22557814216886135,
+          "late_mean_vx": 0.42630514954805926,
+          "late_mean_vy": -0.034439694361707074,
+          "settled_response_s": null,
+          "direction_response_s": 4.462000000001755,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.13830521675874086,
+          "max_initial_body_lateral_displacement_m": 0.3649856043667459,
+          "phase_displacement_m": 3.3273267567920897
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.1780167442719868,
+          "late_mean_wz": -0.0956441693696116,
+          "late_mean_vx": 0.4278215103000025,
+          "late_mean_vy": -0.02350800162206818,
+          "settled_response_s": null,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.13807224780758795,
+          "max_initial_body_lateral_displacement_m": 0.6843067263823803,
+          "phase_displacement_m": 1.7020629577580684
+        }
+      },
+      "stop_time_s": 0.3219999999973986,
+      "stop_displacement_m": 0.05699000466465717,
+      "stop_final_motion": {
+        "vx": 0.0006878805531056685,
+        "vy": 0.000674727756127924,
+        "wz": 0.00020250964881874658
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.5184282019999955,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": false
+    },
+    {
+      "case": "in-place-reversal",
+      "execution_mode": "heading",
+      "requested_forward": 0.0,
+      "requested_turn": 0.4,
+      "phases": {
+        "positive": {
+          "requested_wz": 0.4,
+          "raw_rate_rmse": 0.2579888227848317,
+          "late_mean_wz": 0.3005843303049267,
+          "late_mean_vx": -0.0029778546505776905,
+          "late_mean_vy": -0.04848776984418343,
+          "settled_response_s": null,
+          "direction_response_s": 2.5219999999995037,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.1303856113421936,
+          "max_initial_body_lateral_displacement_m": 0.05308047870929415,
+          "phase_displacement_m": 0.10662872569879948
+        },
+        "negative": {
+          "requested_wz": -0.4,
+          "raw_rate_rmse": 0.4137654027159691,
+          "late_mean_wz": -0.09540336531325792,
+          "late_mean_vx": 0.009335695900827706,
+          "late_mean_vy": 0.0008369697710754838,
+          "settled_response_s": null,
+          "direction_response_s": 7.262000000000203,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.12141171389748599,
+          "max_initial_body_lateral_displacement_m": 0.053018520922486496,
+          "phase_displacement_m": 0.05808774666771127
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.022702186965578963,
+          "late_mean_wz": 0.00020040096252973863,
+          "late_mean_vx": 0.00010276061450903693,
+          "late_mean_vy": -2.877580843613319e-05,
+          "settled_response_s": 0.18199999999969307,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.05374582564186012,
+          "max_initial_body_lateral_displacement_m": 0.011933171262021395,
+          "phase_displacement_m": 0.017419044515294444
+        }
+      },
+      "stop_time_s": 0.3419999999996044,
+      "stop_displacement_m": 0.014953153678018591,
+      "stop_final_motion": {
+        "vx": 0.00016914001662568263,
+        "vy": 5.93657308707952e-05,
+        "wz": 0.00019155111621226112
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.3637708480000015,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": false
+    },
+    {
+      "case": "in-place-capability",
+      "execution_mode": "heading",
+      "requested_forward": 0.0,
+      "requested_turn": 0.8,
+      "phases": {
+        "positive": {
+          "requested_wz": 0.8,
+          "raw_rate_rmse": 0.7336029436500338,
+          "late_mean_wz": -0.2579626686138599,
+          "late_mean_vx": 0.024539286203072,
+          "late_mean_vy": -0.008408199520048745,
+          "settled_response_s": null,
+          "direction_response_s": 1.5419999999996117,
+          "model_input_saturated_ratio": 0.505,
+          "peak_abs_vy": 0.1439609346250688,
+          "max_initial_body_lateral_displacement_m": 0.048292057686838426,
+          "phase_displacement_m": 0.131053718003911
+        },
+        "negative": {
+          "requested_wz": -0.8,
+          "raw_rate_rmse": 0.2560540619699817,
+          "late_mean_wz": -0.6294872101275558,
+          "late_mean_vx": 0.05747276183995423,
+          "late_mean_vy": 0.010884915058530684,
+          "settled_response_s": null,
+          "direction_response_s": 0.00200000000067746,
+          "model_input_saturated_ratio": 0.76,
+          "peak_abs_vy": 0.13214202936578573,
+          "max_initial_body_lateral_displacement_m": 0.16519138511848616,
+          "phase_displacement_m": 0.0999604795167114
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.03552421352431313,
+          "late_mean_wz": 0.0002228355897726759,
+          "late_mean_vx": 0.000701596162624307,
+          "late_mean_vy": -8.533034930366057e-05,
+          "settled_response_s": 0.2219999999996709,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.005,
+          "peak_abs_vy": 0.18915568663376392,
+          "max_initial_body_lateral_displacement_m": 0.017153077969011526,
+          "phase_displacement_m": 0.016736914836245904
+        }
+      },
+      "stop_time_s": 0.4619999999995379,
+      "stop_displacement_m": 0.016424608822890045,
+      "stop_final_motion": {
+        "vx": 0.0006788848760021899,
+        "vy": -4.771911579766822e-05,
+        "wz": -2.0948259421282433e-05
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.4147700520000512,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": false
+    },
+    {
+      "case": "moving-reversal",
+      "execution_mode": "rate",
+      "requested_forward": 0.5,
+      "requested_turn": 0.3,
+      "phases": {
+        "positive": {
+          "requested_wz": 0.3,
+          "raw_rate_rmse": 0.07508660353454925,
+          "late_mean_wz": 0.29887045432316384,
+          "late_mean_vx": 0.4410489943877507,
+          "late_mean_vy": -0.009293052919211038,
+          "settled_response_s": null,
+          "direction_response_s": 0.08199999999977248,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.12210702323655212,
+          "max_initial_body_lateral_displacement_m": 2.5759157867516693,
+          "phase_displacement_m": 2.71128373057795
+        },
+        "negative": {
+          "requested_wz": -0.3,
+          "raw_rate_rmse": 0.09667076483746424,
+          "late_mean_wz": -0.29807347208800644,
+          "late_mean_vx": 0.44141084827753896,
+          "late_mean_vy": -0.02247418851647401,
+          "settled_response_s": null,
+          "direction_response_s": 0.1620000000007309,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.14933011472269644,
+          "max_initial_body_lateral_displacement_m": 2.6046118607895385,
+          "phase_displacement_m": 2.7414044753473137
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.0768530519273879,
+          "late_mean_wz": 0.00030875462951186506,
+          "late_mean_vx": 0.4380967147255109,
+          "late_mean_vy": -0.004415209391327237,
+          "settled_response_s": null,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.12471688791108106,
+          "max_initial_body_lateral_displacement_m": 0.05398863292729271,
+          "phase_displacement_m": 1.7363133133885063
+        }
+      },
+      "stop_time_s": 0.28199999999742076,
+      "stop_displacement_m": 0.052041730292754135,
+      "stop_final_motion": {
+        "vx": 0.00026635892119299234,
+        "vy": -0.0001907272147390778,
+        "wz": -0.0005779849166621358
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.5261745749999704,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": true
+    },
+    {
+      "case": "in-place-reversal",
+      "execution_mode": "rate",
+      "requested_forward": 0.0,
+      "requested_turn": 0.4,
+      "phases": {
+        "positive": {
+          "requested_wz": 0.4,
+          "raw_rate_rmse": 0.08595208625027877,
+          "late_mean_wz": 0.39791598378255594,
+          "late_mean_vx": -0.01338553342287103,
+          "late_mean_vy": -0.0559278545105332,
+          "settled_response_s": 0.521999999999724,
+          "direction_response_s": 0.08199999999977248,
+          "model_input_saturated_ratio": 0.01,
+          "peak_abs_vy": 0.14032677958740214,
+          "max_initial_body_lateral_displacement_m": 0.063306902578342,
+          "phase_displacement_m": 0.22701132555039163
+        },
+        "negative": {
+          "requested_wz": -0.4,
+          "raw_rate_rmse": 0.12303995177939796,
+          "late_mean_wz": -0.40517037859625427,
+          "late_mean_vx": 0.019344450277117342,
+          "late_mean_vy": 0.01984962149266672,
+          "settled_response_s": 2.9820000000016726,
+          "direction_response_s": 0.12200000000071753,
+          "model_input_saturated_ratio": 0.0175,
+          "peak_abs_vy": 0.11011799421974397,
+          "max_initial_body_lateral_displacement_m": 0.15779529827083136,
+          "phase_displacement_m": 0.14024651212367786
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.04735842750998832,
+          "late_mean_wz": 0.0013267888763785441,
+          "late_mean_vx": 0.001139946524476113,
+          "late_mean_vy": 0.0011853147804529625,
+          "settled_response_s": 0.2219999999996709,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.0,
+          "peak_abs_vy": 0.028555193137004442,
+          "max_initial_body_lateral_displacement_m": 0.011777209325362848,
+          "phase_displacement_m": 0.014741502613112736
+        }
+      },
+      "stop_time_s": 0.06199999999975958,
+      "stop_displacement_m": 0.0018293492475974082,
+      "stop_final_motion": {
+        "vx": 0.0007780001282449141,
+        "vy": 0.00016974510016470168,
+        "wz": 0.00090324150650907
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.5200041859999942,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": true
+    },
+    {
+      "case": "in-place-capability",
+      "execution_mode": "rate",
+      "requested_forward": 0.0,
+      "requested_turn": 0.8,
+      "phases": {
+        "positive": {
+          "requested_wz": 0.8,
+          "raw_rate_rmse": 0.36099753141420365,
+          "late_mean_wz": 0.4427016325351568,
+          "late_mean_vx": -0.00865638456514247,
+          "late_mean_vy": -0.05453426603667846,
+          "settled_response_s": null,
+          "direction_response_s": 0.10199999999977027,
+          "model_input_saturated_ratio": 0.9975,
+          "peak_abs_vy": 0.14353534871368898,
+          "max_initial_body_lateral_displacement_m": 0.06333677221929801,
+          "phase_displacement_m": 0.21394661371665513
+        },
+        "negative": {
+          "requested_wz": -0.8,
+          "raw_rate_rmse": 0.22127859904422323,
+          "late_mean_wz": -0.6206323465711316,
+          "late_mean_vx": 0.05787171406698559,
+          "late_mean_vy": 0.016506647499743864,
+          "settled_response_s": null,
+          "direction_response_s": 0.12200000000071753,
+          "model_input_saturated_ratio": 1.0,
+          "peak_abs_vy": 0.1763169465135911,
+          "max_initial_body_lateral_displacement_m": 0.22169772651627462,
+          "phase_displacement_m": 0.20341788570822308
+        },
+        "zero_turn": {
+          "requested_wz": 0.0,
+          "raw_rate_rmse": 0.05964052308863205,
+          "late_mean_wz": -9.962703853989092e-05,
+          "late_mean_vx": 0.0006139050617891829,
+          "late_mean_vy": 0.00020584977691904115,
+          "settled_response_s": 0.24199999999965982,
+          "direction_response_s": null,
+          "model_input_saturated_ratio": 0.005,
+          "peak_abs_vy": 0.05016616602129486,
+          "max_initial_body_lateral_displacement_m": 0.006549149703751591,
+          "phase_displacement_m": 0.00813723411472988
+        }
+      },
+      "stop_time_s": 0.2219999999996709,
+      "stop_displacement_m": 0.007449977096719462,
+      "stop_final_motion": {
+        "vx": 0.0004994283588712705,
+        "vy": 7.360129406453612e-05,
+        "wz": -0.00021857393993289758
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 1.5217914799999903,
+      "physics_timestep_s": 0.002,
+      "nominal_tracking_met": false
+    }
+  ],
+  "rate_configuration": {
+    "kp": 0.35,
+    "ki": 0.5,
+    "filter_tau_s": 0.08,
+    "input_limit": 1.0,
+    "integral_limit": 2.0,
+    "feedforward_gain_at_zero": 2.4,
+    "feedforward_gain_at_vx_point5": 1.6,
+    "evidence": "execution-region-20261004.json及逐帧heading基准；中间前速插值和反馈参数待独立验收",
+    "validated_requested_rates": null
+  },
+  "source_sha256": {
+    "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+    "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+    "simulation.py": "10205e9d8a4b49e54e6ee7dd09037c2431026919270a44ce26e762652f111913",
+    "tests/check_yaw_rate.py": "9b25084d1ad2084a90e0aced4bca2743252647154b8a9f1ec9d7adb819d3bece",
+    "tests/check_execution.py": "f8f7027dd0abd00dd2069f8e09b2ba4cec400b3e44a415767a6a149b012f15a5"
+  },
+  "model_sha256": "1b3261d32f1c7b157a98a4f66ac689c89ec10a5032ad9a9a67bd96d4556d6901",
+  "input_profile": {
+    "stand_until_s": 4.0,
+    "positive_until_s": 12.0,
+    "negative_until_s": 20.0,
+    "zero_turn_until_s": 24.0,
+    "all_zero_until_s": 30.0,
+    "sample_period_s": 0.02,
+    "response_rate_average_window_s": 0.2,
+    "sustained_response_window_s": 0.5
+  },
+  "note": "有限物理对照，角速度PI和前馈是独立实验；通过不等于导航或实机SDK认证。",
+  "finished_at_utc": "2026-10-04T13:06:44.766177+00:00",
+  "completed_cases": 6,
+  "posture_and_stop_checks_passed": true,
+  "exit_code": 0
+}

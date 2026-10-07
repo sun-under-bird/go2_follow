@@ -1,0 +1,82 @@
+[
+  {
+    "scenario": "slalom_loop",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 1
+  },
+  {
+    "scenario": "long_wall",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 0
+  },
+  {
+    "scenario": "consecutive",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 0
+  },
+  {
+    "scenario": "open",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 0
+  },
+  {
+    "scenario": "corner",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 0
+  },
+  {
+    "scenario": "blocked",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 0
+  },
+  {
+    "scenario": "square_loop",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 0
+  },
+  {
+    "scenario": "wall_loop",
+    "execution_mode": "rate",
+    "planning_mode": "trail",
+    "observation_mode": "camera",
+    "camera_pitch_deg": 25.0,
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process",
+    "exit_code": 1
+  }
+]

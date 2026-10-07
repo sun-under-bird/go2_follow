@@ -1,0 +1,842 @@
+[INFO] [1791399704.697704694] [go2_follow_mppi.controller_server]: 
+	controller_server lifecycle node launched. 
+	Waiting on external lifecycle transitions to activate
+	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[INFO] [1791399704.700764397] [go2_follow_mppi.controller_server]: Creating controller server
+[INFO] [1791399704.704135186] [go2_follow_mppi.local_costmap.local_costmap]: 
+	local_costmap lifecycle node launched. 
+	Waiting on external lifecycle transitions to activate
+	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[INFO] [1791399704.704516194] [go2_follow_mppi.local_costmap.local_costmap]: Creating Costmap
+[INFO] [1791399704.946353985] [go2_follow_mppi.controller_server]: Configuring controller interface
+[INFO] [1791399704.946411336] [go2_follow_mppi.controller_server]: getting goal checker plugins..
+[INFO] [1791399704.946422527] [go2_follow_mppi.controller_server]: Controller frequency set to 30.0000Hz
+[INFO] [1791399704.946440863] [go2_follow_mppi.local_costmap.local_costmap]: Configuring
+[INFO] [1791399704.948388164] [go2_follow_mppi.local_costmap.local_costmap]: Using plugin "geometry"
+[INFO] [1791399704.950534794] [go2_follow_mppi.local_costmap.local_costmap]: Subscribing to the map topic (/follow_demo/local_geometry) with transient local durability
+[INFO] [1791399704.951053238] [go2_follow_mppi.local_costmap.local_costmap]: Initialized plugin "geometry"
+[INFO] [1791399704.951070492] [go2_follow_mppi.local_costmap.local_costmap]: Using plugin "inflation"
+[INFO] [1791399704.951403296] [go2_follow_mppi.local_costmap.local_costmap]: Initialized plugin "inflation"
+[INFO] [1791399704.955486486] [go2_follow_mppi.controller_server]: Created progress_checker : progress of type nav2_controller::SimpleProgressChecker
+[INFO] [1791399704.955952950] [go2_follow_mppi.controller_server]: Created goal checker : follow_goal of type nav2_controller::SimpleGoalChecker
+[INFO] [1791399704.956157927] [go2_follow_mppi.controller_server]: Created goal checker : observe_goal of type nav2_controller::SimpleGoalChecker
+[INFO] [1791399704.956440054] [go2_follow_mppi.controller_server]: Created goal checker : face_goal of type nav2_controller::SimpleGoalChecker
+[INFO] [1791399704.956600585] [go2_follow_mppi.controller_server]: Controller Server has follow_goal observe_goal face_goal  goal checkers available.
+[INFO] [1791399704.957611985] [go2_follow_mppi.controller_server]: Created controller : FollowPath of type nav2_mppi_controller::MPPIController
+[WARN] [1791399704.958152622] [go2_follow_mppi.controller_server]: Controller period is less then model dt, consider setting it equal
+[INFO] [1791399704.959130186] [go2_follow_mppi.controller_server]: ConstraintCritic instantiated with 1 power and 4.000000 weight.
+[INFO] [1791399704.959154743] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::ConstraintCritic
+[INFO] [1791399704.959435337] [go2_follow_mppi.controller_server]: InflationCostCritic instantiated with 1 power and 300.000000 / 0.015000 weights. Critic will collision check based on footprint cost.
+[INFO] [1791399704.959454694] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::CostCritic
+[INFO] [1791399704.962691569] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::BrakingCritic
+[INFO] [1791399704.963285871] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::FollowSpeedCritic
+[INFO] [1791399704.963522389] [go2_follow_mppi.controller_server]: GoalCritic instantiated with 1 power and 5.000000 weight.
+[INFO] [1791399704.963545153] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalCritic
+[INFO] [1791399704.963817040] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathFollowCritic
+[INFO] [1791399704.964160075] [go2_follow_mppi.controller_server]: ReferenceTrajectoryCritic instantiated with 1 power and 6.000000 weight
+[INFO] [1791399704.964181586] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAlignCritic
+[INFO] [1791399704.964480696] [go2_follow_mppi.controller_server]: PathAngleCritic instantiated with 1 power and 5.000000 weight. Reversing not allowed.
+[INFO] [1791399704.964531855] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAngleCritic
+[INFO] [1791399704.964711914] [go2_follow_mppi.controller_server]: GoalAngleCritic instantiated with 1 power, 5.000000 weight, and 0.350000 angular threshold.
+[INFO] [1791399704.964730951] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalAngleCritic
+[INFO] [1791399704.967125269] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399704.968465084] [MPPIController]: Configured MPPI Controller: FollowPath
+[INFO] [1791399704.968566050] [go2_follow_mppi.controller_server]: Created controller : Observe of type nav2_mppi_controller::MPPIController
+[WARN] [1791399704.969301815] [go2_follow_mppi.controller_server]: Controller period is less then model dt, consider setting it equal
+[INFO] [1791399704.970031228] [go2_follow_mppi.controller_server]: ConstraintCritic instantiated with 1 power and 4.000000 weight.
+[INFO] [1791399704.970061256] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::ConstraintCritic
+[INFO] [1791399704.970303836] [go2_follow_mppi.controller_server]: InflationCostCritic instantiated with 1 power and 300.000000 / 0.015000 weights. Critic will collision check based on footprint cost.
+[INFO] [1791399704.970327873] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::CostCritic
+[INFO] [1791399704.971131089] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::BrakingCritic
+[INFO] [1791399704.971695292] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::FollowSpeedCritic
+[INFO] [1791399704.971987728] [go2_follow_mppi.controller_server]: GoalCritic instantiated with 1 power and 5.000000 weight.
+[INFO] [1791399704.972015963] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalCritic
+[INFO] [1791399704.972312217] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathFollowCritic
+[INFO] [1791399704.972757219] [go2_follow_mppi.controller_server]: ReferenceTrajectoryCritic instantiated with 1 power and 6.000000 weight
+[INFO] [1791399704.972784552] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAlignCritic
+[INFO] [1791399704.973124060] [go2_follow_mppi.controller_server]: PathAngleCritic instantiated with 1 power and 5.000000 weight. Reversing not allowed.
+[INFO] [1791399704.973147305] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAngleCritic
+[INFO] [1791399704.973340960] [go2_follow_mppi.controller_server]: GoalAngleCritic instantiated with 1 power, 8.000000 weight, and 0.350000 angular threshold.
+[INFO] [1791399704.973363564] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalAngleCritic
+[INFO] [1791399704.975733345] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399704.976684689] [MPPIController]: Configured MPPI Controller: Observe
+[INFO] [1791399704.976721159] [go2_follow_mppi.controller_server]: Controller Server has FollowPath Observe  controllers available.
+[INFO] [1791399704.980082300] [go2_follow_mppi.controller_server]: Activating
+[INFO] [1791399704.980118560] [go2_follow_mppi.local_costmap.local_costmap]: Activating
+[INFO] [1791399704.980133129] [go2_follow_mppi.local_costmap.local_costmap]: Checking transform
+[INFO] [1791399704.980262078] [go2_follow_mppi.local_costmap.local_costmap]: start
+[WARN] [1791399705.130501834] [go2_follow_mppi.controller_server]: Parameter controller_server.verbose not found
+[INFO] [1791399705.131899492] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399705.132010677] [MPPIController]: Activated MPPI Controller: Observe
+[INFO] [1791399705.132022620] [MPPIController]: Activated MPPI Controller: FollowPath
+[INFO] [1791399705.132035545] [go2_follow_mppi.controller_server]: Creating bond (controller_server) to lifecycle manager.
+[INFO] [1791399705.988243422] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399706.180663968] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399706.380433885] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399706.680704936] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399708.180697926] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399708.481905801] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399708.681081835] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399708.982458598] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399711.326881994] [go2_follow_mppi.controller_server]: Received a goal, begin computing control effort.
+[INFO] [1791399711.328463323] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399711.380716614] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399711.727319942] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399711.984740117] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399712.127608299] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399712.480552857] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399712.527089626] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399712.680376382] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399712.780367964] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399712.927060879] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399712.980550806] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399713.080394351] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399713.280375191] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399713.393746844] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399713.484440476] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399713.580435975] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399713.780438782] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399713.793733727] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399713.880379171] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399714.080766088] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399714.180675842] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399714.260729987] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399714.380672079] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399714.580714973] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399714.629274039] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399714.781414414] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399714.881414200] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.060475348] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399715.081108501] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.180686964] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.380717745] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.460545319] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399715.580741425] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.681421037] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.862433618] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399715.881447525] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399715.980590692] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399716.180752958] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399716.280634154] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399716.362419089] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399716.480660437] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399716.680653294] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399716.729302563] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399716.780690053] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399716.881088983] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.080788206] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.162389092] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399717.280771740] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.380692298] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.561073636] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399717.580701914] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.780509102] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.880742028] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399717.929287620] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399718.080438848] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399718.180752583] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399718.380612020] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399718.393857356] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399718.580684608] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399718.680607013] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399718.760512026] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399718.880494316] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399718.980700394] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.160724540] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399719.180431658] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.381455045] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.580723992] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.593871852] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399719.680657262] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.880800240] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.960707604] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399719.980432838] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.180387879] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.280401023] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.360436497] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399720.480378536] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.680435318] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.780371418] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.793741568] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399720.980402986] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.080382055] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.193746608] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399719.424342967] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.524360710] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.704362483] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399719.724452915] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399719.824344724] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.024345704] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.071065626] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399720.224336814] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.324361264] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.471048232] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399720.524391800] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.724350913] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.824389146] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399720.871056803] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399721.024369845] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.124343423] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.271087041] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399721.324372366] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.424414356] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.624338486] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.737729536] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399721.824360556] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399721.924427023] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.124598509] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.173240798] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399722.224538806] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.424757132] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.571244624] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399722.624652988] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.724618497] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.924729422] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399722.939475208] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399723.124702098] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399723.225112980] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399723.405716437] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399723.424652377] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399723.625046524] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399723.724624005] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399723.806330591] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399723.924642521] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399724.124718504] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399724.224641707] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399724.271278505] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399724.424739501] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399724.624649693] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399724.673233269] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399724.725051657] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399724.924781846] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.104676729] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399725.124434264] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.227042481] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.424622756] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.504704930] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399725.624668722] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.724668600] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.924630511] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399725.937810125] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399726.124754846] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399726.224712344] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399726.337808185] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399726.424527626] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399726.524691395] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399726.737802518] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399726.825415533] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399727.024735462] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399727.204576150] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399727.224682658] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399727.425374181] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399727.571279940] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399727.729013255] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399727.824711988] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399727.972863071] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399728.024400947] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399728.371040703] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399728.424366341] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399728.524407440] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399728.724360305] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399728.804313506] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399728.824356215] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399729.024390224] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399729.204390875] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399729.224412895] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399729.524387457] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399729.604380228] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399729.724366868] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399729.824370900] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.004383104] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399730.024385105] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.224745909] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.324709891] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.473260907] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399730.524616906] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.724454677] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.824489433] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399730.871236513] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399731.024414359] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399731.225097147] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399731.271938197] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399731.324700574] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399731.524649530] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399731.704539849] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399731.724617613] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399731.824765250] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.025103659] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.124468284] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.172286792] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399732.325408462] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.524688899] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.539824002] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399732.825410997] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.925404991] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399732.938163740] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399733.124712296] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399733.325748900] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399733.373273488] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399733.424715828] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399733.624695361] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399733.771583604] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399733.829408396] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399734.024668605] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399734.124689241] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399734.206389155] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399734.325452076] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399734.424683959] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399734.637828794] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399734.726435198] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399734.824654877] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.024480489] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.039887214] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399735.124749073] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.324680569] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.506395707] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399735.525383947] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.724619059] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.824744462] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399735.872953037] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399736.024416214] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399736.224424219] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399736.271045126] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399736.424426441] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399736.524334104] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399736.671074761] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399736.724399978] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399736.824425545] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399737.024413022] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399737.071051753] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399737.224408218] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399737.324433200] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399737.504397465] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399737.724416473] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399737.824361310] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399737.904408281] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399738.126040107] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399738.324686438] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399738.338151102] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399738.624401399] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399738.806445560] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399738.824722551] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399739.025740065] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399739.225457008] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399739.238167946] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399739.425417533] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399739.524756732] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399739.604423390] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399739.724700343] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399739.927407485] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399740.039810758] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399740.124465403] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399740.424430835] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399740.472948893] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399740.624594265] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399740.828460502] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399740.872933983] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399740.924688543] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399741.124383165] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399741.324628685] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399741.337815782] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399741.424722706] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399741.624522835] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399741.772931818] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399741.824394342] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.024416305] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.124735913] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.171256549] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399742.324749536] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.524720434] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.571276068] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399742.724511489] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.824707009] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399742.971249973] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399743.024718037] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399743.225086003] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399743.424635687] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399743.439838463] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399743.524643912] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399743.724650691] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399743.871179804] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399743.924678078] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399744.024406061] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399744.224379105] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399744.271079876] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399744.324404954] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399744.524400771] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399744.671029661] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399744.724421908] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399744.824413491] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.024439809] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.104396937] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399745.224392585] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.324400813] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.504392928] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399745.524458034] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.724374747] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.824418906] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399745.904389265] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399746.024420470] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399746.228089501] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399746.324700935] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399746.404725480] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399746.525392644] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399746.725764135] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399746.772940513] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399746.924409238] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399747.024708874] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399747.225127521] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399747.237803329] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399747.525381742] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399747.604638115] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399747.725397616] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399748.006360215] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399748.024653186] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399748.424459541] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399748.471925726] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399748.524740003] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399748.725415746] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399748.871628249] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399748.925413905] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399749.025388854] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399749.224679734] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399749.404565622] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399749.425765489] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399749.624676583] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399749.725439067] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399749.772287177] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399749.924767429] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.024744057] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.138485332] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399750.325130771] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.527078305] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.537826325] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399750.624695632] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.824675807] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.924540532] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.972588951] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399751.124762297] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.325428298] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.425410996] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.438136072] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399751.624522171] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.031739097] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.080040807] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399750.133485131] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.338802265] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.444861148] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399750.533444308] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.631715544] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.731786665] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399750.846244108] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399750.931710350] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.133488695] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.279991189] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399751.335486429] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.433172292] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.634489506] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.713453522] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399751.831759469] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399751.931612756] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399752.115719967] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399752.131744754] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399752.331490372] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399752.431529186] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399752.478117079] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399752.631430617] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399752.831416326] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399752.944776025] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399753.031491103] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399753.131494083] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399753.331494225] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399753.411395385] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399753.431496127] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399753.631461066] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399753.778107656] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399753.831527572] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399753.931438544] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399754.131515220] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399754.245583180] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399754.331605344] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399754.531821906] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399754.614813708] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399754.734493850] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399754.831789553] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399755.013431945] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399755.036790484] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399755.132476800] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399755.331621339] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399755.446901453] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399755.531713020] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399755.833129112] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399755.912107454] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399756.031790554] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399756.346214514] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399756.431695589] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399756.531609901] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399756.778652997] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399756.832793015] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.031802371] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.131806067] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.144891579] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399757.531797334] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.580338415] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399757.631795475] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.832797354] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.932120075] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399757.980009895] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399758.131770595] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399758.331475820] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399758.480005714] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399758.532171937] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399758.631759196] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399758.831506185] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399758.844877928] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399759.036159152] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399759.231649362] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399759.245212249] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399759.435239056] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399759.532459778] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399759.679358548] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399759.733705321] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399759.931580670] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399760.031604585] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399760.113419787] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399760.231711178] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399760.431838961] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399760.512699071] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399760.531480828] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399760.831494930] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399760.911453086] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399760.931497624] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399761.131490293] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399761.231574765] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399761.411464386] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399761.431469998] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399761.531443105] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399761.731487523] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399761.778158657] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399761.931501352] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399762.031487794] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399762.211678077] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399762.231728988] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399762.432194557] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399762.531773779] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399762.644902831] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399762.836127293] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399762.931604811] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399763.031713312] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399763.078329031] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399763.231800976] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399763.431702158] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399763.513433053] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399763.631776346] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399763.832478569] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399763.913425872] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399763.932449068] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399764.131893569] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399764.331728440] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399764.411769008] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399764.432458979] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399764.635822756] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399764.780310105] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399764.831520440] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399764.932475462] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399765.136100667] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399765.179365899] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399765.331839640] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399765.431789630] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399765.544878763] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399765.631810144] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399765.932466541] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399765.946860331] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399766.131812376] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399766.378365397] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399766.431754326] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399766.631456088] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399766.811569637] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399766.832198894] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399767.031805396] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399767.232494988] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399767.280319580] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399767.531443937] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399767.613450017] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399767.631752850] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399767.831838103] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399767.931779470] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399768.013439628] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399768.131745457] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399768.431473135] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399768.478138559] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399768.531416910] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399768.731480360] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399768.931420572] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399768.944793589] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399769.131446244] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399769.231466847] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399769.311437503] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399769.431480556] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399769.631455164] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399769.731405266] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399769.744804913] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399769.931499456] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.131490636] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.144818851] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399770.231654826] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.431561863] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.545542520] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399770.631694524] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.831556281] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.932558038] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399770.946534540] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399771.131735332] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399771.331658799] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399771.445551281] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399771.531686428] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399771.631789390] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399771.831522697] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399771.844891915] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399771.931591793] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399772.131722137] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399772.278305702] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399772.331732109] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399772.431756978] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399772.631577399] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399772.644889551] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399772.832844574] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399772.931742305] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399773.111563102] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399773.131802493] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399773.331842599] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399773.432475040] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399773.511459658] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399773.632480645] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399773.831446547] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399773.911498967] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399773.931797513] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399774.132135544] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399774.312090701] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399774.331833336] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399774.431528126] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399774.633498824] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399774.712121526] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399774.832461867] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399774.932442796] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399775.112101678] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399775.132505083] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399775.331809366] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399775.531546385] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399775.578340582] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399775.631789606] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399776.011472263] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399776.031600456] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399776.231489103] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399776.444818582] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399776.531427722] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399776.731482025] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399776.831468785] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399776.878134717] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399777.131548994] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399777.332120915] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399777.344799057] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399777.531423415] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399777.631424442] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399777.711398035] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399777.831478791] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399777.931497296] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399778.111469755] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399778.131450011] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399778.331854865] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399778.531641594] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399778.580346167] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399778.631793075] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399778.931451574] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399778.946214173] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399779.134441072] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399779.331792309] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399779.412915333] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399779.531805697] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399779.631804698] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399779.831776483] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399779.846528390] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399780.031474473] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.231549359] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.311796082] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399780.431499869] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.533231440] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.678345796] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399780.731826862] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.931732591] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.079670408] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399781.231810351] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.431645075] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.532461048] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.580289779] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399781.731763608] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.931569036] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.979346868] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399782.032476532] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.231813210] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.378374042] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399780.622361205] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.721972325] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399780.902674032] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399780.921956092] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.128364545] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.221993778] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.335118413] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399781.424385699] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.521841785] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.703640690] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399781.722370221] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399781.922034207] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.021988669] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.069888040] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399782.222696312] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.422027571] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.502328253] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399782.521855899] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.722195828] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.821916503] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399782.935137989] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399783.021948944] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399783.221937622] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399783.303636251] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399783.424675906] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399783.525025411] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399783.723695257] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399783.737843154] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399783.821954396] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399784.135029615] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399784.221694916] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399784.421660877] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399784.521663356] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399784.568350059] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399784.621739527] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.001631115] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399785.021667046] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.121658137] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.321667853] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.401629014] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399785.521712681] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.621665664] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.801716503] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399785.821729916] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399785.921743495] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399786.121653634] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399786.201624694] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399786.321961054] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399786.421966537] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399786.621987448] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399786.635786987] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399786.822714146] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.002022660] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399787.022683301] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.122712654] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.321896383] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.470210122] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399787.522029708] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.621768680] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.821949684] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399787.935766571] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399788.021777234] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399788.221736460] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399788.322359495] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399788.368594477] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399788.521683908] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399788.722052026] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399788.768472885] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399788.921996296] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399789.022713232] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399789.135103746] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399789.221831389] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399789.421856136] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399789.523033845] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399789.570590441] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399789.621843054] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399789.824347954] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399790.002028111] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399790.022021958] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399790.121946759] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399790.323061023] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399790.370203644] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399790.521801402] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399790.625321641] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399790.868576986] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399790.921957598] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399791.022018144] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399791.221964499] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399791.268542454] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399791.422019515] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399791.522709444] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399791.701946428] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399791.721967972] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399791.921933533] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.024352859] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.103349814] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399792.222057548] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.422756008] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.503982642] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399792.522383423] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.722004580] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.921995453] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399792.968561922] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399793.021799817] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399793.221661909] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399793.368388308] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399793.421716757] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399793.521683701] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399793.721730739] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399793.768378173] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399794.021716001] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399794.168383117] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399794.221673131] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399794.523364159] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399794.535126524] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399794.721963268] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399794.922001017] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399795.001928739] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399795.122701231] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399795.421972068] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399795.437113825] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399795.524739027] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399795.822023217] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399795.902706998] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399795.926736157] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399796.021950942] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399796.221993533] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399796.235142287] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399796.321781964] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399796.435108932] [go2_follow_mppi.controller_server]: Goal was canceled. Stopping the robot.
+[INFO] [1791399796.435166070] [go2_follow_mppi.controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.
+[INFO] [1791399796.522044302] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399796.621725148] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399797.022047998] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399798.695659513] [go2_follow_mppi.controller_server]: Received a goal, begin computing control effort.
+[INFO] [1791399798.696535623] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399799.196038418] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399799.598016862] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399799.823418876] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399800.029818972] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399800.122061142] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399800.321995479] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399800.362934968] [go2_follow_mppi.controller_server]: Goal was canceled. Stopping the robot.
+[INFO] [1791399800.363028142] [go2_follow_mppi.controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.
+[INFO] [1791399800.521686513] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399800.621716880] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399800.821731150] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399801.021726664] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399802.210592878] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1791399802.210683955] [go2_follow_mppi.controller_server]: Running Nav2 LifecycleNode rcl preshutdown (controller_server)
+[INFO] [1791399802.210749552] [go2_follow_mppi.controller_server]: Deactivating
+[INFO] [1791399802.210775292] [MPPIController]: Deactivated MPPI Controller: Observe
+[INFO] [1791399802.210779811] [MPPIController]: Deactivated MPPI Controller: FollowPath
+[INFO] [1791399802.210789199] [go2_follow_mppi.local_costmap.local_costmap]: Deactivating
+[INFO] [1791399802.221806471] [go2_follow_mppi.controller_server]: Destroying bond (controller_server) to lifecycle manager.
+[INFO] [1791399802.231986410] [go2_follow_mppi.controller_server]: Cleaning up
+[INFO] [1791399802.232046126] [MPPIController]: Cleaned up MPPI Controller: Observe
+[INFO] [1791399802.232072527] [MPPIController]: Cleaned up MPPI Controller: FollowPath
+[INFO] [1791399802.232308945] [go2_follow_mppi.local_costmap.local_costmap]: Cleaning up
+[INFO] [1791399802.255044517] [go2_follow_mppi.controller_server]: Destroying bond (controller_server) to lifecycle manager.
+[INFO] [1791399802.268455562] [go2_follow_mppi.local_costmap.local_costmap]: Destroying
+[INFO] [1791399802.289909211] [go2_follow_mppi.controller_server]: Destroying

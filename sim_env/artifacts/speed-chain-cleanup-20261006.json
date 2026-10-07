@@ -1,0 +1,245 @@
+{
+  "checked_at_utc": "2026-10-05T16:42:04.877661+00:00",
+  "owned_native_records": [
+    {
+      "record": {
+        "pid": 436,
+        "start_ticks": "709",
+        "command": ""
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 437,
+        "start_ticks": "710",
+        "command": ""
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 480,
+        "start_ticks": "2398",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 481,
+        "start_ticks": "2398",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 522,
+        "start_ticks": "4076",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 523,
+        "start_ticks": "4076",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 439,
+        "start_ticks": "6699",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 440,
+        "start_ticks": "6699",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 474,
+        "start_ticks": "11232",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 475,
+        "start_ticks": "11232",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 536,
+        "start_ticks": "16395",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 537,
+        "start_ticks": "16395",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 456,
+        "start_ticks": "9878",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 457,
+        "start_ticks": "9878",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 498,
+        "start_ticks": "11556",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 499,
+        "start_ticks": "11556",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 578,
+        "start_ticks": "14924",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 579,
+        "start_ticks": "14924",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 409,
+        "start_ticks": "8197",
+        "command": ""
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 410,
+        "start_ticks": "8197",
+        "command": ""
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 538,
+        "start_ticks": "13235",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 539,
+        "start_ticks": "13235",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 409,
+        "start_ticks": "6070",
+        "command": ""
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 410,
+        "start_ticks": "6070",
+        "command": ""
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 506,
+        "start_ticks": "11863",
+        "command": "/opt/ros/humble/lib/nav2_controller/controller_server --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml -r cmd_vel:=/follow_demo/mppi_cmd "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    },
+    {
+      "record": {
+        "pid": 507,
+        "start_ticks": "11863",
+        "command": "/opt/ros/humble/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __ns:=/go2_follow_mppi --params-file /home/chy/go2_sim/follow_demo/runtime/mppi.yaml "
+      },
+      "matching_process_alive": false,
+      "current_identity": null
+    }
+  ],
+  "matching_processes": [],
+  "search_pid": 553,
+  "search_pid_exists": false,
+  "http_8765_reachable": false,
+  "nav2_manifest_exists": false,
+  "all_stopped": true
+}

@@ -1,0 +1,141 @@
+{
+  "kind": "physical_lateral_benchmark",
+  "pid": 395,
+  "execution_mode": "rate",
+  "cases": [
+    {
+      "case": "left",
+      "requested_command": [
+        0.0,
+        0.25,
+        0.0
+      ],
+      "steady_actual": {
+        "vx": 0.032424037862820596,
+        "vy": 0.0983224720502643,
+        "wz": -0.003464994548630424
+      },
+      "stop_time_s": 0.3220000000007843,
+      "stop_path_length_m": 0.009511993963443169,
+      "stop_final_motion": {
+        "vx": 2.685153367976791e-05,
+        "vy": 0.0003843677529275468,
+        "wz": 0.00042372154167849037
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 0.8126121060000173,
+      "steady_tracking_met": false
+    },
+    {
+      "case": "right",
+      "requested_command": [
+        0.0,
+        -0.25,
+        0.0
+      ],
+      "steady_actual": {
+        "vx": 0.027757778956206205,
+        "vy": -0.12581165967203484,
+        "wz": 0.0070366888098382105
+      },
+      "stop_time_s": 0.08200000000070418,
+      "stop_path_length_m": 0.007632235434349239,
+      "stop_final_motion": {
+        "vx": -4.562318277245836e-05,
+        "vy": 0.0008988047977258906,
+        "wz": -0.0003118121886215547
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 0.7800399540000171,
+      "steady_tracking_met": false
+    },
+    {
+      "case": "diagonal_left",
+      "requested_command": [
+        0.4,
+        0.2,
+        0.0
+      ],
+      "steady_actual": {
+        "vx": 0.3711528543112868,
+        "vy": 0.13368974444930706,
+        "wz": 0.006187720784729971
+      },
+      "stop_time_s": 0.5420000000008578,
+      "stop_path_length_m": 0.05081404318423555,
+      "stop_final_motion": {
+        "vx": 0.001025316917044022,
+        "vy": 0.0012315639702564966,
+        "wz": -0.0003495589208133157
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 0.7637214330000006,
+      "steady_tracking_met": false
+    },
+    {
+      "case": "diagonal_right",
+      "requested_command": [
+        0.4,
+        -0.2,
+        0.0
+      ],
+      "steady_actual": {
+        "vx": 0.33979491963880365,
+        "vy": -0.15129634586165897,
+        "wz": 0.011321085138269262
+      },
+      "stop_time_s": 0.2420000000007576,
+      "stop_path_length_m": 0.04195681001375837,
+      "stop_final_motion": {
+        "vx": 0.00018163285641500747,
+        "vy": 0.0005094514869026619,
+        "wz": -4.002965979760696e-05
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 0.7724111830000311,
+      "steady_tracking_met": true
+    },
+    {
+      "case": "reverse",
+      "requested_command": [
+        -0.2,
+        0.0,
+        0.0
+      ],
+      "steady_actual": {
+        "vx": -0.0018113518388016875,
+        "vy": 0.0008898418445394611,
+        "wz": -0.0007715407905039607
+      },
+      "stop_time_s": 0.5420000000008578,
+      "stop_path_length_m": 0.028306151225062807,
+      "stop_final_motion": {
+        "vx": 0.0010303437299159798,
+        "vy": -3.6888199608826955e-05,
+        "wz": -0.0003796210557645106
+      },
+      "posture_ready": true,
+      "wall_elapsed_s": 0.8094213269999955,
+      "steady_tracking_met": false
+    }
+  ],
+  "started_at_utc": "2026-10-05T06:01:17.328901+00:00",
+  "model_sha256": "1b3261d32f1c7b157a98a4f66ac689c89ec10a5032ad9a9a67bd96d4556d6901",
+  "source_sha256": {
+    "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+    "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+    "simulation.py": "10205e9d8a4b49e54e6ee7dd09037c2431026919270a44ce26e762652f111913",
+    "tests/check_lateral_execution.py": "d91776e8fc315a0cb3f02e7474b428f3a3b4ab2142932d14a0b3b34c51da906c"
+  },
+  "input_profile": {
+    "stand_until_s": 4.0,
+    "motion_until_s": 12.0,
+    "stop_until_s": 18.0,
+    "sample_interval_s": 0.02
+  },
+  "note": "有限无障碍能力基准；未改导航为Omni，不能代替碰撞校验、前视观察或实机验收。",
+  "all_cases_completed": true,
+  "posture_and_stop_checks_passed": true,
+  "steady_tracking_met": false,
+  "finished_at_utc": "2026-10-05T06:01:22.361389+00:00"
+}

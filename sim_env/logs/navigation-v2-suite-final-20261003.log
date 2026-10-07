@@ -1,0 +1,101 @@
+已安装：go2-follow；浏览器地址 http://localhost:8765
+{
+  "scenario": "open",
+  "validation_mode": "nominal_following_acceptance",
+  "passed_basic_checks": true,
+  "stimulus_valid": true,
+  "scenario_objective_met": true,
+  "passed_fluency": true,
+  "passed_navigation": true,
+  "steady_actual_vx": 0.4990738351735835,
+  "target_moving_mean_actual_vx": 0.49695554956755317,
+  "final_distance_m": 2.7697844749971208,
+  "target_moving_robot_slow_ratio": 0.0,
+  "debug_reasons": [],
+  "report_path": "/home/chy/go2_sim/artifacts/navigation-v2-open.json",
+  "samples_path": "/home/chy/go2_sim/artifacts/navigation-v2-open-samples.json"
+}
+{
+  "scenario": "long_wall",
+  "validation_mode": "nominal_following_acceptance",
+  "passed_basic_checks": true,
+  "stimulus_valid": true,
+  "scenario_objective_met": true,
+  "passed_fluency": false,
+  "passed_navigation": false,
+  "steady_actual_vx": 0.38627319892534245,
+  "target_moving_mean_actual_vx": 0.34523818657533295,
+  "final_distance_m": 2.07543031853762,
+  "target_moving_robot_slow_ratio": 0.1276083467094637,
+  "debug_reasons": [
+    "流畅性未通过：moving_follow_distance_bounded",
+    "流畅性未通过：moving_actual_speed",
+    "最后导航状态：FOLLOW_DISTANCE；路径点数=2；地图模式=static_history；深度年龄=0.5400000000000063"
+  ],
+  "report_path": "/home/chy/go2_sim/artifacts/navigation-v2-long_wall.json",
+  "samples_path": "/home/chy/go2_sim/artifacts/navigation-v2-long_wall-samples.json"
+}
+{
+  "scenario": "consecutive",
+  "validation_mode": "nominal_following_acceptance",
+  "passed_basic_checks": true,
+  "stimulus_valid": true,
+  "scenario_objective_met": false,
+  "passed_fluency": false,
+  "passed_navigation": false,
+  "steady_actual_vx": 0.19428511775616297,
+  "target_moving_mean_actual_vx": 0.260343231678333,
+  "final_distance_m": 4.401883445838138,
+  "target_moving_robot_slow_ratio": 0.22991347342396606,
+  "debug_reasons": [
+    "任务完成未通过：robot_fully_on_far_side",
+    "任务完成未通过：final_follow_distance_reasonable",
+    "流畅性未通过：moving_follow_distance_bounded",
+    "流畅性未通过：slow_time_ratio_bounded",
+    "流畅性未通过：moving_actual_speed",
+    "最后导航状态：NO_PROGRESS；路径点数=2；地图模式=static_history；深度年龄=0.6200000000000045"
+  ],
+  "report_path": "/home/chy/go2_sim/artifacts/navigation-v2-consecutive.json",
+  "samples_path": "/home/chy/go2_sim/artifacts/navigation-v2-consecutive-samples.json"
+}
+{
+  "scenario": "corner",
+  "validation_mode": "nominal_following_acceptance",
+  "passed_basic_checks": true,
+  "stimulus_valid": true,
+  "scenario_objective_met": true,
+  "passed_fluency": true,
+  "passed_navigation": true,
+  "steady_actual_vx": 0.4432489140043511,
+  "target_moving_mean_actual_vx": 0.3708713488515161,
+  "final_distance_m": 2.0846614792121145,
+  "target_moving_robot_slow_ratio": 0.10826446280990443,
+  "debug_reasons": [],
+  "report_path": "/home/chy/go2_sim/artifacts/navigation-v2-corner.json",
+  "samples_path": "/home/chy/go2_sim/artifacts/navigation-v2-corner-samples.json"
+}
+{
+  "scenario": "blocked",
+  "validation_mode": "nominal_following_acceptance",
+  "passed_basic_checks": true,
+  "stimulus_valid": true,
+  "scenario_objective_met": true,
+  "passed_fluency": true,
+  "passed_navigation": true,
+  "steady_actual_vx": 0.0,
+  "target_moving_mean_actual_vx": 0.0,
+  "final_distance_m": 3.9906944144711662,
+  "target_moving_robot_slow_ratio": 0.0,
+  "debug_reasons": [],
+  "report_path": "/home/chy/go2_sim/artifacts/navigation-v2-blocked.json",
+  "samples_path": "/home/chy/go2_sim/artifacts/navigation-v2-blocked-samples.json"
+}
+
+scenario    exit_code
+--------    ---------
+open                0
+long_wall           1
+consecutive         1
+corner              0
+blocked             0
+

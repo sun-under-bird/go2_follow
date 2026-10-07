@@ -1,0 +1,8 @@
+<library path="go2_follow_mppi_critics">
+  <class type="mppi::critics::FollowSpeedCritic" base_class_type="mppi::critics::CriticFunction">
+    <description>参考过期时降为零，使用同一采样轨迹联合优化速度与转向。</description>
+  </class>
+  <class type="mppi::critics::BrakingCritic" base_class_type="mppi::critics::CriticFunction">
+    <description>相机地图上的完整矩形停车校验，提前惩罚最终执行保护将拒收的候选。</description>
+  </class>
+</library>

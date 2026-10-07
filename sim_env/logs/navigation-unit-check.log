@@ -1,0 +1,47 @@
+test_bad_measurement_does_not_refresh_validity (test_controller.ControllerTests)
+NaN 与不合理跳点不能覆盖有效目标或刷新数据年龄。 ... ok
+test_delayed_measurement_uses_capture_pose (test_controller.ControllerTests)
+机器人运动时，同一静止目标不应因传输延迟被估计成移动目标。 ... ok
+test_heading_interpolation_crosses_pi (test_controller.ControllerTests)
+跨 ±π 插值应沿短弧，不应错误地转到零度。 ... ok
+test_input_loss_clears_previous_command (test_controller.ControllerTests)
+在运动中断开目标数据，下一次输出必须为零，恢复不能残留旧加速度。 ... ok
+test_nominal_acceleration_and_velocity_are_bounded (test_controller.ControllerTests)
+普通起步不能突破速度或加速度限制，不把低速提升到最低步行速度。 ... ok
+test_smoothing_cannot_exceed_output_limit_when_target_slows (test_controller.ControllerTests)
+接近速度上限时目标停下，残余正加速度也不能突破输出硬限制。 ... ok
+test_stale_data_cannot_keep_robot_moving (test_controller.ControllerTests)
+有最新里程计但没有新目标时，历史目标不能无限外推。 ... ok
+test_braking_reserves_space_before_boundary (test_navigation.NavigationTests)
+起点虽然可通行，高速所需的停车轨迹越界时仍必须被拒绝。 ... ok
+test_confirm_cannot_clear_observed_obstacle (test_navigation.NavigationTests)
+操作者确认不能覆盖相机已经观测到的近身障碍。 ... ok
+test_depth_loss_overrides_old_motion (test_navigation.NavigationTests)
+深度中断时，有效 UWB 和旧路线也不能维持运动。 ... ok
+test_expiration_never_erases_obstacles (test_navigation.NavigationTests)
+自由空间过期后回到未知，但障碍不能因超时被清除。 ... ok
+test_forward_limit_preserves_safe_observation_turn (test_navigation.NavigationTests)
+前方停车空间不足时应减小前进，同时保留在已确认包络内的安全转向。 ... ok
+test_front_depth_does_not_reveal_rear (test_navigation.NavigationTests)
+前方平面的理想深度可以确认前方，却不能生成相机后方自由空间。 ... ok
+test_ground_with_no_sky_return_remains_usable (test_navigation.NavigationTests)
+天空无返回不应阻断平地确认；但看见地面不能清掉已经存在的悬空障碍。 ... ok
+test_hidden_goal_only_gets_known_observation_position (test_navigation.NavigationTests)
+目标在未观察区域时，允许先观察；路径终点及连线均必须在已知包络内。 ... ok
+test_invalid_depth_does_not_create_free_space (test_navigation.NavigationTests)
+空洞、NaN 和超距不能作为清障观测。 ... ok
+test_path_goes_around_long_wall (test_navigation.NavigationTests)
+已观察到障碍两端时，搜索应绕端点，不能因目标偏角大而改为直追目标。 ... ok
+test_rolling_window_preserves_world_locations (test_navigation.NavigationTests)
+窗口平移后旧墙仍处于相同世界位置，不能随机器人一起移动。 ... ok
+test_turning_person_does_not_send_robot_behind_itself (test_navigation.NavigationTests)
+人刚向左走时，机器人应接近可达跟随区域，不为抢占正后方而反向绕圈。 ... ok
+test_unknown_is_not_drivable (test_navigation.NavigationTests)
+没有深度也没有人工确认时，未知地图不能产生可执行路线。 ... ok
+test_unobserved_rotation_is_rejected (test_navigation.NavigationTests)
+原地转身同样要求包络净空，不能绕过地图有效性。 ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.453s
+
+OK

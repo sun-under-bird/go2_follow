@@ -1,0 +1,77 @@
+test_allowed_decisions_match_without_safety_relaxation (__main__.SegmentFastEquivalenceTests)
+随机禁行层逐段对照，并逐一禁止格线与角点覆盖格以验证及时拒收。 ... ok
+test_deterministic_random_long_segments (__main__.SegmentFastEquivalenceTests)
+三千条任意长段及其反向核对长段备用分支和窗口外拒收。 ... ok
+test_deterministic_random_short_segments (__main__.SegmentFastEquivalenceTests)
+两万条短段及其反向覆盖同格、跨格、不同斜率和实际地图变换。 ... ok
+test_integer_grid_lines_corners_and_tiny_offsets (__main__.SegmentFastEquivalenceTests)
+整格、角点和容差两侧微扰均逐段对照；保留几乎同时的两轴交点。 ... ok
+test_invalid_inputs_and_window_edges (__main__.SegmentFastEquivalenceTests)
+非有限、形状错误和窗口边界继续拒收，零长点继续保留接触格。 ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 4.122s
+
+OK
+
+{
+  "tests_run": 5,
+  "tests_passed": true,
+  "covered_segment_comparisons": 49846,
+  "allowed_decision_comparisons": 3000,
+  "benchmark": {
+    "samples_per_round": 10000,
+    "rounds": 5,
+    "seed": 20261005,
+    "same_cell_segments": 6785,
+    "cross_cell_segments": 3215,
+    "max_axis_length_cells": 0.35,
+    "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+    "numpy": "1.26.4",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "seconds_per_round": {
+      "reference_cells": [
+        0.30377178200001254,
+        0.30513804899999286,
+        0.30299979700001245,
+        0.30237983500001064,
+        0.30400362599999653
+      ],
+      "optimized_cells": [
+        0.027497660999983964,
+        0.02826758699998777,
+        0.027102572999979202,
+        0.02787474699999848,
+        0.027225291999997125
+      ],
+      "reference_clear": [
+        0.3413373189999902,
+        0.33801687700000116,
+        0.3395319539999946,
+        0.3396758930000203,
+        0.3355569779999996
+      ],
+      "optimized_clear": [
+        0.033330462999998645,
+        0.033024087000001145,
+        0.03231539300000463,
+        0.03243961800001216,
+        0.03218352299998628
+      ]
+    },
+    "median_seconds": {
+      "reference_cells": 0.30377178200001254,
+      "optimized_cells": 0.027497660999983964,
+      "reference_clear": 0.3395319539999946,
+      "optimized_clear": 0.03243961800001216
+    },
+    "median_microseconds_per_segment": {
+      "reference_cells": 30.377178200001254,
+      "optimized_cells": 2.7497660999983964,
+      "reference_clear": 33.95319539999946,
+      "optimized_clear": 3.243961800001216
+    },
+    "cells_speedup": 11.047186231592196,
+    "clear_speedup": 10.466582991201292
+  }
+}

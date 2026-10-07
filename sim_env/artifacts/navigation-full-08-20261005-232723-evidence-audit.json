@@ -1,0 +1,1314 @@
+{
+  "prefix": "navigation-full-08-20261005-232723",
+  "audited_at_utc": "2026-10-05T15:40:50.316046+00:00",
+  "target_speed_mps": 0.8,
+  "same_source_across_scenarios": true,
+  "evidence_valid": true,
+  "navigation_passed_count": 1,
+  "all_navigation_passed": false,
+  "scenarios": [
+    {
+      "scenario": "open",
+      "title": "平地开阔通道",
+      "report_sha256": "3673e5cce9446fcbc58a3e2deddc44b553e4d5728ab8d1c3c06ccdf232f55afb",
+      "samples_sha256": "3f880db7f99e6721767d2342310e1c6df0297e21eecc4d844d6b2b544f7ff850",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 19.0,
+      "samples": 70,
+      "observed_duration_s": 19.26999999999827,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": true,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": true,
+        "longest_slow_spell_bounded": true,
+        "steady_window_observed": true,
+        "steady_actual_speed": false,
+        "steady_follow_distance_bounded": false
+      },
+      "human_laps": null,
+      "robot_laps": null,
+      "mean_actual_vx": 0.5510275585046753,
+      "steady_actual_vx": 0.5590462195658146,
+      "slow_ratio": 0.0,
+      "longest_slow_s": 0.0,
+      "maximum_follow_distance_m": 7.837936196365336,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 0.6114285714286386,
+      "angle_metrics": {
+        "moving_samples": 63,
+        "path_error_rms_deg": 9.812452159837159,
+        "path_error_max_deg": 52.11358485025764,
+        "facing_samples": 0,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "FOLLOW_DISTANCE": 0.5299999999999416,
+        "FOLLOW_REGION_REACHABLE": 2.9899999999996716,
+        "KNOWN_CORRIDOR_PROGRESS": 15.749999999998655
+      },
+      "search_worker_pids": [
+        541
+      ],
+      "failure_reasons": [
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：steady_actual_speed",
+        "流畅性未通过：steady_follow_distance_bounded",
+        "最后导航状态：KNOWN_CORRIDOR_PROGRESS；路径点数=2；地图模式=static_history；深度年龄=0.1700000000000017"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 17.119999999998505,
+          "mean_actual_vx": 0.5510275585046752,
+          "mean_final_command_vx": 0.6281352987119495,
+          "mean_mppi_raw_command_vx": 0.6270447281476489,
+          "mean_phase_speed_limit": 0.7948072709110435,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 11.08999999999738,
+          "mean_actual_vx": 0.5590462195658145,
+          "mean_final_command_vx": 0.6351517322977989,
+          "mean_mppi_raw_command_vx": 0.6336711927294442,
+          "mean_phase_speed_limit": 0.7919838122630344,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": []
+      }
+    },
+    {
+      "scenario": "long_wall",
+      "title": "长横向障碍",
+      "report_sha256": "6210aa0086b511f95079441e4c57932976ef2df67afc135de0206d97c88dce6a",
+      "samples_sha256": "137540cd4061e10e01917f9c0dcf94878c7cdbf3b3d5769582e751aca89e0923",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 65.0,
+      "samples": 233,
+      "observed_duration_s": 65.21000000002071,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": true,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": true,
+        "longest_slow_spell_bounded": true,
+        "moving_actual_speed": false
+      },
+      "human_laps": null,
+      "robot_laps": null,
+      "mean_actual_vx": 0.492559247337626,
+      "steady_actual_vx": 0.5583765168585362,
+      "slow_ratio": 0.0,
+      "longest_slow_s": 0.0,
+      "maximum_follow_distance_m": 3.688586868394757,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 0.9713741872336544,
+      "angle_metrics": {
+        "moving_samples": 32,
+        "path_error_rms_deg": 7.692990642797492,
+        "path_error_max_deg": 24.047707643927314,
+        "facing_samples": 5,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "CONTROLLER_STALE": 0.8299999999999086,
+        "FOLLOW_DISTANCE": 49.910000000020354,
+        "FOLLOW_FACE_TARGET": 1.3799999999992352,
+        "FOLLOW_REGION_REACHABLE": 12.260000000001064,
+        "KNOWN_CORRIDOR_PROGRESS": 0.560000000000187,
+        "PAUSED": 0.26999999999997115
+      },
+      "search_worker_pids": [
+        736
+      ],
+      "failure_reasons": [
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：FOLLOW_DISTANCE；路径点数=1；地图模式=static_history；深度年龄=0.18000000000000682"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 7.180000000001487,
+          "mean_actual_vx": 0.492559247337626,
+          "mean_final_command_vx": 0.5794279338237119,
+          "mean_mppi_raw_command_vx": 0.5892543825930655,
+          "mean_phase_speed_limit": 0.7728560121948199,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 1.2200000000004074,
+          "mean_actual_vx": 0.5583765168585361,
+          "mean_final_command_vx": 0.6652129736837791,
+          "mean_mppi_raw_command_vx": 0.67262778223538,
+          "mean_phase_speed_limit": 0.8,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": []
+      }
+    },
+    {
+      "scenario": "consecutive",
+      "title": "连续交错障碍",
+      "report_sha256": "0f20dd3856004309585042fc6fbf2690fea4e8fcf456cba50dd6316a9dc7efab",
+      "samples_sha256": "3a1af2e83a039f4b799844359752939947619ebf1f8d089874982b7d1ad5d0f1",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 70.0,
+      "samples": 249,
+      "observed_duration_s": 70.22000000000881,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": true,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": true,
+        "longest_slow_spell_bounded": true,
+        "moving_actual_speed": false
+      },
+      "human_laps": null,
+      "robot_laps": null,
+      "mean_actual_vx": 0.3666362092939652,
+      "steady_actual_vx": 0.5228658449858706,
+      "slow_ratio": 0.05656350053362294,
+      "longest_slow_s": 0.530000000000177,
+      "maximum_follow_distance_m": 5.096369300048715,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 1.1787857142863634,
+      "angle_metrics": {
+        "moving_samples": 42,
+        "path_error_rms_deg": 13.83852294713323,
+        "path_error_max_deg": 51.60290545477816,
+        "facing_samples": 7,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "CONTROLLER_STALE": 2.119999999999413,
+        "FOLLOW_DISTANCE": 45.02000000001386,
+        "FOLLOW_FACE_TARGET": 1.9399999999989248,
+        "FOLLOW_REGION_REACHABLE": 10.599999999998733,
+        "KNOWN_CORRIDOR_PROGRESS": 9.989999999997934,
+        "PAUSED": 0.26999999999997026,
+        "PLAN_PENDING": 0.27999999999996916
+      },
+      "search_worker_pids": [
+        963
+      ],
+      "failure_reasons": [
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：FOLLOW_DISTANCE；路径点数=1；地图模式=static_history；深度年龄=0.09000000000000341"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 9.3700000000023,
+          "mean_actual_vx": 0.3666362092939651,
+          "mean_final_command_vx": 0.42701594739018767,
+          "mean_mppi_raw_command_vx": 0.5499651284298025,
+          "mean_phase_speed_limit": 0.7207265050666042,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 3.420000000001144,
+          "mean_actual_vx": 0.5228658449858707,
+          "mean_final_command_vx": 0.6152473050891808,
+          "mean_mppi_raw_command_vx": 0.6443394009481397,
+          "mean_phase_speed_limit": 0.7999999999999999,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": [
+          {
+            "start_elapsed_s": 7.06000000000055,
+            "duration_s": 0.530000000000177,
+            "start_position": [
+              1.2383719546157308,
+              0.8394236966175784
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 0.530000000000177
+            },
+            "state_seconds": {
+              "DETOUR": 0.530000000000177
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 7.590000000000727
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "corner",
+      "title": "直角盲弯",
+      "report_sha256": "64860c4bbc49df4e2c5d4f1f99abade30f031e2181e28058b4ffe5d41bfaf5a9",
+      "samples_sha256": "8f2658b7f050be310e61ebf96f07fc31c202bcb1c837942f715a33df0582bfdf",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 90.0,
+      "samples": 319,
+      "observed_duration_s": 90.02999999996254,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": true,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": true,
+        "longest_slow_spell_bounded": true,
+        "moving_actual_speed": false
+      },
+      "human_laps": null,
+      "robot_laps": null,
+      "mean_actual_vx": 0.41158794466283893,
+      "steady_actual_vx": 0.5275703490512402,
+      "slow_ratio": 0.041237113402048345,
+      "longest_slow_s": 0.27999999999996916,
+      "maximum_follow_distance_m": 5.100444688144401,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 1.5024560315908655,
+      "angle_metrics": {
+        "moving_samples": 36,
+        "path_error_rms_deg": 6.421655846456667,
+        "path_error_max_deg": 18.776940769669356,
+        "facing_samples": 5,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "CONTROLLER_STALE": 0.8299999999999095,
+        "FOLLOW_DISTANCE": 73.88999999996284,
+        "FOLLOW_FACE_TARGET": 1.3899999999992296,
+        "FOLLOW_REGION_REACHABLE": 7.359999999998735,
+        "KNOWN_CORRIDOR_PROGRESS": 6.010000000001886,
+        "ODOM_STALE": 0.5499999999999403
+      },
+      "search_worker_pids": [
+        1212
+      ],
+      "failure_reasons": [
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：FOLLOW_DISTANCE；路径点数=1；地图模式=static_history；深度年龄=0.09000000000000341"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 6.790000000001477,
+          "mean_actual_vx": 0.41158794466283893,
+          "mean_final_command_vx": 0.4679174315525493,
+          "mean_mppi_raw_command_vx": 0.5892131007516683,
+          "mean_phase_speed_limit": 0.7614957686241827,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 0.8800000000002939,
+          "mean_actual_vx": 0.5275703490512402,
+          "mean_final_command_vx": 0.5971060632304712,
+          "mean_mppi_raw_command_vx": 0.5971060632304712,
+          "mean_phase_speed_limit": 0.8,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": [
+          {
+            "start_elapsed_s": 3.629999999999601,
+            "duration_s": 0.27999999999996916,
+            "start_position": [
+              0.2156039084278238,
+              0.15428372112918096
+            ],
+            "code_seconds": {
+              "ODOM_STALE": 0.27999999999996916
+            },
+            "state_seconds": {
+              "ODOM_LOST": 0.27999999999996916
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 3.9099999999995703
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "blocked",
+      "title": "前方通道封闭",
+      "report_sha256": "1db9e9bad514c0f582c40b35d257616be2915208ff77290b8b56503335c23233",
+      "samples_sha256": "9b5fa7e025fc6ad121d7388713f228c6171bb7500e48ebafa7eaa46ace715bfb",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 60.0,
+      "samples": 215,
+      "observed_duration_s": 60.1700000000322,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": true,
+      "navigation_passed": true,
+      "fluency_passed": true,
+      "fluency_checks": {},
+      "human_laps": null,
+      "robot_laps": null,
+      "mean_actual_vx": 0.0,
+      "steady_actual_vx": 0.0,
+      "slow_ratio": 0.0,
+      "longest_slow_s": 0.0,
+      "maximum_follow_distance_m": 0,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 1.6666666666675904,
+      "angle_metrics": {
+        "moving_samples": 17,
+        "path_error_rms_deg": 9.3720958987728,
+        "path_error_max_deg": 33.58896971608198,
+        "facing_samples": 0,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "CONTROLLER_STALE": 0.5699999999997161,
+        "GOAL_UNOBSERVED": 13.669999999995905,
+        "KNOWN_CORRIDOR_PROGRESS": 7.550000000000838,
+        "NO_USEFUL_OBSERVATION": 25.040000000027284,
+        "OBSERVATION_EVALUATING": 2.179999999998792,
+        "PLAN_PENDING": 11.160000000009667
+      },
+      "search_worker_pids": [
+        1450
+      ],
+      "failure_reasons": [],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 0,
+          "mean_actual_vx": null,
+          "mean_final_command_vx": null,
+          "mean_mppi_raw_command_vx": null,
+          "mean_phase_speed_limit": null,
+          "command_at_0_8_ratio": null
+        },
+        "steady_window": {
+          "observed_seconds": 0,
+          "mean_actual_vx": null,
+          "mean_final_command_vx": null,
+          "mean_mppi_raw_command_vx": null,
+          "mean_phase_speed_limit": null,
+          "command_at_0_8_ratio": null
+        },
+        "longest_low_runs": []
+      }
+    },
+    {
+      "scenario": "square_loop",
+      "title": "方形通道 · 四连直角弯循环",
+      "report_sha256": "4b28fd1ed95198c050da37db786d39898c3bdd2207daaed91ae16a91ee386f11",
+      "samples_sha256": "b65599d48c51243c9f80d16998a086384347f9981c5b9b04e1dac4c2a4ec791d",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 90.0,
+      "samples": 297,
+      "observed_duration_s": 90.17999999996267,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": false,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": true,
+        "longest_slow_spell_bounded": true,
+        "moving_actual_speed": false
+      },
+      "human_laps": 2,
+      "robot_laps": 1,
+      "mean_actual_vx": 0.45067616786475145,
+      "steady_actual_vx": 0.4435089687592984,
+      "slow_ratio": 0.08371246587792289,
+      "longest_slow_s": 1.539999999996411,
+      "maximum_follow_distance_m": 8.036759447419843,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 2.269760809895594,
+      "angle_metrics": {
+        "moving_samples": 230,
+        "path_error_rms_deg": 29.326893295962023,
+        "path_error_max_deg": 178.22876069430308,
+        "facing_samples": 0,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "BRAKING_SPACE": 0.6699999999984385,
+        "CONTROLLER_STALE": 1.729999999995968,
+        "EXECUTION_LIMITED": 0.42999999999899785,
+        "FOLLOW_DISTANCE": 0.25999999999997137,
+        "FOLLOW_REGION_REACHABLE": 39.79999999996687,
+        "KNOWN_CORRIDOR_PROGRESS": 44.80000000000591,
+        "ODOM_STALE": 0.9799999999994213,
+        "PATH_INVALID": 0.3199999999992542,
+        "PAUSED": 0.27999999999996916,
+        "PLAN_PENDING": 0.9099999999978792
+      },
+      "search_worker_pids": [
+        1713
+      ],
+      "failure_reasons": [
+        "任务完成未通过：robot_completed_required_laps",
+        "任务完成未通过：final_follow_distance_reasonable",
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：BRAKING_SPACE；路径点数=3；地图模式=static_history；深度年龄=0.4000000000000057"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 87.91999999996293,
+          "mean_actual_vx": 0.4506761678647512,
+          "mean_final_command_vx": 0.5146782168877421,
+          "mean_mppi_raw_command_vx": 0.5901000243320188,
+          "mean_phase_speed_limit": 0.7515640786389131,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 82.10999999996187,
+          "mean_actual_vx": 0.44350896875929835,
+          "mean_final_command_vx": 0.5065873803477783,
+          "mean_mppi_raw_command_vx": 0.5872303531420495,
+          "mean_phase_speed_limit": 0.7492358592455874,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": [
+          {
+            "start_elapsed_s": 65.21000000002087,
+            "duration_s": 1.539999999996411,
+            "start_position": [
+              6.318363690133988,
+              6.063411977847248
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 1.1999999999972033,
+              "CONTROLLER_STALE": 0.3399999999992076
+            },
+            "state_seconds": {
+              "DETOUR": 1.1999999999972033,
+              "WAITING": 0.3399999999992076
+            },
+            "rotating_seconds": 0.3299999999992309,
+            "end_elapsed_s": 66.75000000001728
+          },
+          {
+            "start_elapsed_s": 70.11000000000945,
+            "duration_s": 0.9699999999977393,
+            "start_position": [
+              6.139397842158154,
+              6.215567626326621
+            ],
+            "code_seconds": {
+              "CONTROLLER_STALE": 0.3299999999992309,
+              "KNOWN_CORRIDOR_PROGRESS": 0.6399999999985084
+            },
+            "state_seconds": {
+              "WAITING": 0.3299999999992309,
+              "DETOUR": 0.6399999999985084
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 71.08000000000719
+          },
+          {
+            "start_elapsed_s": 81.83999999998211,
+            "duration_s": 0.949999999997786,
+            "start_position": [
+              3.141642025460432,
+              6.663638833224944
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 0.949999999997786
+            },
+            "state_seconds": {
+              "DETOUR": 0.949999999997786
+            },
+            "rotating_seconds": 0.949999999997786,
+            "end_elapsed_s": 82.7899999999799
+          },
+          {
+            "start_elapsed_s": 67.02000000001665,
+            "duration_s": 0.8999999999979025,
+            "start_position": [
+              6.277834240448269,
+              6.087002631143567
+            ],
+            "code_seconds": {
+              "BRAKING_SPACE": 0.6699999999984385,
+              "KNOWN_CORRIDOR_PROGRESS": 0.22999999999946397
+            },
+            "state_seconds": {
+              "WAITING": 0.6699999999984385,
+              "DETOUR": 0.22999999999946397
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 67.92000000001455
+          },
+          {
+            "start_elapsed_s": 68.6700000000128,
+            "duration_s": 0.6599999999984618,
+            "start_position": [
+              6.254761284028985,
+              6.120421763307357
+            ],
+            "code_seconds": {
+              "PLAN_PENDING": 0.27999999999934744,
+              "KNOWN_CORRIDOR_PROGRESS": 0.3799999999991144
+            },
+            "state_seconds": {
+              "WAITING": 0.27999999999934744,
+              "DETOUR": 0.3799999999991144
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 69.33000000001127
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "slalom_loop",
+      "title": "四组交错障碍 · 回环",
+      "report_sha256": "f75133806768058aafa0391c5da2168aace5b3b8bf604465a56da1969d4ef75b",
+      "samples_sha256": "d4be8fc8e9593fe632da542dd6e3eb3220811d41939c725a5a9c47b23766a50e",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 106.0,
+      "samples": 362,
+      "observed_duration_s": 106.10999999992522,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": false,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": false,
+        "longest_slow_spell_bounded": false,
+        "moving_actual_speed": false
+      },
+      "human_laps": 2,
+      "robot_laps": 0,
+      "mean_actual_vx": 0.07776658977886274,
+      "steady_actual_vx": 0.067413441361731,
+      "slow_ratio": 0.7762156957148325,
+      "longest_slow_s": 42.13999999990179,
+      "maximum_follow_distance_m": 7.419090299553879,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 1.94371560311849,
+      "angle_metrics": {
+        "moving_samples": 47,
+        "path_error_rms_deg": 22.337990762347147,
+        "path_error_max_deg": 86.90544358692438,
+        "facing_samples": 0,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "BRAKING_SPACE": 0.8400000000010266,
+        "CONTROLLER_STALE": 16.35000000000917,
+        "FOLLOW_DISTANCE": 0.27999999999997005,
+        "FOLLOW_REGION_REACHABLE": 19.73000000001552,
+        "GOAL_UNOBSERVED": 4.9699999999981905,
+        "KNOWN_CORRIDOR_PROGRESS": 17.219999999996617,
+        "NO_PROGRESS": 39.22999999990857,
+        "OBSERVATION_EVALUATING": 0.82000000000086,
+        "PLAN_PENDING": 1.7599999999987048,
+        "TARGET_TOO_CLOSE": 4.909999999996586
+      },
+      "search_worker_pids": [
+        1988
+      ],
+      "failure_reasons": [
+        "任务完成未通过：robot_completed_required_laps",
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：slow_time_ratio_bounded",
+        "流畅性未通过：longest_slow_spell_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：NO_PROGRESS；路径点数=3；地图模式=static_history；深度年龄=0.20000000000000284"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 103.84999999992547,
+          "mean_actual_vx": 0.07776658977886267,
+          "mean_final_command_vx": 0.09061266424572764,
+          "mean_mppi_raw_command_vx": 0.21981918127862124,
+          "mean_phase_speed_limit": 0.5338111188619774,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 98.10999999992437,
+          "mean_actual_vx": 0.06741344136173098,
+          "mean_final_command_vx": 0.07878654957102263,
+          "mean_mppi_raw_command_vx": 0.20732529253224355,
+          "mean_phase_speed_limit": 0.5218160478649014,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": [
+          {
+            "start_elapsed_s": 63.970000000023425,
+            "duration_s": 42.13999999990179,
+            "start_position": [
+              4.716594510950918,
+              -0.0577010037281197
+            ],
+            "code_seconds": {
+              "PLAN_PENDING": 0.25999999999939405,
+              "NO_PROGRESS": 39.22999999990857,
+              "TARGET_TOO_CLOSE": 2.649999999993824
+            },
+            "state_seconds": {
+              "WAITING": 39.489999999907965,
+              "TOO_CLOSE": 2.649999999993824
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 106.10999999992522
+          },
+          {
+            "start_elapsed_s": 26.609999999994177,
+            "duration_s": 16.320000000017302,
+            "start_position": [
+              5.782574187732991,
+              -0.3794934308485804
+            ],
+            "code_seconds": {
+              "GOAL_UNOBSERVED": 2.5500000000006153,
+              "OBSERVATION_EVALUATING": 0.82000000000086,
+              "PLAN_PENDING": 0.35000000000042775,
+              "FOLLOW_REGION_REACHABLE": 9.080000000011097,
+              "CONTROLLER_STALE": 2.34000000000286,
+              "KNOWN_CORRIDOR_PROGRESS": 1.1800000000014421
+            },
+            "state_seconds": {
+              "OBSERVING": 3.3700000000014754,
+              "WAITING": 2.6900000000032875,
+              "DETOUR": 10.260000000012539
+            },
+            "rotating_seconds": 5.860000000005613,
+            "end_elapsed_s": 42.930000000011475
+          },
+          {
+            "start_elapsed_s": 48.690000000018514,
+            "duration_s": 14.370000000007032,
+            "start_position": [
+              4.83280726005476,
+              -0.08231604172442185
+            ],
+            "code_seconds": {
+              "BRAKING_SPACE": 0.2800000000003422,
+              "CONTROLLER_STALE": 10.620000000005824,
+              "FOLLOW_REGION_REACHABLE": 0.26000000000031775,
+              "TARGET_TOO_CLOSE": 2.260000000002762,
+              "PLAN_PENDING": 0.3399999999992076,
+              "GOAL_UNOBSERVED": 0.6099999999985783
+            },
+            "state_seconds": {
+              "WAITING": 11.240000000005374,
+              "FOLLOWING": 0.26000000000031775,
+              "TOO_CLOSE": 2.260000000002762,
+              "OBSERVING": 0.6099999999985783
+            },
+            "rotating_seconds": 0.3299999999992309,
+            "end_elapsed_s": 63.060000000025546
+          },
+          {
+            "start_elapsed_s": 7.730000000000762,
+            "duration_s": 3.2300000000010787,
+            "start_position": [
+              1.3064657084942695,
+              0.5667044847221002
+            ],
+            "code_seconds": {
+              "CONTROLLER_STALE": 1.1400000000003807,
+              "FOLLOW_REGION_REACHABLE": 0.37000000000012356,
+              "KNOWN_CORRIDOR_PROGRESS": 1.7200000000005744
+            },
+            "state_seconds": {
+              "WAITING": 1.1400000000003807,
+              "DETOUR": 2.090000000000698
+            },
+            "rotating_seconds": 0.0,
+            "end_elapsed_s": 10.960000000001841
+          },
+          {
+            "start_elapsed_s": 23.729999999995773,
+            "duration_s": 1.0999999999993904,
+            "start_position": [
+              5.560162313811592,
+              -0.3776913386287681
+            ],
+            "code_seconds": {
+              "KNOWN_CORRIDOR_PROGRESS": 0.2599999999998559,
+              "GOAL_UNOBSERVED": 0.5499999999996952,
+              "PLAN_PENDING": 0.2899999999998393
+            },
+            "state_seconds": {
+              "DETOUR": 0.2599999999998559,
+              "OBSERVING": 0.5499999999996952,
+              "WAITING": 0.2899999999998393
+            },
+            "rotating_seconds": 0.2599999999998559,
+            "end_elapsed_s": 24.829999999995163
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "wall_loop",
+      "title": "双长横墙 · 回环",
+      "report_sha256": "e192f1cb067408c6fb763ef9de5d27e4b6469626757a919dc3476e561213c4ce",
+      "samples_sha256": "e833f7289f8ed1d34267be32a4af9264a7b11d68adce68b779fb1eb432b9e70b",
+      "evidence_valid": true,
+      "evidence_checks": {
+        "record_identity": true,
+        "requested_speed": true,
+        "source_matches": true,
+        "configuration_matches": true,
+        "sample_identity": true,
+        "sample_time_increasing": true,
+        "epoch_unchanged": true,
+        "stimulus_valid": true,
+        "collection_finished": true
+      },
+      "source_file_count": 26,
+      "source_mismatches": [],
+      "source_sha256": {
+        "controller.py": "3671ff7309fd703af9f6537c9f59966f989e856335e7bb081f43d03c8cc659fb",
+        "local_map.py": "401c52a94ff6750532f2f73129d33f90c8c99e8e36efeb4d582b18f5ae810bae",
+        "local_planner.py": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+        "navigation.py": "be4d87b392dd1262b78959b2fbf1ac5f860b42edd0dd484d4cc33061a7c1cdfa",
+        "simulation.py": "0a6a3e562f1017c8ac9dc99e4742d2a15d74b33ca7f9019ba6a53096413489a3",
+        "scenarios.py": "4e810872e5b441374ae4891864514367b63e0b8a4cd081085856bd3c371e9702",
+        "ros_nodes.py": "b35b19e183b070c8ce18d8eb8d42d24b9c72038483acb17f1622def6faf6742a",
+        "policy.py": "6d4e8d1767a134d057a88385b5efe087f554f9c65375decd2026f7feabadf2d4",
+        "mppi_bridge.py": "05d2f4c45b78654d5990239176630e0d9b008d5c163513b071d6ee208b459551",
+        "mppi_runtime.py": "66ca1f92512e92e1e328a15106ed1074a8780411c1321af4036ec5ded5e42113",
+        "observation.py": "19b3811d95afb37fc1c10d00a2eedfccc0d5347b5e17160088c002650beab8fd",
+        "observation_geometry.py": "2d7fe7cc94812efcac0f9286c428dd3b3613bcbc9d6e74f9f6cdb4868c9b6a67",
+        "navigation_config.py": "620344a1bd3397988e1cce598def37ab5bfc77f4b15cb7efe20c727cfbded3d1",
+        "app.py": "e0e6e87704cf5060720a022624be0eb2b50bfb3feed832018db77e4dd33caad8",
+        "setup.bash": "2fd64bb032e55aaf666b437dad1b5ced0dab6c6e4b39ad635d7c44ddee27f7b9",
+        "cyclonedds.xml": "ec9979336e4d1f1291bbafccf83151214ca41554450dd705be5f05f9bbda5a97",
+        "camera_profile.py": "45d53cd36e50f2b4f7b29e558bc3a722bb1362bdec94188686671564e9f8bf01",
+        "yaw_rate.py": "d938aebb5b4a4d3ed788c52ab13b701302c0d9638150867b9979ad15cd2d3eef",
+        "follow_intent.py": "5d97026f3d5a137232e6805a82bfb5459a846bb87523adfa5e7d06f5e779e5ec",
+        "executor_pulse.py": "164f6a40d6d02e8085e4e1f62dddcc86c01d0a00ddc86df592398663caedd829",
+        "footprint.py": "c17abfffae237ff00216ebbaf6ce4d12c21aa0730936c12248a92f8068043e7b",
+        "heading_guide.py": "1eec62653428c628cd84e7a7d08fece0bf382d518b440d1820c98e4a1391eb00",
+        "static/index.html": "40349520e68ec0ba0c783b49f058df79be4dd5846a323d12eefdb77e62d3ddf2",
+        "tests/check_navigation_demo.py": "e67fc2875a4a4f7859263cde46e2b2cebc6f4447b529e8865cb40167cc0c2296",
+        "scenario_route.py": "da06492955d268905ad0052a7bd30e20c6987867e2b9609f146f973e1349c83c",
+        "scenario_acceptance.py": "01946e562a53fe23b59e781957b84dfb43889e5de93750f6ab0e58b520b9887e"
+      },
+      "requested_duration_s": 103.0,
+      "samples": 347,
+      "observed_duration_s": 103.24999999993204,
+      "basic_checks_passed": true,
+      "basic_checks": {
+        "no_physical_obstacle_contact": true,
+        "posture_ready": true,
+        "phase_speed_limits": true,
+        "depth_loss_stops": true,
+        "uwb_loss_stops": true,
+        "nav2_mppi_alive": true
+      },
+      "objective_met": false,
+      "navigation_passed": false,
+      "fluency_passed": false,
+      "fluency_checks": {
+        "moving_period_observed": true,
+        "moving_follow_distance_bounded": false,
+        "slow_time_ratio_bounded": false,
+        "longest_slow_spell_bounded": false,
+        "moving_actual_speed": false
+      },
+      "human_laps": 2,
+      "robot_laps": 1,
+      "mean_actual_vx": 0.36319927378397104,
+      "steady_actual_vx": 0.35971403896326215,
+      "slow_ratio": 0.17321587647234551,
+      "longest_slow_s": 6.700000000008188,
+      "maximum_follow_distance_m": 6.436717509481782,
+      "obstacle_contacts": 0,
+      "max_command_delta_v_per_s": 2.9313378508158587,
+      "angle_metrics": {
+        "moving_samples": 221,
+        "path_error_rms_deg": 16.04199086672584,
+        "path_error_max_deg": 83.7339152208612,
+        "facing_samples": 0,
+        "meaning": "行走对齐路径；人方位另列，单点UWB不测量人体自身朝向"
+      },
+      "code_seconds": {
+        "BRAKING_SPACE": 0.6000000000007262,
+        "CONTROLLER_STALE": 2.3299999999998686,
+        "FOLLOW_REGION_REACHABLE": 57.96999999994164,
+        "KNOWN_CORRIDOR_PROGRESS": 36.81999999999164,
+        "ODOM_STALE": 0.5800000000003482,
+        "PAUSED": 0.29999999999996785,
+        "PLAN_PENDING": 0.2699999999999694,
+        "TARGET_TOO_CLOSE": 4.379999999997892
+      },
+      "search_worker_pids": [
+        2403
+      ],
+      "failure_reasons": [
+        "任务完成未通过：robot_completed_required_laps",
+        "流畅性未通过：moving_follow_distance_bounded",
+        "流畅性未通过：slow_time_ratio_bounded",
+        "流畅性未通过：longest_slow_spell_bounded",
+        "流畅性未通过：moving_actual_speed",
+        "最后导航状态：FOLLOW_REGION_REACHABLE；路径点数=3；地图模式=static_history；深度年龄=0.3400000000000034"
+      ],
+      "error": null,
+      "diagnostics": {
+        "moving_window": {
+          "observed_seconds": 101.02999999993229,
+          "mean_actual_vx": 0.36319927378397077,
+          "mean_final_command_vx": 0.41925189091859655,
+          "mean_mppi_raw_command_vx": 0.4508340801894686,
+          "mean_phase_speed_limit": 0.6628415704535943,
+          "command_at_0_8_ratio": 0.0
+        },
+        "steady_window": {
+          "observed_seconds": 95.05999999993116,
+          "mean_actual_vx": 0.3597140389632619,
+          "mean_final_command_vx": 0.41572649342684653,
+          "mean_mppi_raw_command_vx": 0.4398351523214253,
+          "mean_phase_speed_limit": 0.6548100484077587,
+          "command_at_0_8_ratio": 0.0
+        },
+        "longest_low_runs": [
+          {
+            "start_elapsed_s": 47.82000000001736,
+            "duration_s": 6.700000000008188,
+            "start_position": [
+              2.2966055114095454,
+              2.362462626229979
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 3.8600000000047174,
+              "TARGET_TOO_CLOSE": 2.2800000000027865,
+              "CONTROLLER_STALE": 0.5600000000006844
+            },
+            "state_seconds": {
+              "FOLLOWING": 3.8600000000047174,
+              "TOO_CLOSE": 2.2800000000027865,
+              "WAITING": 0.5600000000006844
+            },
+            "rotating_seconds": 2.1400000000026154,
+            "end_elapsed_s": 54.52000000002555
+          },
+          {
+            "start_elapsed_s": 94.13999999995328,
+            "duration_s": 4.7899999999888365,
+            "start_position": [
+              1.7237760487863654,
+              2.0145991209946548
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 2.089999999995129,
+              "TARGET_TOO_CLOSE": 2.099999999995106,
+              "CONTROLLER_STALE": 0.5999999999986017
+            },
+            "state_seconds": {
+              "FOLLOWING": 2.089999999995129,
+              "TOO_CLOSE": 2.099999999995106,
+              "WAITING": 0.5999999999986017
+            },
+            "rotating_seconds": 1.2199999999971567,
+            "end_elapsed_s": 98.92999999994211
+          },
+          {
+            "start_elapsed_s": 66.87000000001683,
+            "duration_s": 1.1399999999973431,
+            "start_position": [
+              5.818331283291874,
+              0.5864457663871796
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 1.1399999999973431
+            },
+            "state_seconds": {
+              "DETOUR": 1.1399999999973431
+            },
+            "rotating_seconds": 1.1399999999973431,
+            "end_elapsed_s": 68.01000000001417
+          },
+          {
+            "start_elapsed_s": 92.93999999995607,
+            "duration_s": 0.9299999999978326,
+            "start_position": [
+              1.7415062001572912,
+              2.076597188486073
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 0.9299999999978326
+            },
+            "state_seconds": {
+              "FOLLOWING": 0.9299999999978326
+            },
+            "rotating_seconds": 0.9299999999978326,
+            "end_elapsed_s": 93.8699999999539
+          },
+          {
+            "start_elapsed_s": 84.93999999997472,
+            "duration_s": 0.8999999999979025,
+            "start_position": [
+              2.799801527730665,
+              4.641537943634412
+            ],
+            "code_seconds": {
+              "FOLLOW_REGION_REACHABLE": 0.8999999999979025
+            },
+            "state_seconds": {
+              "FOLLOWING": 0.8999999999979025
+            },
+            "rotating_seconds": 0.8999999999979025,
+            "end_elapsed_s": 85.83999999997262
+          }
+        ]
+      }
+    }
+  ]
+}

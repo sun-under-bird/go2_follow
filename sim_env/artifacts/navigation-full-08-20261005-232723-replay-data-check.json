@@ -1,0 +1,64 @@
+{
+  "prefix": "navigation-full-08-20261005-232723",
+  "embedded_data_valid": true,
+  "scenes": [
+    {
+      "scenario": "open",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "long_wall",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "consecutive",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "corner",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "blocked",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "square_loop",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "slalom_loop",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    },
+    {
+      "scenario": "wall_loop",
+      "available": true,
+      "geometry_verified": true,
+      "samples_match": true,
+      "verdict_matches": true
+    }
+  ],
+  "automatic_browser_button_check": "blocked",
+  "reason": "浏览器安全策略禁止自动导航至file://本地文件；未绕过限制。"
+}

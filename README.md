@@ -1,7 +1,33 @@
 # Go2 UWB 双目跟随避障 v1.0.0
 
-本仓库只保留已经用于实机验证的 UWB 跟随与双目局部避障链路，目标平台为
-Unitree Go2、Ubuntu 22.04 和 ROS 2 Humble。
+本仓库保留已经用于实机验证的 UWB 跟随与双目局部避障链路，目标平台为
+Unitree Go2、Ubuntu 22.04 和 ROS 2 Humble。当前分支另加入独立的
+MuJoCo 跟随仿真实验台 `sim_env`；实验算法尚未移植到下方的实机 ROS 包。
+
+## 当前分支的仿真实验台
+
+`sim_env` 保存 Ubuntu 22.04 / ROS 2 Humble / Nav2 MPPI / MuJoCo 的环境配置、
+D435i 有限前视深度、UWB 轨迹意图、矩形局部路径搜索、速度与停车评分、执行校准和网页回放。
+人的速度及机器狗前进请求上限为 0.8 m/s，转向请求上限 1.0 rad/s，包络为 0.70×0.32 m。
+
+2026-10-08 最终仿真复测 **6/8 场通过**，286 项逻辑检查通过；交错回环和双长墙回环仍未全部达标。
+八场报告的 31 个运行源码摘要与提交副本一致。相机向下 25° 是该轮显式仿真配置，
+默认水平 0° 不能继承这组成绩，也没有完成 RK3588 或实机验收。
+
+- [环境与复现步骤](sim_env/README.md)
+- [跟随实验台操作说明](sim_env/follow_demo/README.md)
+- [完整验收记录](sim_env/artifacts/速度跟随修复与验收_20261008.md)
+- [八场真实离线回放](sim_env/artifacts/navigation-speed-history32-20261008-验收回放.html)
+- [提交范围与副本说明](sim_env/提交说明_20261008.md)
+
+本机已安装上述 WSL 环境时，从仓库根目录运行 Windows PowerShell：
+
+```powershell
+.\sim_env\Start-FollowDemo.ps1 -CameraPitchDeg 25
+```
+
+验收结束后执行 `.\sim_env\Stop-FollowDemo.ps1`；仅关闭网页不会停止后台仿真。
+离线回放需下载后在本地打开，不需要启动仿真。
 
 ## 保留的 ROS 2 包
 

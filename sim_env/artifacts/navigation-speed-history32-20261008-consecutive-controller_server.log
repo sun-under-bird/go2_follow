@@ -1,0 +1,285 @@
+[INFO] [1791399395.637306557] [go2_follow_mppi.controller_server]: 
+	controller_server lifecycle node launched. 
+	Waiting on external lifecycle transitions to activate
+	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[INFO] [1791399395.640605502] [go2_follow_mppi.controller_server]: Creating controller server
+[INFO] [1791399395.644524471] [go2_follow_mppi.local_costmap.local_costmap]: 
+	local_costmap lifecycle node launched. 
+	Waiting on external lifecycle transitions to activate
+	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[INFO] [1791399395.645058017] [go2_follow_mppi.local_costmap.local_costmap]: Creating Costmap
+[INFO] [1791399395.678241303] [go2_follow_mppi.controller_server]: Configuring controller interface
+[INFO] [1791399395.678291851] [go2_follow_mppi.controller_server]: getting goal checker plugins..
+[INFO] [1791399395.678303650] [go2_follow_mppi.controller_server]: Controller frequency set to 30.0000Hz
+[INFO] [1791399395.678332295] [go2_follow_mppi.local_costmap.local_costmap]: Configuring
+[INFO] [1791399395.680941603] [go2_follow_mppi.local_costmap.local_costmap]: Using plugin "geometry"
+[INFO] [1791399395.683201946] [go2_follow_mppi.local_costmap.local_costmap]: Subscribing to the map topic (/follow_demo/local_geometry) with transient local durability
+[INFO] [1791399395.683670985] [go2_follow_mppi.local_costmap.local_costmap]: Initialized plugin "geometry"
+[INFO] [1791399395.683691966] [go2_follow_mppi.local_costmap.local_costmap]: Using plugin "inflation"
+[INFO] [1791399395.684003834] [go2_follow_mppi.local_costmap.local_costmap]: Initialized plugin "inflation"
+[INFO] [1791399395.687943068] [go2_follow_mppi.controller_server]: Created progress_checker : progress of type nav2_controller::SimpleProgressChecker
+[INFO] [1791399395.688374029] [go2_follow_mppi.controller_server]: Created goal checker : follow_goal of type nav2_controller::SimpleGoalChecker
+[INFO] [1791399395.688571959] [go2_follow_mppi.controller_server]: Created goal checker : observe_goal of type nav2_controller::SimpleGoalChecker
+[INFO] [1791399395.688724452] [go2_follow_mppi.controller_server]: Created goal checker : face_goal of type nav2_controller::SimpleGoalChecker
+[INFO] [1791399395.688894431] [go2_follow_mppi.controller_server]: Controller Server has follow_goal observe_goal face_goal  goal checkers available.
+[INFO] [1791399395.689593040] [go2_follow_mppi.controller_server]: Created controller : FollowPath of type nav2_mppi_controller::MPPIController
+[WARN] [1791399395.690447181] [go2_follow_mppi.controller_server]: Controller period is less then model dt, consider setting it equal
+[INFO] [1791399395.691382252] [go2_follow_mppi.controller_server]: ConstraintCritic instantiated with 1 power and 4.000000 weight.
+[INFO] [1791399395.691404557] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::ConstraintCritic
+[INFO] [1791399395.691775679] [go2_follow_mppi.controller_server]: InflationCostCritic instantiated with 1 power and 300.000000 / 0.015000 weights. Critic will collision check based on footprint cost.
+[INFO] [1791399395.691801947] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::CostCritic
+[INFO] [1791399395.694103712] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::BrakingCritic
+[INFO] [1791399395.694748266] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::FollowSpeedCritic
+[INFO] [1791399395.694972496] [go2_follow_mppi.controller_server]: GoalCritic instantiated with 1 power and 5.000000 weight.
+[INFO] [1791399395.694994921] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalCritic
+[INFO] [1791399395.695279544] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathFollowCritic
+[INFO] [1791399395.695693703] [go2_follow_mppi.controller_server]: ReferenceTrajectoryCritic instantiated with 1 power and 6.000000 weight
+[INFO] [1791399395.695742776] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAlignCritic
+[INFO] [1791399395.696050399] [go2_follow_mppi.controller_server]: PathAngleCritic instantiated with 1 power and 5.000000 weight. Reversing not allowed.
+[INFO] [1791399395.696096455] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAngleCritic
+[INFO] [1791399395.696257490] [go2_follow_mppi.controller_server]: GoalAngleCritic instantiated with 1 power, 5.000000 weight, and 0.350000 angular threshold.
+[INFO] [1791399395.696284289] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalAngleCritic
+[INFO] [1791399395.698307912] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399395.699392936] [MPPIController]: Configured MPPI Controller: FollowPath
+[INFO] [1791399395.699524079] [go2_follow_mppi.controller_server]: Created controller : Observe of type nav2_mppi_controller::MPPIController
+[WARN] [1791399395.700389378] [go2_follow_mppi.controller_server]: Controller period is less then model dt, consider setting it equal
+[INFO] [1791399395.701036330] [go2_follow_mppi.controller_server]: ConstraintCritic instantiated with 1 power and 4.000000 weight.
+[INFO] [1791399395.701060156] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::ConstraintCritic
+[INFO] [1791399395.701488643] [go2_follow_mppi.controller_server]: InflationCostCritic instantiated with 1 power and 300.000000 / 0.015000 weights. Critic will collision check based on footprint cost.
+[INFO] [1791399395.701517244] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::CostCritic
+[INFO] [1791399395.702278678] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::BrakingCritic
+[INFO] [1791399395.702793576] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::FollowSpeedCritic
+[INFO] [1791399395.703056805] [go2_follow_mppi.controller_server]: GoalCritic instantiated with 1 power and 5.000000 weight.
+[INFO] [1791399395.703082649] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalCritic
+[INFO] [1791399395.703353216] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathFollowCritic
+[INFO] [1791399395.703783505] [go2_follow_mppi.controller_server]: ReferenceTrajectoryCritic instantiated with 1 power and 6.000000 weight
+[INFO] [1791399395.703803249] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAlignCritic
+[INFO] [1791399395.704118991] [go2_follow_mppi.controller_server]: PathAngleCritic instantiated with 1 power and 5.000000 weight. Reversing not allowed.
+[INFO] [1791399395.704141579] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::PathAngleCritic
+[INFO] [1791399395.704349668] [go2_follow_mppi.controller_server]: GoalAngleCritic instantiated with 1 power, 8.000000 weight, and 0.350000 angular threshold.
+[INFO] [1791399395.704374448] [go2_follow_mppi.controller_server]: Critic loaded : mppi::critics::GoalAngleCritic
+[INFO] [1791399395.706806086] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399395.707664525] [MPPIController]: Configured MPPI Controller: Observe
+[INFO] [1791399395.707716485] [go2_follow_mppi.controller_server]: Controller Server has FollowPath Observe  controllers available.
+[INFO] [1791399395.711485404] [go2_follow_mppi.controller_server]: Activating
+[INFO] [1791399395.711518760] [go2_follow_mppi.local_costmap.local_costmap]: Activating
+[INFO] [1791399395.711530721] [go2_follow_mppi.local_costmap.local_costmap]: Checking transform
+[INFO] [1791399395.711555816] [go2_follow_mppi.local_costmap.local_costmap]: Timed out waiting for transform from base_footprint to odom to become available, tf error: Invalid frame ID "odom" passed to canTransform argument target_frame - frame does not exist
+[INFO] [1791399396.051129817] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399396.212770778] [go2_follow_mppi.local_costmap.local_costmap]: start
+[WARN] [1791399396.363757997] [go2_follow_mppi.controller_server]: Parameter controller_server.verbose not found
+[INFO] [1791399396.365118689] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399396.365270379] [MPPIController]: Activated MPPI Controller: Observe
+[INFO] [1791399396.365283610] [MPPIController]: Activated MPPI Controller: FollowPath
+[INFO] [1791399396.365298090] [go2_follow_mppi.controller_server]: Creating bond (controller_server) to lifecycle manager.
+[INFO] [1791399397.213202953] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399398.415175748] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399398.714224858] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399398.913309001] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399399.214527146] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399400.513863531] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399400.713187159] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399401.513498051] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399401.546648551] [go2_follow_mppi.controller_server]: Received a goal, begin computing control effort.
+[INFO] [1791399401.548280342] [go2_follow_mppi.controller_server]: Optimizer reset
+[INFO] [1791399401.980308867] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399402.113511557] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399402.381334862] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399402.614870313] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399402.848599289] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399402.913176734] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399403.113496958] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399403.214117026] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399403.313177367] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399403.440543865] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399403.613164053] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399403.646832520] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399403.646894531] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399403.682440720] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399403.723950415] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399403.769870972] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399403.806820492] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399403.842989531] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399403.843048823] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399403.879332136] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399403.918480150] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399403.918572358] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399404.023134884] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399404.063879987] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399404.102307780] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399404.102364320] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399404.140476774] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399404.140544728] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399404.178073822] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399404.216896770] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399404.254998911] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399404.313209148] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399404.417375860] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399404.522730124] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399404.613180016] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399404.813191907] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399404.913526279] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399404.990308399] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399405.113201868] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399405.313198671] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399405.322062028] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399405.413178061] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399405.613172072] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399405.688622325] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399405.813850610] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399405.913242870] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.113496953] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.155841827] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399406.213560870] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.413167328] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.513172851] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.522414083] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399406.713204632] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.913183585] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399406.956170580] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399407.113836435] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399407.355105603] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399407.412939872] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399407.512948117] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399407.712954867] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399407.788451578] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399407.913180239] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399408.014825011] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399408.155757294] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.193962878] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399408.194568013] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399408.229824446] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399408.229941197] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.265993844] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.298276904] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.330361381] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.362913353] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.395910293] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.429510134] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.463386582] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.496111273] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399408.533110472] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399408.533149190] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.569862565] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.606881333] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399408.643019628] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399408.643077847] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399408.643170347] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399408.680017489] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.717671029] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.757937829] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399408.814659813] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399408.860984790] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.897692652] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399408.942287713] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399408.942401398] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399408.980069745] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.015391104] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.051368491] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.088137636] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399409.088191502] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399409.124375736] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399409.124461091] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.160262393] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.266521299] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.300990707] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399409.335085655] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399409.335156887] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.370622771] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.407698286] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399409.441766416] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399409.441835530] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.475490645] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.508574373] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399409.508638910] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399409.540410716] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.570476770] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.599846658] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399409.630656298] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399409.630752063] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.660807404] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.762914391] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399409.794763685] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399409.825434538] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399409.893789746] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399409.959519190] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399409.960381091] [go2_follow_mppi.controller_server]: Goal was canceled. Stopping the robot.
+[INFO] [1791399409.960409170] [go2_follow_mppi.controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.
+[INFO] [1791399410.113434478] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399410.138028040] [go2_follow_mppi.controller_server]: Received a goal, begin computing control effort.
+[INFO] [1791399410.327257347] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399410.538601571] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399410.940500810] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399410.974703932] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.008525203] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399411.008585399] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399411.041559061] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.074846026] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.108395405] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.275588851] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.309543975] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399411.340686024] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399411.340739905] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.372263335] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399411.404926778] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399411.472410301] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.606726251] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399411.641266895] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399411.641346083] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.678545478] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.717491816] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.763432438] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.800376267] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399411.836043212] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399411.836087568] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399411.836179891] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399411.871934481] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399411.974431271] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.008240620] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399412.042929355] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399412.043007309] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.077413612] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.110973568] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399412.144006789] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399412.144064955] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.180130020] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399412.180205845] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[WARN] [1791399412.217205969] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.252960842] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.285652609] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399412.315153105] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[WARN] [1791399412.315196453] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.344405861] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[WARN] [1791399412.373109289] [go2_follow_mppi.controller_server]: Control loop missed its desired rate of 30.0000Hz
+[INFO] [1791399412.435122860] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399412.624878356] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399412.638726238] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399412.824627906] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399412.921336645] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399413.072298486] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399413.119404662] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399413.313774800] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399413.505455063] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399413.513217965] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399413.613063548] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399413.813236383] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399413.872065009] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399414.012933083] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399414.305524304] [go2_follow_mppi.controller_server]: Passing new path to controller.
+[INFO] [1791399414.313046092] [go2_follow_mppi.local_costmap.local_costmap]: StaticLayer: Resizing static layer to 121 X 121 at 0.100000 m/pix
+[INFO] [1791399414.439976150] [go2_follow_mppi.controller_server]: Goal was canceled. Stopping the robot.
+[INFO] [1791399414.440036868] [go2_follow_mppi.controller_server]: [follow_path] [ActionServer] Client requested to cancel the goal. Cancelling.
+[INFO] [1791399474.488228216] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1791399474.488358676] [go2_follow_mppi.controller_server]: Running Nav2 LifecycleNode rcl preshutdown (controller_server)
+[INFO] [1791399474.488477015] [go2_follow_mppi.controller_server]: Deactivating
+[INFO] [1791399474.488500805] [MPPIController]: Deactivated MPPI Controller: Observe
+[INFO] [1791399474.488505895] [MPPIController]: Deactivated MPPI Controller: FollowPath
+[INFO] [1791399474.488517383] [go2_follow_mppi.local_costmap.local_costmap]: Deactivating
+[INFO] [1791399474.566668598] [go2_follow_mppi.controller_server]: Destroying bond (controller_server) to lifecycle manager.
+[INFO] [1791399474.577543321] [go2_follow_mppi.controller_server]: Cleaning up
+[INFO] [1791399474.577642885] [MPPIController]: Cleaned up MPPI Controller: Observe
+[INFO] [1791399474.577712305] [MPPIController]: Cleaned up MPPI Controller: FollowPath
+[INFO] [1791399474.578082787] [go2_follow_mppi.local_costmap.local_costmap]: Cleaning up
+[INFO] [1791399474.603722039] [go2_follow_mppi.controller_server]: Destroying bond (controller_server) to lifecycle manager.
+[INFO] [1791399474.619815973] [go2_follow_mppi.local_costmap.local_costmap]: Destroying
+[INFO] [1791399474.639356437] [go2_follow_mppi.controller_server]: Destroying

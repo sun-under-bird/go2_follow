@@ -1,0 +1,22 @@
+[
+  {
+    "file": "policy.py",
+    "match": true
+  },
+  {
+    "file": "simulation.py",
+    "match": true
+  },
+  {
+    "file": "camera_profile.py",
+    "match": true
+  },
+  {
+    "file": "scenarios.py",
+    "match": true
+  },
+  {
+    "file": "tests/check_execution.py",
+    "match": true
+  }
+]

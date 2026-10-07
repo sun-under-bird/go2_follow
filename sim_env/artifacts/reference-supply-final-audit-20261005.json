@@ -1,0 +1,153 @@
+{
+  "date": "2026-10-05",
+  "verified_at_utc": "2026-10-05T06:13:12.169882+00:00",
+  "identity": {
+    "execution_mode": "rate",
+    "planning_mode": "annulus",
+    "observation_mode": "cone",
+    "executor_wake_mode": "steady",
+    "search_execution_mode": "process"
+  },
+  "source_file_count": 22,
+  "current_source_matches_frozen": true,
+  "scenes": [
+    {
+      "scenario": "open",
+      "source_matches": true,
+      "identities_match": true,
+      "passed_basic_checks": true,
+      "task_met": true,
+      "fluency_applicable": true,
+      "passed_fluency": true,
+      "passed_navigation": true,
+      "clock_jump_count_max": 0,
+      "monitor_event_count_max": 0
+    },
+    {
+      "scenario": "long_wall",
+      "source_matches": true,
+      "identities_match": true,
+      "passed_basic_checks": true,
+      "task_met": true,
+      "fluency_applicable": true,
+      "passed_fluency": true,
+      "passed_navigation": true,
+      "clock_jump_count_max": 0,
+      "monitor_event_count_max": 2
+    },
+    {
+      "scenario": "consecutive",
+      "source_matches": true,
+      "identities_match": true,
+      "passed_basic_checks": true,
+      "task_met": true,
+      "fluency_applicable": true,
+      "passed_fluency": false,
+      "passed_navigation": false,
+      "clock_jump_count_max": 0,
+      "monitor_event_count_max": 1
+    },
+    {
+      "scenario": "corner",
+      "source_matches": true,
+      "identities_match": true,
+      "passed_basic_checks": true,
+      "task_met": true,
+      "fluency_applicable": true,
+      "passed_fluency": true,
+      "passed_navigation": true,
+      "clock_jump_count_max": 0,
+      "monitor_event_count_max": 2
+    },
+    {
+      "scenario": "blocked",
+      "source_matches": true,
+      "identities_match": true,
+      "passed_basic_checks": true,
+      "task_met": true,
+      "fluency_applicable": false,
+      "passed_fluency": true,
+      "passed_navigation": true,
+      "clock_jump_count_max": 0,
+      "monitor_event_count_max": 1
+    }
+  ],
+  "overall_navigation_passed": false,
+  "unit_test_count": 210,
+  "unit_log": "../logs/reference-supply-unit-20261005.log",
+  "collected_search_worker_pids": [
+    516,
+    538,
+    731,
+    978,
+    1201
+  ],
+  "linux_cleanup": {
+    "remaining_processes": [],
+    "http_port_open": false,
+    "verified_by_pid": 308,
+    "cleanup_passed": true
+  },
+  "windows_cleanup": {
+    "recorded_wrapper_pid": 15088,
+    "process_exists": false,
+    "process_name": null,
+    "command": null
+  },
+  "lateral_benchmark": {
+    "pid": 395,
+    "all_cases_completed": true,
+    "posture_and_stop_passed": true,
+    "tracking_passed": false,
+    "source_matches": true
+  },
+  "last_native_suite_scope": [
+    {
+      "scenario": "open",
+      "execution_mode": "rate",
+      "planning_mode": "annulus",
+      "observation_mode": "cone",
+      "executor_wake_mode": "steady",
+      "search_execution_mode": "process",
+      "exit_code": 0
+    },
+    {
+      "scenario": "long_wall",
+      "execution_mode": "rate",
+      "planning_mode": "annulus",
+      "observation_mode": "cone",
+      "executor_wake_mode": "steady",
+      "search_execution_mode": "process",
+      "exit_code": 0
+    },
+    {
+      "scenario": "corner",
+      "execution_mode": "rate",
+      "planning_mode": "annulus",
+      "observation_mode": "cone",
+      "executor_wake_mode": "steady",
+      "search_execution_mode": "process",
+      "exit_code": 0
+    },
+    {
+      "scenario": "blocked",
+      "execution_mode": "rate",
+      "planning_mode": "annulus",
+      "observation_mode": "cone",
+      "executor_wake_mode": "steady",
+      "search_execution_mode": "process",
+      "exit_code": 0
+    }
+  ],
+  "last_native_suite_note": "此文件仅包含最后一次四场批次；五场结论以本audit.scenes为准，连续障碍仍失败",
+  "clock_jump_validation": "NOT_DEMONSTRATED",
+  "ui_checks": {
+    "payload_five_scenes_verified": true,
+    "failed_consecutive_preserved": true,
+    "javascript_syntax_verified": true,
+    "static_plot_visually_inspected": true,
+    "browser_interaction_verified": false
+  },
+  "acceptance_by_user": "待用户自行确认",
+  "ros_build_performed": false
+}

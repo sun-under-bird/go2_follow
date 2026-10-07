@@ -1,0 +1,11 @@
+{
+  "checked_at": "2026-10-03T22:44:56.3713244+08:00",
+  "http_available": false,
+  "app_process_check_exit": 1,
+  "app_processes": [],
+  "nav2_process_check_exit": 1,
+  "nav2_processes": [],
+  "manifest_search_exit": 0,
+  "manifest_paths": [],
+  "own_services_stopped": true
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "scenario": "open",
+    "exit_code": 1
+  },
+  {
+    "scenario": "long_wall",
+    "exit_code": 1
+  },
+  {
+    "scenario": "consecutive",
+    "exit_code": 1
+  },
+  {
+    "scenario": "corner",
+    "exit_code": 1
+  },
+  {
+    "scenario": "blocked",
+    "exit_code": 0
+  }
+]

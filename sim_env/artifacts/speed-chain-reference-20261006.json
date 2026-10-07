@@ -1,0 +1,114 @@
+{
+  "kind": "offline_reference_budget_diagnostic",
+  "limitation": "仅重算开阔场景末帧附近的一张已观测地图，不是早期路径或完整闭环的反事实证明",
+  "report": "/mnt/c/Users/chy/Documents/ChatGPT/go2_slam 2/sim_env/artifacts/navigation-full-08-20261005-232723-open.json",
+  "report_sha256": "3673e5cce9446fcbc58a3e2deddc44b553e4d5728ab8d1c3c06ccdf232f55afb",
+  "planner_sha256": "9749d5c5cb3a21b850eb5cace47fff65d13c245810a451330ae2be40bedb885b",
+  "snapshot_t": 24.243999999998067,
+  "pose_sample_t": 24.243999999998067,
+  "pose": {
+    "x": 9.578598294682514,
+    "y": 0.5878380564811053,
+    "yaw": 0.5187789609706543,
+    "t": 24.243999999998067
+  },
+  "target": [
+    18.448261746235424,
+    -0.01654602502860143
+  ],
+  "velocity": [
+    0.8095514551976064,
+    -0.013788354190501192
+  ],
+  "spacing": 2.0100000000000002,
+  "free_cells": 4255,
+  "cases": [
+    {
+      "budget": 3.8,
+      "kind": "FOLLOWING",
+      "reason": "KNOWN_CORRIDOR_PROGRESS",
+      "selection": {
+        "weighted_cost": 2.2522898253739116,
+        "straight_endpoint_distance_m": 1.7724920617096562,
+        "candidate_max_distance_m": 2.5944276753401545,
+        "selected_margin_m": 0.46928930996041623,
+        "selected_clearance_penalty": 0.4005175342222735,
+        "selected_score": 8.13787182360896,
+        "endpoint": [
+          11.350000000000001,
+          0.6499999999999995
+        ]
+      },
+      "path": [
+        [
+          9.578598294682514,
+          0.5878380564811053
+        ],
+        [
+          11.350000000000001,
+          0.6499999999999995
+        ]
+      ],
+      "reference_length_m": 1.7724920617096562,
+      "rectangle_route_clear": true
+    },
+    {
+      "budget": 6.0,
+      "kind": "FOLLOWING",
+      "reason": "KNOWN_CORRIDOR_PROGRESS",
+      "selection": {
+        "weighted_cost": 2.2522898253739116,
+        "straight_endpoint_distance_m": 1.7724920617096562,
+        "candidate_max_distance_m": 3.594425131130369,
+        "selected_margin_m": 0.46928930996041623,
+        "selected_clearance_penalty": 0.4005175342222735,
+        "selected_score": 8.13787182360896,
+        "endpoint": [
+          11.350000000000001,
+          0.6499999999999995
+        ]
+      },
+      "path": [
+        [
+          9.578598294682514,
+          0.5878380564811053
+        ],
+        [
+          11.350000000000001,
+          0.6499999999999995
+        ]
+      ],
+      "reference_length_m": 1.7724920617096562,
+      "rectangle_route_clear": true
+    },
+    {
+      "budget": 10.0,
+      "kind": "FOLLOWING",
+      "reason": "KNOWN_CORRIDOR_PROGRESS",
+      "selection": {
+        "weighted_cost": 2.2522898253739116,
+        "straight_endpoint_distance_m": 1.7724920617096562,
+        "candidate_max_distance_m": 3.6748023571839976,
+        "selected_margin_m": 0.46928930996041623,
+        "selected_clearance_penalty": 0.4005175342222735,
+        "selected_score": 8.13787182360896,
+        "endpoint": [
+          11.350000000000001,
+          0.6499999999999995
+        ]
+      },
+      "path": [
+        [
+          9.578598294682514,
+          0.5878380564811053
+        ],
+        [
+          11.350000000000001,
+          0.6499999999999995
+        ]
+      ],
+      "reference_length_m": 1.7724920617096562,
+      "rectangle_route_clear": true
+    }
+  ]
+}

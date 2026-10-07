@@ -1,0 +1,14 @@
+diff --git a/src/go2_driver/CMakeLists.txt b/src/go2_driver/CMakeLists.txt
+index fd8b8b6..9400b78 100644
+--- a/src/go2_driver/CMakeLists.txt
++++ b/src/go2_driver/CMakeLists.txt
+@@ -52,7 +52,8 @@ install(TARGETS driver
+   DESTINATION lib/${PROJECT_NAME})
+ 
+ install(
+-  DIRECTORY launch params rviz 
++  # 只安装仓库中实际存在且使用的启动与可视化资源。
++  DIRECTORY launch rviz 
+   DESTINATION share/${PROJECT_NAME}
+ )
+ 

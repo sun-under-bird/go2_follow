@@ -1,0 +1,96 @@
+{
+  "kind": "measured_rate_stop_guard_comparison",
+  "note": "仅对已测停止相位比较；.25秒延迟，wbrake=1rad/s^2，线/侧向减速度.45m/s^2，不能证明全部延迟/步态相位/连续响应包络。",
+  "cases": [
+    {
+      "source": "execution-rate-20261004",
+      "case": "moving-reversal",
+      "stop_begin_s": 24.0,
+      "initial_measured_body_velocity": [
+        0.47059085500698283,
+        0.01953806884771496,
+        0.0654765461991316
+      ],
+      "observed_max_abs_yaw_change_rad": 0.012510041273755095,
+      "guard_initial_rate_angular_budget_rad": 0.018512725600866406,
+      "angular_budget_covers_observed": true,
+      "observed_max_initial_body_lateral_m": 0.0052250873773693925,
+      "observed_max_center_displacement_m": 0.05548752429667571,
+      "guard_conservative_translation_distance_m": 0.36423516702301145,
+      "translation_distance_budget_covers_observed": true,
+      "warning": "总位移上界只用于诊断；不是三条中心轨迹的空间管束覆盖证明。"
+    },
+    {
+      "source": "execution-rate-20261004",
+      "case": "in-place-reversal",
+      "stop_begin_s": 20.0,
+      "initial_measured_body_velocity": [
+        -0.033901988600025024,
+        0.01929146386223901,
+        -0.45915109574671104
+      ],
+      "observed_max_abs_yaw_change_rad": 0.015346923100517329,
+      "guard_initial_rate_angular_budget_rad": 0.22019763829938047,
+      "angular_budget_covers_observed": true,
+      "observed_max_initial_body_lateral_m": 0.010000494938812396,
+      "observed_max_center_displacement_m": 0.012199604396424868,
+      "guard_conservative_translation_distance_m": 0.011442181331583073,
+      "translation_distance_budget_covers_observed": false,
+      "warning": "总位移上界只用于诊断；不是三条中心轨迹的空间管束覆盖证明。"
+    },
+    {
+      "source": "execution-rate-20261004",
+      "case": "in-place-capability",
+      "stop_begin_s": 20.0,
+      "initial_measured_body_velocity": [
+        -0.028122890517098775,
+        -0.04146181991465498,
+        -0.560100541194
+      ],
+      "observed_max_abs_yaw_change_rad": 0.020613402558851357,
+      "guard_initial_rate_angular_budget_rad": 0.2968814434214059,
+      "angular_budget_covers_observed": true,
+      "observed_max_initial_body_lateral_m": 0.006549149703751591,
+      "observed_max_center_displacement_m": 0.008219149956834931,
+      "guard_conservative_translation_distance_m": 0.015313789946982296,
+      "translation_distance_budget_covers_observed": true,
+      "warning": "总位移上界只用于诊断；不是三条中心轨迹的空间管束覆盖证明。"
+    },
+    {
+      "source": "execution-rate-turn-stop-20261004",
+      "case": "moving-rate-limit",
+      "stop_begin_s": 20.0,
+      "initial_measured_body_velocity": [
+        0.4085095848451004,
+        -0.1423032858341847,
+        -0.39285272921100645
+      ],
+      "observed_max_abs_yaw_change_rad": 0.045393489785671544,
+      "guard_initial_rate_angular_budget_rad": 0.17537981572701977,
+      "angular_budget_covers_observed": true,
+      "observed_max_initial_body_lateral_m": 0.01849913919454878,
+      "observed_max_center_displacement_m": 0.07615710522291369,
+      "guard_conservative_translation_distance_m": 0.31606896366976467,
+      "translation_distance_budget_covers_observed": true,
+      "warning": "总位移上界只用于诊断；不是三条中心轨迹的空间管束覆盖证明。"
+    },
+    {
+      "source": "execution-rate-turn-stop-20261004",
+      "case": "medium-rate-limit",
+      "stop_begin_s": 20.0,
+      "initial_measured_body_velocity": [
+        0.30645129827467366,
+        0.02156371870401442,
+        -0.3967888713694796
+      ],
+      "observed_max_abs_yaw_change_rad": 0.0157525394242327,
+      "guard_initial_rate_angular_budget_rad": 0.1779179220637026,
+      "angular_budget_covers_observed": true,
+      "observed_max_initial_body_lateral_m": 0.004999529816221959,
+      "observed_max_center_displacement_m": 0.0368989424114577,
+      "guard_conservative_translation_distance_m": 0.18166602824132938,
+      "translation_distance_budget_covers_observed": true,
+      "warning": "总位移上界只用于诊断；不是三条中心轨迹的空间管束覆盖证明。"
+    }
+  ]
+}

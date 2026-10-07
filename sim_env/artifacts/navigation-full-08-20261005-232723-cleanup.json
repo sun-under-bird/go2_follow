@@ -1,0 +1,24 @@
+{
+  "checked_at": "2026-10-05T23:42:55.2320788+08:00",
+  "prefix": "navigation-full-08-20261005-232723",
+  "http_8765_unreachable": true,
+  "follow_app_pgrep_exit_code": 1,
+  "follow_app_processes": [],
+  "nav2_pgrep_exit_code": 1,
+  "nav2_processes": [],
+  "owned_search_worker_pids": [
+    541,
+    736,
+    963,
+    1212,
+    1450,
+    1713,
+    1988,
+    2403
+  ],
+  "worker_ps_exit_code": 1,
+  "remaining_owned_workers": [],
+  "last_wsl_wrapper_pid": 22172,
+  "last_wsl_wrapper_exited": true,
+  "all_checked_processes_exited": true
+}

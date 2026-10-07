@@ -1,0 +1,9 @@
+{
+  "checked_at_utc": "2026-09-28T16:48:07.8646968Z",
+  "http_stopped": true,
+  "simulation_process_stopped": true,
+  "test_processes_stopped": true,
+  "owned_wsl_launcher_stopped": true,
+  "core_source_hashes_match": true,
+  "scope": "Only this task follow_demo app and checker processes; WSL and other tasks retained."
+}

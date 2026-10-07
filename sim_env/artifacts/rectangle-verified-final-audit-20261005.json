@@ -1,0 +1,136 @@
+{
+  "verified_at_utc": "2026-10-05T12:09:13.574134+00:00",
+  "prefix": "navigation-rectangle-verified-20261005",
+  "scenarios": {
+    "open": {
+      "source_matches_current": true,
+      "source_mismatches": [],
+      "hashed_files": 24,
+      "footprint": {
+        "shape": "rectangle",
+        "length": 0.7,
+        "width": 0.32
+      },
+      "requested_footprint_verified": true,
+      "command_limits_verified": true,
+      "command_bounds_verified": true,
+      "observed_max_forward_command": 0.6748656327247616,
+      "observed_max_abs_turn_command": 0.13575214419364937,
+      "passed_navigation": true,
+      "stimulus_valid": true
+    },
+    "long_wall": {
+      "source_matches_current": true,
+      "source_mismatches": [],
+      "hashed_files": 24,
+      "footprint": {
+        "shape": "rectangle",
+        "length": 0.7,
+        "width": 0.32
+      },
+      "requested_footprint_verified": true,
+      "command_limits_verified": true,
+      "command_bounds_verified": true,
+      "observed_max_forward_command": 0.6898028281211857,
+      "observed_max_abs_turn_command": 0.597915954208374,
+      "passed_navigation": true,
+      "stimulus_valid": true
+    },
+    "consecutive": {
+      "source_matches_current": true,
+      "source_mismatches": [],
+      "hashed_files": 24,
+      "footprint": {
+        "shape": "rectangle",
+        "length": 0.7,
+        "width": 0.32
+      },
+      "requested_footprint_verified": true,
+      "command_limits_verified": true,
+      "command_bounds_verified": true,
+      "observed_max_forward_command": 0.6848055834770203,
+      "observed_max_abs_turn_command": 0.61227947473526,
+      "passed_navigation": true,
+      "stimulus_valid": true
+    },
+    "corner": {
+      "source_matches_current": true,
+      "source_mismatches": [],
+      "hashed_files": 24,
+      "footprint": {
+        "shape": "rectangle",
+        "length": 0.7,
+        "width": 0.32
+      },
+      "requested_footprint_verified": true,
+      "command_limits_verified": true,
+      "command_bounds_verified": true,
+      "observed_max_forward_command": 0.7597495944976804,
+      "observed_max_abs_turn_command": 0.5987709164619446,
+      "passed_navigation": true,
+      "stimulus_valid": true
+    },
+    "blocked": {
+      "source_matches_current": true,
+      "source_mismatches": [],
+      "hashed_files": 24,
+      "footprint": {
+        "shape": "rectangle",
+        "length": 0.7,
+        "width": 0.32
+      },
+      "requested_footprint_verified": true,
+      "command_limits_verified": true,
+      "command_bounds_verified": true,
+      "observed_max_forward_command": 0.7050336599349976,
+      "observed_max_abs_turn_command": 0.9938762187957764,
+      "passed_navigation": true,
+      "stimulus_valid": true
+    }
+  },
+  "all_scenario_sources_identical": true,
+  "heading_source_matches_current": true,
+  "heading_passed": true,
+  "logic_tests": {
+    "count": 234,
+    "passed": true,
+    "log": "sim_env/logs/rectangle-verified-unit-20261005.log"
+  },
+  "source_archive_sha256": "242fbe4bbfd9d00dbfc3a9f27fa2b7b475c80f43e1d253810d26ab32fc5f6645",
+  "source_archive_files": 73,
+  "linux_cleanup": {
+    "active_demo_processes": [],
+    "recorded_search_workers_alive": {
+      "531": false,
+      "720": false,
+      "938": false,
+      "1163": false,
+      "1388": false
+    },
+    "mppi_manifest_exists": false,
+    "passed": true
+  },
+  "windows_cleanup": {
+    "verified_at": "2026-10-05T12:07:59.0397920Z",
+    "http8765_unreachable": true,
+    "preview8776_closed": true,
+    "preview_pid": 18364,
+    "preview_exited": true,
+    "last_wsl_wrapper_pid": 20144,
+    "last_wsl_wrapper_exited": true
+  },
+  "browser_checks": {
+    "report": "navigation-rectangle-verified-20261005",
+    "checked": [
+      "scenario_switch",
+      "scrub_time",
+      "play_advances_time",
+      "pause",
+      "rectangle_visible"
+    ],
+    "console": [],
+    "preview": "task_owned_loopback_http",
+    "file_protocol_in_app_browser": "not_supported"
+  },
+  "passed": true
+}
