@@ -9,6 +9,14 @@
 [上层调用接口文档](docs/UPSTREAM_API.md)；**部署、启动命令与验收清单见
 [上层对接与部署](docs/上层对接与部署.md)**。
 
+## 导航目标生成模式
+
+需要统一交由上层 Nav2 执行时，使用
+`ros2 launch go2_uwb_behavior navigation_targets.launch.py`。
+此模式只通过服务返回固定地图目标，不创建底盘速度发布者；
+原持续跟随/漫游运动模式仍可单独启动。接口与切换约束见
+[导航目标生成说明](docs/NAVIGATION_TARGETS.md)。
+
 ## 控制链路
 
 ```text
@@ -32,6 +40,34 @@ ros2 launch go2_uwb_behavior behavior_follow_roam.launch.py \
 ```
 
 首次联调使用 `enable_motion:=false`，接口、点云、规划和诊断仍运行，但最终底盘速度始终为零。
+
+### UWB 与视觉定位合并启动
+
+将以下三个启动文件一起运行：`uwb_aoa_pkg/uwb_source.launch.py`、
+`go2_uwb_behavior/behavior_follow_roam.launch.py enable_motion:=true`、
+`person_3d_localization/person_3d_localization.launch.py`：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/cat/robot_ws/slam_ws/install/setup.bash
+source /home/cat/robot_ws/go2_follow_develop/install/setup.bash
+ros2 launch go2_uwb_behavior uwb_visual_bringup.launch.py
+```
+
+默认 `enable_motion=true`，UWB 串口使用本机已确认的固定设备路径
+`/dev/serial/by-id/usb-FTDI_FT232R_USB_UART_AP2315SD-if00-port0`，
+视觉定位仍加载 `person_3d_localization` 包原配置。该固定路径随同一个
+FTDI 设备保持不变，可避免重插 USB 后 `ttyUSB0/ttyUSB1` 编号变化导致启动失败。
+更换 UWB 串口适配器时，通过 `serial_port:=实际设备路径` 指定新的设备。
+可用 `serial_port`、`enable_motion` 和
+`person_localization_config` 覆盖这三项设置；UWB 行为链的 `odom_topic`、
+`cmd_vel_topic` 等原参数仍可传入。
+每个子 launch 使用独立参数作用域，避免子文件默认值相互覆盖。
+
+启动合并文件前，停止原来分别运行的三个 launch，避免重复节点。
+相机、里程计/TF、SLAM/Nav2、Vision、Tree 和 Action 继续按原部署启动；
+此文件仅合并上述三个入口。视觉停靠距离由本次 Action Goal 的
+`params_json.stand_off_distance_m` 决定，不需要增加启动参数。
 
 ## 上层调用
 

@@ -1,0 +1,28 @@
+# 超时为 0 时使用服务端默认值；半径为 0 时使用配置的默认半径；方向 +1 逆时针、-1 顺时针、0 使用默认方向。
+float64 timeout_sec
+float64 orbit_radius
+int8 direction
+---
+uint8 SUCCESS=0
+uint8 CANCELED=1
+uint8 PREEMPTED_BY_MODE=2
+uint8 NOT_READY=3
+uint8 TIMEOUT=4
+uint8 INPUT_TIMEOUT=5
+uint8 BLOCKED=6
+uint8 STOP_UNCONFIRMED=7
+uint8 code
+string message
+float64 elapsed_sec
+float64 final_distance
+float64 completed_angle
+---
+uint8 STARTING=0
+uint8 APPROACHING=1
+uint8 ORBITING=2
+uint8 INPUT_PAUSED=3
+uint8 STOPPING=4
+uint8 state
+float64 distance
+float64 orbit_angle
+float64 elapsed_sec

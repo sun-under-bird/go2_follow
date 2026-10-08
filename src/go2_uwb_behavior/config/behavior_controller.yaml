@@ -16,6 +16,7 @@ uwb_behavior_controller_node:
     compute_enable_topic: /go2_uwb_behavior/compute_enable  # Action 执行期间开启双目点云重计算的门控话题
     behavior_service_name: /go2/set_behavior  # 兼容 IDLE 与 STOP 的服务名；FOLLOW/ROAM 应使用 Action
     follow_action_name: /go2/follow_uwb  # 启动、取消 UWB 持续跟随并接收反馈的 Action 名
+    orbit_action_name: /go2/orbit_uwb_once  # 接近 UWB 目标并环绕一周的单次 Action 名
     roam_action_name: /go2/random_roam  # 启动、取消漫游并接收反馈和结果的 Action 名
 
     default_mode: IDLE  # 空闲启动，收到 FollowUwb 或 RandomRoam Action 后才启用感知与运动
@@ -36,6 +37,16 @@ uwb_behavior_controller_node:
     readiness_timeout_sec: 2.0  # 漫游启动时等待传感器和规划器就绪的最大时长（s）
     input_recovery_timeout_sec: 3.0  # 漫游输入超时后停车保留目标，窗口内恢复则自动继续；总 Action 超时仍有效
     maximum_follow_timeout_sec: 3600.0  # 上层可指定的跟随最长时限（s）；Goal 为 0 时持续到 cancel
+    default_orbit_timeout_sec: 60.0  # UWB 环绕 Action 未指定超时时使用的总时限（s）
+    maximum_orbit_timeout_sec: 180.0  # UWB 环绕 Action 允许的最长执行时间（s）
+    default_orbit_radius: 1.0  # 环绕 UWB 目标的默认半径（m）
+    minimum_orbit_radius: 0.5  # Action 可指定的最小环绕半径（m）
+    maximum_orbit_radius: 2.0  # Action 可指定的最大环绕半径（m）
+    orbit_capture_tolerance: 0.05  # 接近到半径加该容差后开始环绕（m）
+    orbit_lead_angle: 0.35  # 环绕控制虚拟目标沿圆周前置的角度（rad）
+    orbit_goal_tolerance: 0.03  # 圆周虚拟目标控制的距离死区（m）
+    orbit_max_linear_speed: 0.35  # 环绕阶段名义线速度上限（m/s）
+    orbit_max_angular_speed: 1.0  # 环绕阶段名义角速度上限（rad/s）
 
     # FOLLOW 参数与现有实机配置保持一致，新启动链继续复用同一控制核心。
     follow_distance: 1.0  # 期望跟随距离（m）；进入该距离及距离死区后不再前进

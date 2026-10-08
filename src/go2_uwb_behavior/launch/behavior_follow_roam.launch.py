@@ -16,9 +16,11 @@
 
 from pathlib import Path
 
+import yaml
+
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -47,6 +49,7 @@ def generate_launch_description() -> LaunchDescription:
     planner_cmd_topic = LaunchConfiguration("planner_cmd_topic")
     cmd_vel_topic = LaunchConfiguration("cmd_vel_topic")
     enable_motion = LaunchConfiguration("enable_motion")
+    target_only = LaunchConfiguration("target_only")
     compute_enable_topic = LaunchConfiguration("compute_enable_topic")
 
     stereo_launch = IncludeLaunchDescription(
@@ -104,27 +107,40 @@ def generate_launch_description() -> LaunchDescription:
         ],
     )
 
-    behavior_node = Node(
-        package="go2_uwb_behavior",
-        executable="uwb_behavior_controller_node",
-        name="uwb_behavior_controller_node",
-        output="screen",
-        parameters=[
-            behavior_params_file,
-            {
-                "base_frame": base_frame,
-                "odom_frame": odom_frame,
-                "target_topic": target_topic,
-                "odom_topic": odom_topic,
-                "obstacle_topic": rolling_obstacle_topic,
-                "nominal_cmd_topic": nominal_cmd_topic,
-                "planner_cmd_topic": planner_cmd_topic,
-                "cmd_vel_topic": cmd_vel_topic,
-                "compute_enable_topic": compute_enable_topic,
-                "enable_motion": ParameterValue(enable_motion, value_type=bool),
-            },
-        ],
-    )
+    def create_behavior_node(context):
+        only_targets = target_only.perform(context).lower() in ("true", "1")
+        params = behavior_params_file
+        if only_targets:
+            # Re-key the existing configuration when using a distinct producer
+            # name, so Lite3 ownership checks still reject the movement node.
+            with open(behavior_params_file.perform(context), encoding="utf-8") as stream:
+                document = yaml.safe_load(stream)
+            params = dict(document.get("/**", {}).get("ros__parameters", {}))
+            params.update(document["uwb_behavior_controller_node"]["ros__parameters"])
+        return [Node(
+            package="go2_uwb_behavior",
+            executable="uwb_behavior_controller_node",
+            name="uwb_navigation_target_node" if only_targets else "uwb_behavior_controller_node",
+            output="screen",
+            parameters=[
+                params,
+                {
+                    "base_frame": base_frame,
+                    "odom_frame": odom_frame,
+                    "target_topic": target_topic,
+                    "odom_topic": odom_topic,
+                    "obstacle_topic": rolling_obstacle_topic,
+                    "nominal_cmd_topic": nominal_cmd_topic,
+                    "planner_cmd_topic": planner_cmd_topic,
+                    "cmd_vel_topic": cmd_vel_topic,
+                    "compute_enable_topic": compute_enable_topic,
+                    "enable_motion": ParameterValue(enable_motion, value_type=bool),
+                    "target_only": ParameterValue(target_only, value_type=bool),
+                },
+            ],
+        )]
+
+    behavior_node = OpaqueFunction(function=create_behavior_node)
 
     return LaunchDescription(
         [
@@ -169,6 +185,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument("cmd_vel_topic", default_value="/cmd_vel"),
             DeclareLaunchArgument("enable_motion", default_value="true"),
+            DeclareLaunchArgument("target_only", default_value="false"),
             DeclareLaunchArgument(
                 "compute_enable_topic",
                 default_value="/go2_uwb_behavior/compute_enable",

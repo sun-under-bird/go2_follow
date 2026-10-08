@@ -1,0 +1,20 @@
+# Generate one fixed navigation target. SUCCESS means generated, not arrived.
+string request_id
+uint32 random_seed
+float64 min_radius
+float64 max_radius
+---
+uint8 SUCCESS=0
+uint8 BUSY=1
+uint8 INVALID_REQUEST=2
+uint8 INPUT_TIMEOUT=3
+uint8 NO_VALID_GOAL=4
+uint8 TF_UNAVAILABLE=5
+uint8 CANCELED=6
+uint8 UNSUPPORTED_MODE=7
+string request_id
+bool success
+uint8 code
+string message
+geometry_msgs/PoseStamped navigation_goal
+geometry_msgs/PoseStamped center_pose

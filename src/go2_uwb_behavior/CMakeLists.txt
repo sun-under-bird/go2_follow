@@ -27,8 +27,10 @@ find_package(tf2_ros REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/FollowUwb.action"
+  "action/OrbitUwbOnce.action"
   "action/RandomRoam.action"
   "srv/SetBehavior.srv"
+  "srv/GenerateNavigationGoal.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs
 )
 
@@ -88,6 +90,7 @@ if(BUILD_TESTING)
   target_include_directories(test_behavior_core PRIVATE include)
 
   add_launch_test(test/test_behavior_action_launch.py TIMEOUT 60)
+  add_launch_test(test/test_navigation_target_launch.py TIMEOUT 40)
 endif()
 
 ament_export_include_directories(include)
