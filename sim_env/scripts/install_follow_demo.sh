@@ -15,13 +15,29 @@ set +u
 source "$sim_root/setup.bash"
 set -u
 plugin_source="$script_dir/../native/go2_follow_mppi_critics"
-plugin_digest="$(find "$plugin_source" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)"
+[[ -f "$plugin_source/CMakeLists.txt" ]] || { echo "缺少原生插件源码：$plugin_source。请保留完整 sim_env/native 目录。"; exit 1; }
+# 首次安装从 /opt 运行，日常更新从 Windows 仓库运行；固定 Linux 源目录避免 CMake 缓存绑定旧路径。
+plugin_workspace="$sim_root/native"
+plugin_snapshot="$plugin_workspace/go2_follow_mppi_critics"
+mkdir -p "$plugin_snapshot"
+# 只同步这个生成的源码副本，移除上版已删除文件；不触碰 Windows 仓库或其他构建目录。
+rsync -a --delete "$plugin_source/" "$plugin_snapshot/"
+# 使用相对文件名计算摘要，并计入主要 ABI 依赖；源码位置或依赖版本改变时不会错误复用旧库。
+plugin_digest="$(
+    {
+        (cd "$plugin_snapshot" && find . -type f -print0 | sort -z | xargs -0 sha256sum)
+        dpkg-query -W -f='${binary:Package}=${Version}\n' \
+            ros-humble-nav2-mppi-controller ros-humble-rclcpp ros-humble-pluginlib \
+            libxtensor-dev libxsimd-dev xtl-dev
+    } | sha256sum | cut -d' ' -f1
+)"
 plugin_prefix="$sim_root/follow_native"
-if [[ ! -f "$plugin_prefix/source.sha256" || "$(cat "$plugin_prefix/source.sha256")" != "$plugin_digest" ]]; then
-    cmake -S "$plugin_source" -B "$sim_root/follow_native_build" -DCMAKE_INSTALL_PREFIX="$plugin_prefix" \
+# 摘要相同但库文件丢失时也必须重建，不能把不完整安装当作有效缓存。
+if [[ ! -f "$plugin_prefix/lib/libgo2_follow_mppi_critics.so" || ! -f "$plugin_prefix/source.sha256" || "$(cat "$plugin_prefix/source.sha256")" != "$plugin_digest" ]]; then
+    cmake -S "$plugin_snapshot" -B "$plugin_workspace/build" -DCMAKE_INSTALL_PREFIX="$plugin_prefix" \
         -DCMAKE_BUILD_TYPE=Release -DPython3_EXECUTABLE=/usr/bin/python3 -DPYTHON_EXECUTABLE=/usr/bin/python3 -DBUILD_TESTING=OFF
-    cmake --build "$sim_root/follow_native_build" --parallel 2
-    cmake --install "$sim_root/follow_native_build"
+    cmake --build "$plugin_workspace/build" --parallel 2
+    cmake --install "$plugin_workspace/build"
     printf '%s\n' "$plugin_digest" > "$plugin_prefix/source.sha256"
 fi
 cat > "$sim_root/bin/go2-follow" <<'EOF'

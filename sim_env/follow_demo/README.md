@@ -1,5 +1,7 @@
 # Go2 平地有限视野连续跟随实验台
 
+新电脑从 WSL 开始请先读 [异机从零复现指南](../异机从零复现指南.md)。下面 Windows 命令从 Git 仓库根目录执行；运行代码以仓库内 `sim_env` 为准，旧电脑顶层同名目录与本仓库不同步。
+
 当前链路：UWB历史形成跟随目标区域 + 前视深度滚动地图 → 独立进程位置/朝向Dijkstra局部搜索 → Nav2 MPPI联合路径、速度参考和停车评分 → 平滑及实际停车轨迹复查 → 仿真中高速线速度校准 + ONNX步态 → MuJoCo。人的默认速度 **0.8 m/s**，绕障和盲角允许减速或短停。实测运动和指令分开记录。
 
 当前默认身份为 **rate / trail / camera / steady / process**，相机安装默认水平（`-CameraPitchDeg 0`）。`trail`沿人的有效历史和有限预测退后跟随间距形成目标区域，并将终点限制在当前进度前方的局部窗口；不要求机器狗精确经过人体拐点，也不把人体轨迹当作自由地图。`annulus`保留为显式对照。[速度修复与验收记录](../artifacts/速度跟随修复与验收_20261008.md)区分完整场景、试验配置及失败边界。单轮通过不能证明成功率或任意场景都流畅。
@@ -13,7 +15,7 @@
 在 Windows PowerShell 执行，或双击上一级的 `Start-FollowDemo.cmd`：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Start-FollowDemo.ps1'
+.\sim_env\Start-FollowDemo.ps1
 ```
 
 打开 [跟随实验台](http://127.0.0.1:8765/)。启动脚本复用已有本实验台实例，不启动第二个控制器。
@@ -23,8 +25,8 @@
 规划模式为 `trail` / `annulus`，观察模式为 `cone` / `camera`；`trail`与`camera`为当前默认，`annulus`与`cone`保留为旧方式对照。向下25度安装试验示例：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Stop-FollowDemo.ps1'
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Start-FollowDemo.ps1' -CameraPitchDeg 25
+.\sim_env\Stop-FollowDemo.ps1
+.\sim_env\Start-FollowDemo.ps1 -CameraPitchDeg 25
 ```
 
 搜索默认 `process`，用 spawn 进程读取私有地图快照，启动前预热；`-SearchExecutionMode thread` 仅用于显式对照。切换任何模式前须结束现有实例，启动脚本会拒绝复用身份不同的服务。
@@ -45,7 +47,7 @@
 结束时点击“结束演示服务”，或执行：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Stop-FollowDemo.ps1'
+.\sim_env\Stop-FollowDemo.ps1
 ```
 
 **仅关闭网页不会停止后台仿真。** 停止脚本核实 HTTP、实验台 Python 进程和专属 Nav2 MPPI 子进程均已退出；异常退出时按 PID、启动时刻和命令核对后清理本实验台子进程，不结束其他任务、整台 WSL 或 Docker。助手每次完成验证后也停止自己启动的测试和仿真，并交给用户自行启动验收。[2026-10-08退出与版本记录](../artifacts/navigation-speed-history32-20261008-final-audit.json)核对本轮八场版本及16个渲染/搜索工作进程退出，HTTP和实验台专属Nav2也已结束。
@@ -71,7 +73,7 @@
 独立角度复测（历史角度结果不能替代新速度版复测）：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Check-HeadingDemo.ps1' -ReportPrefix heading-self-rectangle
+.\sim_env\Check-HeadingDemo.ps1 -ReportPrefix heading-self-rectangle
 ```
 
 ## 3. 为什么采用历史地图与异步搜索
@@ -222,9 +224,13 @@ TF 为 `odom → base_footprint → base_link → camera_*`；重置时 ROS 时�
 基础 Ubuntu 22.04 / ROS 2 Humble / MuJoCo 环境见上一级 [环境文档](../README.md)。现成环境更新源码时先停、再复制并重启，**不编译 ROS 包**：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Stop-FollowDemo.ps1'
-wsl -d Ubuntu-22.04 -u chy --exec bash '/mnt/c/Users/chy/Documents/ChatGPT/go2_slam 2/sim_env/scripts/install_follow_demo.sh'
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Start-FollowDemo.ps1'
+.\sim_env\Stop-FollowDemo.ps1
+$go2Installer = (Resolve-Path -LiteralPath '.\sim_env\scripts\install_follow_demo.sh').Path
+$go2LinuxInstaller = (& wsl.exe -d Ubuntu-22.04 -u chy --exec wslpath -a -u $go2Installer).Trim()
+if ($LASTEXITCODE -ne 0) { throw '无法转换安装脚本路径。' }
+wsl -d Ubuntu-22.04 -u chy --exec bash $go2LinuxInstaller
+if ($LASTEXITCODE -ne 0) { throw '实验台更新失败。' }
+.\sim_env\Start-FollowDemo.ps1
 ```
 
 源码复制到 `~/go2_sim/follow_demo`，不热更新。安装脚本核对现有 Nav2 可执行程序和 MPPI 插件；复用已安装运行包，不执行新的依赖安装。本机使用的 Humble Nav2 版本为 1.1.20，未来 APT 重建版本以安装清单为准。
@@ -246,11 +252,11 @@ python -m follow_demo.tests.check_execution
 关闭人工实例后，可在 Windows PowerShell 运行自动场景验收：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Check-NavigationDemo.ps1' -ReportPrefix navigation-progress-review
-# 单场景，目标速度默认 0.5 m/s：
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Check-NavigationDemo.ps1' -Scenarios long_wall -Speed 0.5 -ReportPrefix navigation-progress-review
+.\sim_env\Check-NavigationDemo.ps1 -ReportPrefix navigation-progress-review
+# 单场景低速对照；当前默认目标速度为 0.8 m/s：
+.\sim_env\Check-NavigationDemo.ps1 -Scenarios long_wall -Speed 0.5 -ReportPrefix navigation-progress-review
 # 显式指定当前默认身份，保存不同前缀：
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Check-NavigationDemo.ps1' -Scenarios open,consecutive -Speed 0.5 -ExecutionMode rate -PlanningMode annulus -ObservationMode cone -ExecutorWakeMode steady -SearchExecutionMode process -ReportPrefix navigation-scheduling-review
+.\sim_env\Check-NavigationDemo.ps1 -Scenarios open,consecutive -Speed 0.5 -ExecutionMode rate -PlanningMode annulus -ObservationMode cone -ExecutorWakeMode steady -SearchExecutionMode process -ReportPrefix navigation-scheduling-review
 ```
 
 脚本拒绝复用人工正在运行的实例，依次复制源码、启动、检查、关闭并核实退出，将指定前缀的报告复制到 Windows `sim_env/artifacts`；失败保留非零退出码和证据。显式指定本轮前缀以保留历史版本结果，检查期间不要同时操作页面。

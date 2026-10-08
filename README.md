@@ -14,7 +14,8 @@ D435i 有限前视深度、UWB 轨迹意图、矩形局部路径搜索、速度�
 八场报告的 31 个运行源码摘要与提交副本一致。相机向下 25° 是该轮显式仿真配置，
 默认水平 0° 不能继承这组成绩，也没有完成 RK3588 或实机验收。
 
-- [环境与复现步骤](sim_env/README.md)
+- [另一台电脑从 WSL 开始的完整复现指南](sim_env/异机从零复现指南.md)
+- [环境概览与历史安装记录](sim_env/README.md)
 - [跟随实验台操作说明](sim_env/follow_demo/README.md)
 - [完整验收记录](sim_env/artifacts/速度跟随修复与验收_20261008.md)
 - [八场真实离线回放](sim_env/artifacts/navigation-speed-history32-20261008-验收回放.html)

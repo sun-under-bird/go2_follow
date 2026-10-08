@@ -45,10 +45,14 @@ EOF
 echo '[1/4] 更新 Ubuntu 基础系统'
 apt-get update
 apt-get upgrade -y
+# 原生插件的模板库等包来自 universe，先启用该源再安装完整依赖。
+apt-get install -y --no-install-recommends software-properties-common
+add-apt-repository -y universe
 apt-get install -y --no-install-recommends \
   ca-certificates curl wget gnupg locales tzdata software-properties-common \
   git build-essential cmake ninja-build pkg-config python3-pip python3-venv \
-  python3-dev unzip zip rsync jq \
+  python3-dev unzip zip rsync jq fonts-noto-cjk \
+  libxtensor-dev libxsimd-dev xtl-dev \
   libyaml-cpp-dev libspdlog-dev libboost-all-dev libglfw3-dev libeigen3-dev \
   nlohmann-json3-dev libopencv-dev libgl1-mesa-dri libegl1-mesa-dev \
   libosmesa6-dev mesa-utils xauth x11-utils xvfb ffmpeg
@@ -56,7 +60,6 @@ locale-gen en_US.UTF-8
 update-locale LANG=en_US.UTF-8
 ln -sfn /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 echo Asia/Shanghai > /etc/timezone
-add-apt-repository -y universe
 
 echo '[2/4] 安装固定版本 ROS 软件源'
 curl -fL --retry 3 --connect-timeout 20 \

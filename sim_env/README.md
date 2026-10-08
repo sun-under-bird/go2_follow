@@ -1,5 +1,7 @@
 # Go2 仿真开发环境：Ubuntu 22.04 / ROS 2 Humble / MuJoCo
 
+**另一台电脑从零安装请按 [异机从零复现指南](异机从零复现指南.md) 操作**，包含 WSL、依赖安装、网页启动、八场检查、回放、关闭与故障恢复。本文的磁盘、显卡和迁移信息是原电脑记录，不是新电脑必须采用的配置。下面 Windows 启动命令均从 Git 仓库根目录执行。
+
 本目录保存安装脚本、版本锁定、启动入口和验证记录。[平地跟随实验台](follow_demo/README.md)当前默认身份为 **rate / trail / camera / steady / process**，相机默认水平，人的目标速度为 **0.8 m/s**。
 
 2026-10-08速度修复加入人体历史目标区域、MPPI速度/停车评分、共享矩形计算及仿真中高速执行校准，并修复控制时钟与里程计异步到达造成的误停车。相机俯角可显式对照，完整场景和失败边界见[速度跟随修复与验收](artifacts/速度跟随修复与验收_20261008.md)。2026-10-05的五场通过属于旧源码与0.5 m/s目标速度，不能替代当前结果。
@@ -65,14 +67,14 @@ source ~/go2_sim/setup.bash
 跟随实验台也可直接从 Windows PowerShell 启动和停止：
 
 ```powershell
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Start-FollowDemo.ps1'
+.\sim_env\Start-FollowDemo.ps1
 # 验收结束后执行；仅关闭浏览器不会结束仿真。
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Stop-FollowDemo.ps1'
+.\sim_env\Stop-FollowDemo.ps1
 # 当前默认身份也可显式写出，避免与旧实例混用：
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Start-FollowDemo.ps1' -ExecutionMode rate -PlanningMode trail -ObservationMode camera -ExecutorWakeMode steady -SearchExecutionMode process -CameraPitchDeg 0
+.\sim_env\Start-FollowDemo.ps1 -ExecutionMode rate -PlanningMode trail -ObservationMode camera -ExecutorWakeMode steady -SearchExecutionMode process -CameraPitchDeg 0
 # 向下25度安装试验；先停止现有实例，模式和安装参数在运行中不能切换：
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Stop-FollowDemo.ps1'
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Start-FollowDemo.ps1' -CameraPitchDeg 25
+.\sim_env\Stop-FollowDemo.ps1
+.\sim_env\Start-FollowDemo.ps1 -CameraPitchDeg 25
 ```
 
 停止脚本核实 HTTP、实验台 Python 进程和专属 Nav2 控制器/生命周期管理器均已结束，不停止其他任务或整台 WSL。[2026-10-08退出与版本核实](artifacts/navigation-speed-history32-20261008-final-audit.json)保存本轮八场源码、原生库一致性及实验台子进程退出。用户按 [实验台操作说明](follow_demo/README.md) 自行验收：先选择场景并重置、等姿态就绪，再确认起始净空、开始跟随并让目标沿预置路线行走；结束后执行停止脚本。
@@ -175,8 +177,8 @@ SHA256: 92A37CD55B1E582676118D882B816EF7B6C0787357ACF1A68508517ED1159C38
 
 ```powershell
 # 拒绝复用人工正在验收的实例，自动启动、记录并关闭；每轮使用独立前缀。
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Check-NavigationDemo.ps1' -Scenarios open,long_wall,consecutive,corner,blocked -ReportPrefix navigation-self-rectangle
-& 'C:\Users\chy\Documents\ChatGPT\go2_slam 2\sim_env\Check-HeadingDemo.ps1' -ReportPrefix heading-self-rectangle
+.\sim_env\Check-NavigationDemo.ps1 -Scenarios open,long_wall,consecutive,corner,blocked -ReportPrefix navigation-self-rectangle
+.\sim_env\Check-HeadingDemo.ps1 -ReportPrefix heading-self-rectangle
 ```
 
 [2026-10-05旧版离线回放](artifacts/navigation-rectangle-verified-20261005-验收回放.html)保留历史；[2026-10-08当前八场回放](artifacts/navigation-speed-history32-20261008-验收回放.html)双击即可播放、切场景及拖动时间，不需要仿真或HTTP。新报告按实际朝向显示矩形；旧报告保留旧圆形语义。辅助障碍只解释报告，没有输入导航，最终地图不会伪装成每帧历史地图。

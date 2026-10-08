@@ -32,8 +32,7 @@ export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export CYCLONEDDS_URI="file://$HOME/go2_sim/config/cyclonedds.xml"
 export PATH="$HOME/go2_sim/bin:$PATH"
 export PYTHONNOUSERSITE=1
-# 此主机已验证 NVIDIA 的 WSLg 加速；允许用户显式指定其他显卡。
-export MESA_D3D12_DEFAULT_ADAPTER_NAME="${MESA_D3D12_DEFAULT_ADAPTER_NAME:-NVIDIA}"
+# 由 WSLg 自动选择显卡；如需指定，用户可在加载环境前设置 MESA_D3D12_DEFAULT_ADAPTER_NAME。
 EOF
 
 # 原生 SDK 使用自己的 DDS 动态库；不要把此 LD_LIBRARY_PATH 加到 ROS 终端全局环境。

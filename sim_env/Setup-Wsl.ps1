@@ -30,7 +30,8 @@ if ($LASTEXITCODE -ne 0 -or -not $linuxSource.StartsWith('/')) { throw '无法�
 Invoke-WslStep -Name 'prepare-directory' -WslArguments @('-d', $Distribution, '-u', 'root',
     '--exec', 'mkdir', '-p', '/opt/go2-env-setup')
 Invoke-WslStep -Name 'copy-bundle' -WslArguments @('-d', $Distribution, '-u', 'root', '--exec', 'cp', '-r',
-    "$linuxSource/scripts", "$linuxSource/locks", "$linuxSource/config", "$linuxSource/follow_demo", '/opt/go2-env-setup/')
+    "$linuxSource/scripts", "$linuxSource/locks", "$linuxSource/config", "$linuxSource/follow_demo",
+    "$linuxSource/native", '/opt/go2-env-setup/')
 Invoke-WslStep -Name 'ubuntu-ros-bootstrap' -WslArguments @('-d', $Distribution, '-u', 'root',
     '--exec', 'bash', '/opt/go2-env-setup/scripts/bootstrap_ubuntu.sh')
 Invoke-WslStep -Name 'go2-stack-install' -WslArguments @('-d', $Distribution, '-u', 'chy',
