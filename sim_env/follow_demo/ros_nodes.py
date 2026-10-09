@@ -23,12 +23,11 @@ from sensor_msgs.msg import CameraInfo, Image, Imu, JointState
 from std_msgs.msg import String
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener, TransformException
 from rclpy.time import Time as RosTime
-from unitree_go.msg import LowState
 from .controller import Pose
-from .simulation import ROOT
+from .runtime_paths import ROOT
 from .camera_profile import (WIDTH, HEIGHT, FOVY, HFOV, BASELINE, CAMERA_CENTER, camera_position,
                              camera_intrinsic, mounting_geometry)
-from .policy import yaw_from_quaternion
+from .ros_contract import RosInterface, yaw_from_quaternion
 from .navigation import NavigationController
 from .scenarios import SCENARIOS
 from .scenario_route import route_points
@@ -225,6 +224,8 @@ class SensorBridge(Node):
     """将物理状态变成 ROS 输入，并把唯一的速度命令话题送回模拟器。"""
     def __init__(self, simulation, telemetry):
         """建立发布者；以单调时钟定周期，持续提供仿真 /clock 和输入心跳。"""
+        from unitree_go.msg import LowState
+        self.lowstate_type = LowState
         super().__init__('go2_follow_simulator', parameter_overrides=[Parameter('use_sim_time', value=False)])
         self.simulation, self.telemetry = simulation, telemetry
         self.clock_pub = self.create_publisher(Clock, '/clock', 10)
@@ -356,7 +357,7 @@ class SensorBridge(Node):
 
     def publish_lowstate(self, state, stamp):
         """发布关节/机身状态以及相机处的原始 IMU；相机 IMU 不填融合姿态。"""
-        low = LowState()
+        low = self.lowstate_type()
         low.imu_state.quaternion = [float(value) for value in state['quaternion']]
         low.imu_state.gyroscope = [float(value) for value in state['gyro']]
         low.imu_state.accelerometer = [float(value) for value in state['accel']]
@@ -440,16 +441,21 @@ class TfReceiver(Node):
 
 class FollowerNode(Node):
     """独立控制节点，通过 ROS 深度、TF、UWB 和里程计规划，不访问场景几何。"""
-    def __init__(self, use_follow_intent=False, use_camera_observation=False, tf_buffer=None, use_process_search=False):
+    def __init__(self, use_follow_intent=False, use_camera_observation=False, tf_buffer=None, use_process_search=False,
+                 interface=None):
         """建立可替换为实机传感器的标准 ROS 输入和速度输出接口。"""
-        super().__init__('go2_local_follower', parameter_overrides=[Parameter('use_sim_time', value=True)])
+        self.interface = interface or RosInterface()
+        super().__init__('go2_local_follower', parameter_overrides=[Parameter('use_sim_time', value=self.interface.use_sim_time)])
         self.use_follow_intent = use_follow_intent
         self.use_camera_observation = use_camera_observation
         self.use_process_search = use_process_search
         self.core = NavigationController(use_follow_intent=use_follow_intent,
                                          use_camera_observation=use_camera_observation,
-                                         use_process_search=use_process_search)
-        self.operator = dict(enabled=False, emergency=False, signal=False, ready=False, epoch=-1)
+                                         use_process_search=use_process_search,
+                                         require_start_confirmation=not self.interface.automatic_follow)
+        # 自动运行用内部会话号隔离融合任务，不依赖外部操作消息。
+        self.operator = dict(enabled=False, emergency=False, signal=False, ready=False,
+                             epoch=0 if self.interface.automatic_follow else -1)
         self.last_operator_wall = 0.0
         self.tf_buffer = Buffer() if tf_buffer is None else tf_buffer
         self.tf_listener = TransformListener(self.tf_buffer, self) if tf_buffer is None else None
@@ -475,16 +481,17 @@ class FollowerNode(Node):
         self.last_control_ms = self.max_control_ms = 0.0
         self.callback_trace = CallbackTrace()
         self.mppi = MppiBridge(self)
-        self.cmd_pub = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.status_pub = self.create_publisher(String, '/follow_demo/control_status', 10)
+        self.cmd_pub = self.create_publisher(Twist, self.interface.command_topic, 10)
+        self.status_pub = self.create_publisher(String, self.interface.status_topic, 10)
         # 里程计用于当前执行保护：旧消息不能在控制负载升高时排队冒充最新状态。
         latest_sensor_qos = copy.copy(qos_profile_sensor_data)
         latest_sensor_qos.depth = 1
-        self.create_subscription(Odometry, '/follow_demo/odom', self.on_odometry, latest_sensor_qos)
-        self.create_subscription(PointStamped, '/uwb/target_point', self.on_target, qos_profile_sensor_data)
-        self.create_subscription(String, '/follow_demo/operator', self.on_operator, QoSProfile(depth=1))
-        self.create_subscription(CameraInfo, '/camera/depth/camera_info', self.on_depth_info, qos_profile_sensor_data)
-        self.create_subscription(Image, '/camera/depth/image_rect_raw', self.on_depth, qos_profile_sensor_data)
+        self.create_subscription(Odometry, self.interface.odom_topic, self.on_odometry, latest_sensor_qos)
+        self.create_subscription(PointStamped, self.interface.target_topic, self.on_target, qos_profile_sensor_data)
+        if not self.interface.automatic_follow:
+            self.create_subscription(String, self.interface.operator_topic, self.on_operator, QoSProfile(depth=1))
+        self.create_subscription(CameraInfo, self.interface.camera_info_topic, self.on_depth_info, qos_profile_sensor_data)
+        self.create_subscription(Image, self.interface.depth_topic, self.on_depth, qos_profile_sensor_data)
         self.timer = self.create_timer(0.02, self.control)
 
     def on_odometry(self, message):
@@ -497,12 +504,12 @@ class FollowerNode(Node):
 
     def on_depth_info(self, message):
         """缓存与深度光心一致的针孔内参，错误坐标系不参与投影。"""
-        if message.header.frame_id == 'camera_left_optical':
+        if message.header.frame_id == self.interface.depth_frame:
             self.depth_info = message
 
     def on_depth(self, message):
         """仅保留最新深度，避免处理积压图像导致地图落后实际运动。"""
-        if message.header.frame_id == 'camera_left_optical' and seconds(message.header.stamp) >= self.epoch_start:
+        if message.header.frame_id == self.interface.depth_frame and seconds(message.header.stamp) >= self.epoch_start:
             if self.pending_depth is None or seconds(message.header.stamp) > seconds(self.pending_depth.header.stamp):
                 self.pending_depth = message
 
@@ -588,7 +595,7 @@ class FollowerNode(Node):
             self.depth_submit_reason = 'WAIT_CLOCK' if stamp > now else 'CAMERA_INFO_SIZE'
             return
         try:
-            transform = self.tf_buffer.lookup_transform('odom', message.header.frame_id, RosTime.from_msg(message.header.stamp)).transform
+            transform = self.tf_buffer.lookup_transform(self.interface.odom_frame, message.header.frame_id, RosTime.from_msg(message.header.stamp)).transform
         except TransformException as error:
             self.depth_submit_reason = 'WAIT_CAPTURE_TF'
             self.depth_tf_waits = getattr(self, 'depth_tf_waits', 0) + 1
@@ -636,7 +643,7 @@ class FollowerNode(Node):
 
     def on_target(self, message):
         """只接受约定坐标系的目标点，避免错误外参静默混入控制。"""
-        if message.header.frame_id == 'base_footprint':
+        if message.header.frame_id == self.interface.base_frame:
             self.core.observe(message.point.x, message.point.y, seconds(message.header.stamp))
 
     def on_operator(self, message):
@@ -674,18 +681,10 @@ class FollowerNode(Node):
         """发布经过同一控制核心限制的最终命令及相应诊断。"""
         self.callback_trace.mark('GET_CLOCK')
         now = self.get_clock().now().nanoseconds * 1e-9
-        operator = self.operator
         self.callback_trace.mark('DEPTH_RESULT')
         self.integrate_depth(now)
-        if self.core.confirmation_requested and not operator['enabled'] and operator['ready']:
-            self.core.confirm_start(now)
-            self.core.confirmation_requested = False
         self.callback_trace.mark('CORE_STEP')
-        if time.monotonic() - self.last_operator_wall > 0.35:
-            # 状态通信中断也通过统一撤销入口，恢复后不能重放中断前的观察动作。
-            command = self.core.halt('INPUT_LOST','OPERATOR_STALE','仿真状态通信中断',now=now)
-        else:
-            command = self.core.step(now, operator['enabled'], operator['signal'], operator['ready'], operator['emergency'])
+        command = self.controller_command(now)
         self.callback_trace.mark('MPPI_UPDATE')
         self.mppi.update(now)
         message = Twist()
@@ -697,6 +696,7 @@ class FollowerNode(Node):
         self.last_status = now
         self.callback_trace.mark('STATUS_BUILD')
         status = dict(control_t=now, state=self.core.state, reason=self.core.reason, command=list(command),
+                      operation_mode='automatic' if self.interface.automatic_follow else 'operator',
                       control_callback=dict(previous_ms=self.last_control_ms, maximum_ms=self.max_control_ms,
                                             previous_stages_ms=self.callback_trace.read().get('previous_stages_ms', {})),
                       estimated_target=self.core.target, estimated_target_velocity=self.core.target_velocity,
@@ -712,3 +712,15 @@ class FollowerNode(Node):
                       mppi_error=self.mppi.error,mppi_action=self.mppi.diagnostics())
         self.callback_trace.mark('STATUS_PUBLISH')
         self.status_pub.publish(String(data=json.dumps(status, ensure_ascii=False)))
+
+    def controller_command(self, now):
+        """实机自动运行；仿真仍使用网页的操作状态和心跳。"""
+        if self.interface.automatic_follow:
+            return self.core.step(now)
+        operator = self.operator
+        if self.core.confirmation_requested and not operator['enabled'] and operator['ready']:
+            self.core.confirm_start(now)
+            self.core.confirmation_requested = False
+        if time.monotonic() - self.last_operator_wall > 0.35:
+            return self.core.halt('INPUT_LOST','OPERATOR_STALE','仿真状态通信中断',now=now)
+        return self.core.step(now, operator['enabled'], operator['signal'], operator['ready'], operator['emergency'])

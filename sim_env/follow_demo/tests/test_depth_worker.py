@@ -9,6 +9,7 @@ import numpy as np
 from follow_demo.local_map import RollingMap
 from follow_demo.controller import Pose, PoseHistory
 from follow_demo.ros_nodes import FollowerNode, timestamp
+from follow_demo.ros_contract import RosInterface
 
 
 def depth_message(stamp):
@@ -49,7 +50,7 @@ class DepthWorkerTests(unittest.TestCase):
         else:
             future.set_exception(error)
         errors = []
-        node = SimpleNamespace(core=SimpleNamespace(grid=grid, depth_timeout=.9,
+        node = SimpleNamespace(interface=RosInterface(), core=SimpleNamespace(grid=grid, depth_timeout=.9,
                                                     history=SimpleNamespace(values=[])),
                                operator={'epoch': 1}, epoch_start=3.0,
                                pending_depth=depth_message(stamp), depth_future=future,

@@ -8,13 +8,15 @@ from nav_msgs.msg import OccupancyGrid, Path
 from nav2_msgs.action import FollowPath
 from std_msgs.msg import Float64MultiArray
 from .navigation_config import BRAKE_DECELERATION, execution_hold_seconds
+from .ros_contract import RosInterface
 
 
 class MppiBridge:
-    """使用标准 FollowPath 动作更新移动参考，最终 /cmd_vel 仍只由跟随节点发布。"""
+    """使用标准 FollowPath 动作更新移动参考，最终速度只由跟随节点按接口配置发布。"""
     def __init__(self,node):
         """建立专属命名空间连接，地图只含相机证据，不读取仿真场景。"""
         self.node = node
+        self.interface = getattr(node, 'interface', RosInterface())
         qos = QoSProfile(depth=1,durability=DurabilityPolicy.TRANSIENT_LOCAL,reliability=ReliabilityPolicy.RELIABLE)
         self.map_pub = node.create_publisher(OccupancyGrid,'/follow_demo/local_geometry',qos)
         self.path_pub = node.create_publisher(Path,'/follow_demo/reference_path',1)
@@ -53,7 +55,7 @@ class MppiBridge:
         core = self.node.core
         reference = TwistStamped()
         reference.header.stamp = self.node.get_clock().now().to_msg()
-        reference.header.frame_id = 'base_footprint'
+        reference.header.frame_id = self.interface.base_frame
         reference.twist.linear.x = float(core.speed_reference['speed']) if core.tracking_requested else 0.
         self.speed_pub.publish(reference)
         # 协议顺序：采样时刻s、保持时间s、线制动m/s²、角制动rad/s²；与末级保护同口径。
@@ -66,7 +68,7 @@ class MppiBridge:
             free,_,_ = grid.layers(now)
             message = OccupancyGrid()
             message.header.stamp = self.node.get_clock().now().to_msg()
-            message.header.frame_id = 'odom'
+            message.header.frame_id = self.interface.odom_frame
             message.info.resolution,message.info.width,message.info.height = grid.resolution,grid.size,grid.size
             message.info.origin.position.x,message.info.origin.position.y = grid.origin.tolist()
             message.info.origin.orientation.w = 1.
@@ -106,7 +108,7 @@ class MppiBridge:
         goal.controller_id = controller
         goal.goal_checker_id = 'face_goal' if facing else 'observe_goal' if orient else 'follow_goal'
         self.controller = goal.controller_id
-        goal.path.header.stamp,goal.path.header.frame_id = self.node.get_clock().now().to_msg(),'odom'
+        goal.path.header.stamp,goal.path.header.frame_id = self.node.get_clock().now().to_msg(),self.interface.odom_frame
         for index,point in enumerate(route):
             item = PoseStamped()
             item.header = goal.path.header

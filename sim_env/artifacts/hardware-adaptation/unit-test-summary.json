@@ -1,0 +1,8 @@
+{
+  "test_count": 306,
+  "duration_seconds": 13.307,
+  "passed": true,
+  "command": "python -m unittest discover -s follow_demo/tests -p 'test_*.py' -v",
+  "test_scope": "WSL Ubuntu 22.04 / ROS 2 Humble; no physical hardware",
+  "source": "Previously completed unit-tests.log"
+}

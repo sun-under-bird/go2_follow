@@ -12,13 +12,15 @@ from .navigation_config import (FOLLOW_GOAL_TOLERANCE, OBSERVATION_POSITION_TOLE
                                 OBSERVATION_YAW_TOLERANCE, MAX_NAVIGATION_TURN, MAX_NAVIGATION_SPEED,
                                 ROBOT_LENGTH, ROBOT_WIDTH, MPPI_HORIZON_SECONDS,
                                 PATH_ANGLE_SOFT_THRESHOLD,FACE_EXIT_ANGLE)
+from .ros_contract import RosInterface
 
 ROOT = Path.home()/'go2_sim'
 MANIFEST = ROOT/'follow_demo/runtime/mppi-processes.json'
 
 
-def parameters():
+def parameters(interface=None):
     """生成 Humble 参数；两种跟踪器共享模型，仅观察终点需要完成指定朝向。"""
+    interface = interface or RosInterface()
     common = dict(plugin='nav2_mppi_controller::MPPIController', time_steps=round(MPPI_HORIZON_SECONDS/.05), model_dt=.05,
                   batch_size=800, iteration_count=1, vx_std=.25, vy_std=0., wz_std=.20,
                   vx_max=MAX_NAVIGATION_SPEED, vx_min=0., vy_max=0., wz_max=MAX_NAVIGATION_TURN, motion_model='DiffDrive',
@@ -46,7 +48,7 @@ def parameters():
     # 固定位置的看向任务只有终点朝向，没有下一段行驶方向，因此关闭路径方向代价。
     observe['PathAngleCritic']['enabled'] = False
     observe['GoalAngleCritic'] = dict(enabled=True,cost_power=1,cost_weight=8.,threshold_to_consider=.35)
-    controller = dict(use_sim_time=True,controller_frequency=30.,odom_topic='/follow_demo/odom',
+    controller = dict(use_sim_time=interface.use_sim_time,controller_frequency=30.,odom_topic=interface.odom_topic,
                       min_x_velocity_threshold=.001,min_y_velocity_threshold=.001,min_theta_velocity_threshold=.001,
                       failure_tolerance=.3,progress_checker_plugin='progress',goal_checker_plugins=['follow_goal','observe_goal','face_goal'],
                       controller_plugins=['FollowPath','Observe'],
@@ -57,7 +59,7 @@ def parameters():
                       face_goal=dict(plugin='nav2_controller::SimpleGoalChecker',xy_goal_tolerance=OBSERVATION_POSITION_TOLERANCE,
                                      yaw_goal_tolerance=FACE_EXIT_ANGLE,stateful=False),
                       FollowPath=common,Observe=observe)
-    costmap = dict(use_sim_time=True,update_frequency=10.,publish_frequency=2.,global_frame='odom',robot_base_frame='base_footprint',
+    costmap = dict(use_sim_time=interface.use_sim_time,update_frequency=10.,publish_frequency=2.,global_frame=interface.odom_frame,robot_base_frame=interface.base_frame,
                    rolling_window=True,width=12,height=12,resolution=.1,
                    footprint=str([[ROBOT_LENGTH/2,ROBOT_WIDTH/2],[-ROBOT_LENGTH/2,ROBOT_WIDTH/2],
                                   [-ROBOT_LENGTH/2,-ROBOT_WIDTH/2],[ROBOT_LENGTH/2,-ROBOT_WIDTH/2]]),
@@ -69,7 +71,7 @@ def parameters():
                    inflation=dict(plugin='nav2_costmap_2d::InflationLayer',inflation_radius=.8,cost_scaling_factor=5.))
     return {'/go2_follow_mppi/controller_server':{'ros__parameters':controller},
             '/go2_follow_mppi/local_costmap/local_costmap':{'ros__parameters':costmap},
-            '/go2_follow_mppi/lifecycle_manager':{'ros__parameters':dict(use_sim_time=True,autostart=True,
+            '/go2_follow_mppi/lifecycle_manager':{'ros__parameters':dict(use_sim_time=interface.use_sim_time,autostart=True,
                  node_names=['controller_server'],bond_timeout=0.)}}
 
 
@@ -117,8 +119,9 @@ def stop_owned():
 
 class MppiRuntime:
     """用独立进程运行 C++ 控制器，Python 搜索不会挤占其计算线程。"""
-    def __init__(self):
+    def __init__(self, interface=None):
         """保存已创建进程，任何启动失败都能清理此前成功启动的部分。"""
+        self.interface = interface or RosInterface()
         self.processes,self.logs,self.records = [],[],[]
 
     def start(self):
@@ -128,7 +131,9 @@ class MppiRuntime:
             if any(identity(item['pid']) for item in existing):
                 raise RuntimeError('已有本实验台 Nav2 子进程，请先运行停止脚本')
         config = ROOT/'follow_demo/runtime/mppi.yaml'
-        config.write_text(yaml.safe_dump(parameters(),sort_keys=False))
+        config.parent.mkdir(parents=True, exist_ok=True)
+        (ROOT/'logs').mkdir(parents=True, exist_ok=True)
+        config.write_text(yaml.safe_dump(parameters(self.interface),sort_keys=False))
         # 控制器服务器：接收连续路径，输出尚未经过本项目执行保护的 MPPI 候选速度。
         # 生命周期管理器：配置并激活唯一的控制器服务器，不管理其他 ROS 节点。
         for package,node in [('nav2_controller','controller_server'),('nav2_lifecycle_manager','lifecycle_manager')]:
@@ -172,8 +177,11 @@ class MppiRuntime:
                     process.wait(timeout=2)
         for log in self.logs:
             log.close()
-        if MANIFEST.exists():
-            MANIFEST.unlink()
+        if MANIFEST.exists() and self.records:
+            # 启动被已有实例拒绝时，本对象没有子进程，不能删除对方的停止清单。
+            records = json.loads(MANIFEST.read_text())
+            if records == self.records:
+                MANIFEST.unlink()
 
 
 if __name__ == '__main__':

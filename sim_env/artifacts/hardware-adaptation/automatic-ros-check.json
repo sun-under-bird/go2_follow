@@ -1,0 +1,29 @@
+{
+  "runtime_exit": 0,
+  "command_topic": "/cmd_vel",
+  "counts": {
+    "command": 908,
+    "status": 87,
+    "depth": 288,
+    "cloud": 289
+  },
+  "initial_reasons": [
+    "CONTROLLER_STALE",
+    "FOLLOW_TRAIL_REFERENCE",
+    "MAP_STALE",
+    "TARGET_INVALID"
+  ],
+  "nav2_active": true,
+  "operator_messages_sent": 0,
+  "operator_subscribers": 0,
+  "automatic_motion": true,
+  "no_manual_gate": true,
+  "automatic_mode": true,
+  "no_artificial_clearance": true,
+  "target_loss_stops": true,
+  "odom_loss_stops": true,
+  "cloud_loss_stops": true,
+  "depth_loss_stops": true,
+  "test_scope": "Synthetic visible ground on loopback domain 143; no physical hardware",
+  "passed": true
+}

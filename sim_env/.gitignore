@@ -194,3 +194,10 @@ logs/*
 !logs/reference-supply-unit-20261005.log
 !logs/scenario-loops-final-unit-20261005.log
 !artifacts/publish-manifest-20261008.json
+!artifacts/hardware-adaptation/
+artifacts/hardware-adaptation/*
+!artifacts/hardware-adaptation/parameter-equivalence.json
+!artifacts/hardware-adaptation/automatic-ros-check.json
+!artifacts/hardware-adaptation/unit-test-summary.json
+!artifacts/hardware-adaptation/interrupt-check.json
+!artifacts/hardware-adaptation/final-check.json

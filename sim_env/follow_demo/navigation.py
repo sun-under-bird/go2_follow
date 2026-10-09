@@ -55,11 +55,13 @@ def search_plan(snapshot, pose, target, velocity, spacing, requested, tried,
 
 class NavigationController(FollowController):
     """控制线程持有地图，搜索读取副本，MPPI 只提供待检查的候选命令。"""
-    def __init__(self, use_follow_intent=False, use_camera_observation=False, use_process_search=False):
+    def __init__(self, use_follow_intent=False, use_camera_observation=False, use_process_search=False,
+                 require_start_confirmation=True):
         """明确使用静态历史地图；不将盲区历史证据当作动态侵入安全保证。"""
         super().__init__()
         self.max_speed,self.max_turn = MAX_NAVIGATION_SPEED,MAX_NAVIGATION_TURN
         self.grid = RollingMap(static_history=True)
+        self.require_start_confirmation = bool(require_start_confirmation)
         self.native_braking = NativeBraking()
         self.grid.camera_observation = bool(use_camera_observation)
         self.planner, self.plan = LocalPlanner(), Plan()
@@ -452,7 +454,7 @@ class NavigationController(FollowController):
         if pose.motion is not None:
             self.motion = pose.motion
         self.grid.recenter(pose.x,pose.y)
-        if not self.grid.confirmed:
+        if self.require_start_confirmation and not self.grid.confirmed:
             return self.halt('WAITING','START_UNCONFIRMED','请先暂停并确认起始周围 1.2 m 净空')
         if self.grid.last_depth is None or not 0 <= now-self.grid.last_depth <= self.depth_timeout:
             return self.halt('WAITING','MAP_STALE','前视深度缺失或过期')
@@ -596,6 +598,7 @@ class NavigationController(FollowController):
     def diagnostics(self, now):
         """记录路径、原始 MPPI 命令和最终命令之间的约束原因。"""
         return dict(code=self.code,phase=self.phase,path=self.plan.path,plan_kind=self.plan.kind,
+                    start_confirmation_required=self.require_start_confirmation,
                     look_yaw=self.plan.look_yaw,safety_path=self.safety_path,plan_ms=self.plan_ms,
                     plan_cpu_ms=self.plan_cpu_ms,
                     search_execution_mode='process' if self.use_process_search else 'thread',
