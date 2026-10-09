@@ -22,21 +22,24 @@
   <depend>std_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
+  <depend>uwb_aoa_pkg</depend>
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>person_3d_localization</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rclpy</exec_depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
   <exec_depend>stereo_image_proc</exec_depend>
-  <exec_depend>uwb_aoa_pkg</exec_depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <test_depend>launch_testing_ament_cmake</test_depend>
   <test_depend>rclpy</test_depend>
+  <test_depend>rosgraph_msgs</test_depend>
 
   <member_of_group>rosidl_interface_packages</member_of_group>
 

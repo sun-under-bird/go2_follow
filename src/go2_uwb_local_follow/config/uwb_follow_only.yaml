@@ -2,6 +2,14 @@ uwb_target_adapter_node:
   ros__parameters:
     raw_topic: /libAoa_robot_publisher
     target_topic: /uwb/target_point
+    targets_topic: /uwb/targets
+    person_target_id: 1
+    # 未配置时使用代码中的空白名单，接受所有 ID。
+    # Humble YAML 的 [] 会解析成未设置类型；需要限制标签时取消下一行注释。
+    # valid_target_ids: [1, 2, 3]
+    target_timeout_sec: 0.50
+    # 默认不增设置信度阈值，沿用可信厂家输出；负 state 和非有限坐标仍判无效。
+    minimum_confidence: 0
     target_frame: base_footprint
     # 厂家 x 向前、y 向左；安装原点偏差确认后在这里标定。
     sensor_offset_x: 0.0

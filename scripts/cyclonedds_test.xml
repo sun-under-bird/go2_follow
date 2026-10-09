@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 仅测试使用：本机 WSL 在默认 UDP 批量报文下丢失规划器诊断。
+     限制报文大小并使用 DDS 分片后，诊断和动作结果可可靠交付。
+     此文件不加载到部署 launch，也不覆盖用户已有的 CYCLONEDDS_URI。 -->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <General>
+      <MaxMessageSize>1192B</MaxMessageSize>
+      <FragmentSize>1025B</FragmentSize>
+    </General>
+  </Domain>
+</CycloneDDS>

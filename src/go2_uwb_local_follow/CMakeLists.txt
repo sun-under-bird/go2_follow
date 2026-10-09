@@ -185,6 +185,7 @@ if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/test_planner_recovery_launch.py TIMEOUT 45)
+  add_launch_test(test/test_multi_uwb_launch.py TIMEOUT 20)
   ament_lint_auto_find_test_dependencies()
 
   add_executable(benchmark_local_planner test/benchmark_local_planner.cpp)
@@ -192,6 +193,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_input_timing test/test_input_timing.cpp)
   target_include_directories(test_input_timing PRIVATE include)
+  ament_add_gtest(test_uwb_target_store test/test_uwb_target_store.cpp)
+  target_include_directories(test_uwb_target_store PRIVATE include)
+  target_compile_features(test_uwb_target_store PUBLIC cxx_std_17)
 
   ament_add_gtest(test_obstacle_index test/test_obstacle_index.cpp)
   target_link_libraries(test_obstacle_index local_planner_core)

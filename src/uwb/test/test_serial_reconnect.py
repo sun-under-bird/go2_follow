@@ -26,9 +26,10 @@ import rclpy
 from uwb_aoa_pkg.msg import LibAoaRobotMsg
 
 
-def make_frame(distance):
+def make_frame(distance, target_id=1):
     """按照 C5 协议生成距离可区分的新数据帧."""
     payload = bytearray(38)
+    struct.pack_into('<I', payload, 8, target_id)
     struct.pack_into('<fff', payload, 14, distance, 0.0, 0.0)
     data = bytes([0xC5, len(payload)]) + payload
     crc = 0
@@ -47,7 +48,7 @@ def run_test(driver):
 
     def record(message):
         """记录驱动发布的距离，区分重连前后样本."""
-        received.append(message.x)
+        received.append((message.fob_id, message.x))
 
     node.create_subscription(LibAoaRobotMsg, '/serial_test/raw', record, 10)
     master = slave = None
@@ -70,11 +71,14 @@ def run_test(driver):
                     os.symlink(os.ttyname(slave), device)
                     received.clear()
                     deadline = time.monotonic() + 5.0
-                    while distance not in received and time.monotonic() < deadline:
-                        os.write(master, make_frame(distance))
+                    while (not all((tag, distance + tag - 1) in received for tag in (1, 2))
+                           and time.monotonic() < deadline):
+                        # 两个标签背靠背到达，不能被全局发布时钟删掉其中一个。
+                        os.write(master, make_frame(distance, 1) + make_frame(distance + 1, 2))
                         rclpy.spin_once(node, timeout_sec=0.05)
                         time.sleep(0.05)
-                    assert distance in received, '驱动未能自动连接或重新连接'
+                    assert (1, distance) in received and (2, distance + 1) in received, (
+                        f'驱动重连后未能独立发布两个 ID: {received}')
                     # 半帧沉默后新帧必须恢复，且驱动进程保持存活。
                     os.write(master, make_frame(distance)[:12])
                     time.sleep(0.3)
@@ -101,4 +105,3 @@ def run_test(driver):
 
 if __name__ == '__main__':
     run_test(sys.argv[1])
-

@@ -46,6 +46,8 @@
 #include "tf2_ros/transform_listener.h"
 
 #include "go2_uwb_behavior/action/follow_uwb.hpp"
+#include "go2_uwb_behavior/action/approach_uwb.hpp"
+#include "go2_uwb_behavior/approach_core.hpp"
 #include "go2_uwb_behavior/action/orbit_uwb_once.hpp"
 #include "go2_uwb_behavior/action/random_roam.hpp"
 #include "go2_uwb_behavior/behavior_core.hpp"
@@ -53,6 +55,8 @@
 #include "go2_uwb_behavior/srv/generate_navigation_goal.hpp"
 #include "go2_uwb_local_follow/follow_control_core.hpp"
 #include "go2_uwb_local_follow/observation_utils.hpp"
+#include "go2_uwb_local_follow/uwb_target_store.hpp"
+#include "uwb_aoa_pkg/msg/uwb_target.hpp"
 
 namespace go2_uwb_behavior
 {
@@ -60,6 +64,8 @@ namespace
 {
 
 using SteadyTime = std::chrono::steady_clock::time_point;
+using ApproachUwb = go2_uwb_behavior::action::ApproachUwb;
+using GoalHandleApproach = rclcpp_action::ServerGoalHandle<ApproachUwb>;
 using FollowUwb = go2_uwb_behavior::action::FollowUwb;
 using GoalHandleFollowUwb = rclcpp_action::ServerGoalHandle<FollowUwb>;
 using RandomRoam = go2_uwb_behavior::action::RandomRoam;
@@ -124,6 +130,10 @@ public:
     target_sub_ = create_subscription<geometry_msgs::msg::PointStamped>(
       target_topic_, rclcpp::QoS(rclcpp::KeepLast(1)).reliable(),
       std::bind(&UwbBehaviorControllerNode::targetCallback, this, std::placeholders::_1));
+    // 多 ID 数据只进入新缓存，不写入持续跟随及漫游的人员快照。
+    targets_sub_ = create_subscription<uwb_aoa_pkg::msg::UwbTarget>(
+      targets_topic_, rclcpp::QoS(64).reliable(),
+      std::bind(&UwbBehaviorControllerNode::targetsCallback, this, std::placeholders::_1));
     odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       odom_topic_, rclcpp::SensorDataQoS().keep_last(30),
       std::bind(&UwbBehaviorControllerNode::odomCallback, this, std::placeholders::_1));
@@ -148,7 +158,7 @@ public:
     navigation_target_service_ = create_service<GenerateNavigationGoal>(
       "/go2/generate_navigation_goal",
       [this](std::shared_ptr<rmw_request_id_t> header,
-        std::shared_ptr<GenerateNavigationGoal::Request> request) {
+      std::shared_ptr<GenerateNavigationGoal::Request> request) {
         beginNavigationTarget(header, request);
       });
     diagnostics_pub_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
@@ -204,6 +214,14 @@ public:
       std::bind(
         &UwbBehaviorControllerNode::handleOrbitAccepted, this,
         std::placeholders::_1));
+
+    approach_action_server_ = rclcpp_action::create_server<ApproachUwb>(
+      this, approach_action_name_,
+      std::bind(
+        &UwbBehaviorControllerNode::handleApproachGoal, this,
+        std::placeholders::_1, std::placeholders::_2),
+      std::bind(&UwbBehaviorControllerNode::handleApproachCancel, this, std::placeholders::_1),
+      std::bind(&UwbBehaviorControllerNode::handleApproachAccepted, this, std::placeholders::_1));
 
     const auto control_period = std::chrono::duration<double>(1.0 / control_frequency_);
     control_timer_ = create_wall_timer(
@@ -315,6 +333,31 @@ private:
     base_frame_ = declare_parameter<std::string>("base_frame", "base_footprint");
     odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
     target_topic_ = declare_parameter<std::string>("target_topic", "/uwb/target_point");
+    targets_topic_ = declare_parameter<std::string>("targets_topic", "/uwb/targets");
+    approach_action_name_ = declare_parameter<std::string>(
+      "approach_action_name", "/go2/approach_uwb");
+    default_approach_timeout_sec_ = declare_parameter<double>(
+      "default_approach_timeout_sec", 60.0);
+    maximum_approach_timeout_sec_ = declare_parameter<double>(
+      "maximum_approach_timeout_sec", 180.0);
+    minimum_approach_distance_m_ = declare_parameter<double>(
+      "minimum_approach_distance_m", 0.5);
+    maximum_approach_distance_m_ = declare_parameter<double>(
+      "maximum_approach_distance_m", 5.0);
+    arrival_tolerance_m_ = declare_parameter<double>("arrival_tolerance_m", 0.10);
+    arrival_stable_sec_ = declare_parameter<double>("arrival_stable_sec", 0.50);
+    approach_slowdown_distance_m_ = declare_parameter<double>(
+      "approach_slowdown_distance_m", 1.0);
+    approach_final_max_linear_speed_ = declare_parameter<double>(
+      "approach_final_max_linear_speed", 0.25);
+    approach_response_delay_sec_ = declare_parameter<double>(
+      "approach_response_delay_sec", 0.20);
+    approach_braking_decel_ = declare_parameter<double>("approach_braking_decel", 0.70);
+    approach_require_heading_ = declare_parameter<bool>("approach_require_heading", false);
+    approach_heading_tolerance_rad_ = declare_parameter<double>(
+      "approach_heading_tolerance_rad", 0.20);
+    approach_allow_pose_only_stop_ = declare_parameter<bool>(
+      "approach_allow_pose_only_stop", false);
     // RK 上使用带 pose 和 twist 的 Lite3 里程计，/leg_odom 的消息类型不满足控制需求。
     odom_topic_ = declare_parameter<std::string>("odom_topic", "/leg_odom2");
     obstacle_topic_ = declare_parameter<std::string>(
@@ -495,7 +538,8 @@ private:
     const std::vector<std::string> required_strings = {
       base_frame_, odom_frame_, target_topic_, odom_topic_, obstacle_topic_, nominal_cmd_topic_,
       planner_cmd_topic_, cmd_vel_topic_, compute_enable_topic_, behavior_service_name_,
-      follow_action_name_, orbit_action_name_, roam_action_name_};
+      follow_action_name_, orbit_action_name_, roam_action_name_, targets_topic_,
+      approach_action_name_};
     if (std::any_of(
         required_strings.begin(), required_strings.end(),
         [](const std::string & value) {return value.empty();}))
@@ -520,7 +564,10 @@ private:
       default_orbit_timeout_sec_, maximum_orbit_timeout_sec_, default_orbit_radius_,
       minimum_orbit_radius_, maximum_orbit_radius_, orbit_capture_tolerance_,
       orbit_lead_angle_, orbit_goal_tolerance_, orbit_max_linear_speed_,
-      orbit_max_angular_speed_};
+      orbit_max_angular_speed_, default_approach_timeout_sec_, maximum_approach_timeout_sec_,
+      minimum_approach_distance_m_, maximum_approach_distance_m_, arrival_tolerance_m_,
+      arrival_stable_sec_, approach_slowdown_distance_m_, approach_final_max_linear_speed_,
+      approach_braking_decel_, approach_heading_tolerance_rad_};
     if (std::any_of(
         std::begin(positive_values), std::end(positive_values),
         [](double value) {return !std::isfinite(value) || value <= 0.0;}))
@@ -529,6 +576,17 @@ private:
     }
     if (!std::isfinite(maximum_follow_timeout_sec_) || maximum_follow_timeout_sec_ <= 0.0) {
       throw std::invalid_argument("maximum_follow_timeout_sec must be positive");
+    }
+    if (default_approach_timeout_sec_ > maximum_approach_timeout_sec_ ||
+      minimum_approach_distance_m_ < robot_clearance_radius_ ||
+      minimum_approach_distance_m_ >= maximum_approach_distance_m_ ||
+      arrival_tolerance_m_ >= minimum_approach_distance_m_ ||
+      approach_final_max_linear_speed_ < follow_config_.min_linear_speed ||
+      approach_final_max_linear_speed_ > follow_config_.max_linear_speed ||
+      approach_heading_tolerance_rad_ > 3.14159265359 ||
+      !std::isfinite(approach_response_delay_sec_) || approach_response_delay_sec_ < 0.0)
+    {
+      throw std::invalid_argument("approach safety, speed or timeout bounds are invalid");
     }
     if (default_orbit_timeout_sec_ > maximum_orbit_timeout_sec_ ||
       default_orbit_radius_ < minimum_orbit_radius_ ||
@@ -596,6 +654,39 @@ private:
     ++target_snapshot_.version;
   }
 
+  // 按 ID 独立保存目标；TF 或有效性失败也撤销该 ID，不能继续使用上一帧位置。
+  void targetsCallback(const uwb_aoa_pkg::msg::UwbTarget::SharedPtr message)
+  {
+    tf2::Vector3 target(message->position.x, message->position.y, message->position.z);
+    bool valid = message->valid && !message->header.frame_id.empty() &&
+      std::isfinite(target.x()) && std::isfinite(target.y()) && std::isfinite(target.z());
+    if (valid && message->header.frame_id != base_frame_) {
+      try {
+        const auto transform = tf_buffer_.lookupTransform(
+          base_frame_, message->header.frame_id, rclcpp::Time(message->header.stamp),
+          rclcpp::Duration::from_seconds(transform_timeout_sec_));
+        tf2::Quaternion rotation(
+          transform.transform.rotation.x, transform.transform.rotation.y,
+          transform.transform.rotation.z, transform.transform.rotation.w);
+        if (rotation.length2() <= std::numeric_limits<double>::epsilon()) {
+          throw std::runtime_error("target TF quaternion has zero length");
+        }
+        rotation.normalize();
+        target = tf2::Matrix3x3(rotation) * target + tf2::Vector3(
+          transform.transform.translation.x, transform.transform.translation.y,
+          transform.transform.translation.z);
+      } catch (const std::exception & exception) {
+        valid = false;
+        RCLCPP_WARN_THROTTLE(
+          get_logger(), *get_clock(), 2000, "Multi UWB target TF failed: %s", exception.what());
+      }
+    }
+    targets_store_.update(
+      message->target_id, sourceStampNanoseconds(message->header.stamp), now().nanoseconds(),
+      target_timeout_sec_, std::chrono::steady_clock::now(), target.x(), target.y(), target.z(),
+      message->confidence, message->state, valid);
+  }
+
   // 校验里程计坐标系及采集时间，并保存可按时间戳查询的连续位姿缓存。
   void odomCallback(const nav_msgs::msg::Odometry::SharedPtr message)
   {
@@ -619,6 +710,7 @@ private:
     if (pose_buffer_.append(pose) == go2_uwb_local_follow::PoseAppendResult::kResetDetected) {
       owner_filter_->reset();
       target_snapshot_.valid = false;
+      targets_store_.clear();
       obstacle_snapshot_.valid = false;
       // 固定漫游目标属于旧坐标系，不能在定位跳变后盲目恢复原目标。
       if (roam_goal_handle_) {
@@ -634,6 +726,11 @@ private:
       if (orbit_goal_handle_) {
         beginOrbitFinalStop(
           OrbitUwbOnce::Result::INPUT_TIMEOUT, "里程计坐标系跳变，环绕进度已失效",
+          CompletionDisposition::ABORT);
+      }
+      if (approach_goal_handle_) {
+        beginApproachFinalStop(
+          ApproachUwb::Result::INPUT_TIMEOUT, "里程计坐标跳变，接近任务已停止",
           CompletionDisposition::ABORT);
       }
     }
@@ -743,6 +840,15 @@ private:
     if (target_request_header_) {
       finishNavigationTarget(GenerateNavigationGoal::Response::CANCELED, "目标生成已取消");
     }
+    if (approach_goal_handle_) {
+      beginApproachFinalStop(
+        ApproachUwb::Result::PREEMPTED, "接近任务被行为模式请求抢占",
+        CompletionDisposition::ABORT, requested);
+      response->accepted = true;
+      response->current_mode = modeValue(current_mode_);
+      response->message = "已接受，正在停车并切换模式";
+      return;
+    }
     if (roam_goal_handle_) {
       const auto code = RandomRoam::Result::PREEMPTED_BY_MODE;
       beginFinalStop(
@@ -782,9 +888,7 @@ private:
     const rclcpp_action::GoalUUID &,
     std::shared_ptr<const FollowUwb::Goal> goal)
   {
-    if (target_only_ || current_mode_ == Mode::STOP || follow_goal_handle_ || orbit_goal_handle_ ||
-      roam_goal_handle_)
-    {
+    if (target_only_ || current_mode_ == Mode::STOP || hasActiveMotionAction()) {
       return rclcpp_action::GoalResponse::REJECT;
     }
     if (!std::isfinite(goal->timeout_sec) || goal->timeout_sec < 0.0 ||
@@ -833,9 +937,7 @@ private:
     const rclcpp_action::GoalUUID &,
     std::shared_ptr<const OrbitUwbOnce::Goal> goal)
   {
-    if (target_only_ || current_mode_ == Mode::STOP || follow_goal_handle_ || orbit_goal_handle_ ||
-      roam_goal_handle_)
-    {
+    if (target_only_ || current_mode_ == Mode::STOP || hasActiveMotionAction()) {
       return rclcpp_action::GoalResponse::REJECT;
     }
     if (!std::isfinite(goal->timeout_sec) || goal->timeout_sec < 0.0 ||
@@ -905,9 +1007,7 @@ private:
     const rclcpp_action::GoalUUID &,
     std::shared_ptr<const RandomRoam::Goal> goal)
   {
-    if (target_only_ || current_mode_ == Mode::STOP || roam_goal_handle_ || follow_goal_handle_ ||
-      orbit_goal_handle_)
-    {
+    if (target_only_ || current_mode_ == Mode::STOP || hasActiveMotionAction()) {
       return rclcpp_action::GoalResponse::REJECT;
     }
     if (!std::isfinite(goal->timeout_sec) || goal->timeout_sec < 0.0 ||
@@ -983,8 +1083,7 @@ private:
   // 接收取消请求后先停车，最终返回 CANCELED。
 
 
-  // Deferred response keeps the sensor/timer callbacks running on the single
-  // executor thread. Target-only mode never creates a chassis velocity publisher.
+  // 延后服务响应，让单线程执行器继续处理传感器和定时器；纯目标模式不创建速度发布者。
   void beginNavigationTarget(
     const std::shared_ptr<rmw_request_id_t> & header,
     const std::shared_ptr<GenerateNavigationGoal::Request> & request)
@@ -1055,7 +1154,8 @@ private:
       owner_filter_->sampleCount() < minimum_owner_samples_)
     {
       if (elapsedSince(roam_started_time_, current) >= readiness_timeout_sec_) {
-        finishNavigationTarget(GenerateNavigationGoal::Response::INPUT_TIMEOUT,
+        finishNavigationTarget(
+          GenerateNavigationGoal::Response::INPUT_TIMEOUT,
           "UWB、里程计或障碍点云未在时限内就绪");
       }
       return;
@@ -1064,22 +1164,25 @@ private:
       roam_center_odom_ = owner_filter_->filteredOwner();
       roam_center_valid_ = true;
     }
-    // Transform before sampling, so a missing map TF never consumes RNG state.
+    // 先做坐标变换，避免缺少 map TF 时消耗随机源状态。
     tf2::Quaternion rotation(0.0, 0.0, 0.0, 1.0);
     tf2::Vector3 translation(0.0, 0.0, 0.0);
     if (navigation_frame_ != odom_frame_) {
       try {
         const auto transform = tf_buffer_.lookupTransform(
           navigation_frame_, odom_frame_, tf2::TimePointZero);
-        rotation = tf2::Quaternion(transform.transform.rotation.x,
+        rotation = tf2::Quaternion(
+          transform.transform.rotation.x,
           transform.transform.rotation.y, transform.transform.rotation.z,
           transform.transform.rotation.w);
-        translation = tf2::Vector3(transform.transform.translation.x,
+        translation = tf2::Vector3(
+          transform.transform.translation.x,
           transform.transform.translation.y, transform.transform.translation.z);
       } catch (const tf2::TransformException &) {
         state_ = "TARGET_WAIT_TF";
         if (elapsedSince(roam_started_time_, current) >= readiness_timeout_sec_) {
-          finishNavigationTarget(GenerateNavigationGoal::Response::TF_UNAVAILABLE,
+          finishNavigationTarget(
+            GenerateNavigationGoal::Response::TF_UNAVAILABLE,
             "导航坐标系变换不可用");
         }
         return;
@@ -1091,21 +1194,25 @@ private:
       sampling_config_.owner_keepout_radius : target_request_->min_radius;
     const double maximum = target_request_->max_radius == 0.0 ?
       sampling_config_.random_goal_radius_max : target_request_->max_radius;
-    const auto goal = sampleRandomGoalInAnnulus(roam_center_odom_,
+    const auto goal = sampleRandomGoalInAnnulus(
+      roam_center_odom_,
       obstacle_snapshot_.points_odom, minimum, maximum,
       sampling_config_.goal_obstacle_clearance, sampling_config_.max_sample_attempts, generator);
     if (!goal) {
-      finishNavigationTarget(GenerateNavigationGoal::Response::NO_VALID_GOAL,
+      finishNavigationTarget(
+        GenerateNavigationGoal::Response::NO_VALID_GOAL,
         "没有满足圆环与障碍净空的目标点");
       return;
     }
     const auto converted_goal = tf2::quatRotate(rotation, tf2::Vector3(goal->x, goal->y, 0.0)) +
       translation;
-    const auto converted_center = tf2::quatRotate(rotation,
+    const auto converted_center = tf2::quatRotate(
+      rotation,
       tf2::Vector3(roam_center_odom_.x, roam_center_odom_.y, 0.0)) + translation;
     tf2::Quaternion heading;
-    heading.setRPY(0.0, 0.0, std::atan2(
-      goal->y - odom_snapshot_.pose.y, goal->x - odom_snapshot_.pose.x));
+    heading.setRPY(
+      0.0, 0.0, std::atan2(
+        goal->y - odom_snapshot_.pose.y, goal->x - odom_snapshot_.pose.x));
     heading = rotation * heading;
     heading.normalize();
     auto & pose = target_response_.navigation_goal;
@@ -1123,7 +1230,8 @@ private:
     center.pose.position.y = converted_center.y();
     center.pose.orientation.w = 1.0;
     navigation_target_pub_->publish(pose);
-    finishNavigationTarget(GenerateNavigationGoal::Response::SUCCESS, "已生成固定导航点，尚未执行导航");
+    finishNavigationTarget(
+      GenerateNavigationGoal::Response::SUCCESS, "已生成固定导航点，尚未执行导航");
   }
 
   // 固定频率执行当前模式、发布唯一名义速度并门控规划器最终速度。
@@ -1143,7 +1251,9 @@ private:
     }
     Velocity2D nominal;
     nominal_allows_motion_ = false;
-    if (current_mode_ == Mode::FOLLOW && orbit_goal_handle_) {
+    if (current_mode_ == Mode::FOLLOW && approach_goal_handle_) {
+      nominal = processApproach(current, dt);
+    } else if (current_mode_ == Mode::FOLLOW && orbit_goal_handle_) {
       nominal = processOrbit(current, dt);
     } else if (current_mode_ == Mode::FOLLOW && follow_goal_handle_) {
       nominal = processFollow(current, dt);
@@ -1157,8 +1267,414 @@ private:
     const Velocity2D output = selectSafePlannerCommand(current, dt);
     publishVelocity(output);
     publishFollowFeedback(current);
+    publishApproachFeedback(current);
     publishRoamFeedback(current);
     publishDiagnosticsIfDue(current);
+  }
+
+  // 统一查询四种运动任务，保证任一任务结束停车前都不能交出底盘控制权。
+  bool hasActiveMotionAction() const
+  {
+    return approach_goal_handle_ || follow_goal_handle_ || orbit_goal_handle_ || roam_goal_handle_;
+  }
+
+  // 检查任务范围和互斥；拒绝 Goal 时没有 Result，原因通过日志和客户端 accepted 返回。
+  rclcpp_action::GoalResponse handleApproachGoal(
+    const rclcpp_action::GoalUUID &,
+    std::shared_ptr<const ApproachUwb::Goal> goal)
+  {
+    if (target_only_ || current_mode_ == Mode::STOP || hasActiveMotionAction()) {
+      RCLCPP_WARN(get_logger(), "ApproachUwb rejected: target-only, STOP or active action");
+      return rclcpp_action::GoalResponse::REJECT;
+    }
+    if (!std::isfinite(goal->stop_distance_m) ||
+      goal->stop_distance_m < minimum_approach_distance_m_ ||
+      goal->stop_distance_m > maximum_approach_distance_m_ ||
+      !std::isfinite(goal->timeout_sec) || goal->timeout_sec < 0.0 ||
+      goal->timeout_sec > maximum_approach_timeout_sec_)
+    {
+      RCLCPP_WARN(get_logger(), "ApproachUwb rejected: unsafe distance or invalid timeout");
+      return rclcpp_action::GoalResponse::REJECT;
+    }
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  }
+
+  // 接受取消后立即发零，等待确认停车；STOP 锁存不能被后到达的取消覆盖。
+  rclcpp_action::CancelResponse handleApproachCancel(
+    const std::shared_ptr<GoalHandleApproach> goal_handle)
+  {
+    if (goal_handle != approach_goal_handle_) {
+      return rclcpp_action::CancelResponse::REJECT;
+    }
+    beginApproachFinalStop(
+      ApproachUwb::Result::CANCELED, "上层取消指定 UWB 接近", CompletionDisposition::CANCEL);
+    return rclcpp_action::CancelResponse::ACCEPT;
+  }
+
+  // 建立本 Goal 的独立控制配置；清空到达、制动、进度及旧规划器命令。
+  void handleApproachAccepted(const std::shared_ptr<GoalHandleApproach> goal_handle)
+  {
+    approach_goal_handle_ = goal_handle;
+    const auto goal = goal_handle->get_goal();
+    active_approach_id_ = goal->target_id;
+    active_approach_timeout_sec_ = goal->timeout_sec == 0.0 ?
+      default_approach_timeout_sec_ : goal->timeout_sec;
+    approach_control_config_ = follow_config_;
+    approach_control_config_.follow_distance = goal->stop_distance_m;
+    approach_control_config_.distance_deadband = std::min(
+      follow_config_.distance_deadband, arrival_tolerance_m_);
+    arrival_monitor_ = ArrivalMonitor(
+      ArrivalConfig{
+        goal->stop_distance_m, minimum_approach_distance_m_, arrival_tolerance_m_,
+        arrival_stable_sec_, target_timeout_sec_, approach_require_heading_,
+        approach_heading_tolerance_rad_});
+    approach_started_time_ = std::chrono::steady_clock::now();
+    approach_unhealthy_since_ = approach_started_time_;
+    approach_ready_ = false;
+    approach_input_paused_ = false;
+    approach_stopping_ = false;
+    approach_pending_mode_ = Mode::IDLE;
+    approach_feedback_state_ = ApproachUwb::Feedback::STARTING;
+    approach_distance_ = std::numeric_limits<double>::quiet_NaN();
+    approach_heading_ = std::numeric_limits<double>::quiet_NaN();
+    approach_completion_disposition_ = CompletionDisposition::NONE;
+    obstacle_snapshot_.valid = false;
+    planner_command_snapshot_.valid = false;
+    follow_result_valid_ = false;
+    have_feedback_time_ = false;
+    setMode(Mode::FOLLOW);
+    resetApproachControl(approach_started_time_);
+    setComputeEnabled(true);
+    publishNominal(Velocity2D{});
+    publishVelocity(Velocity2D{});
+    state_ = "APPROACH_STARTING";
+  }
+
+  // 返回选中 ID 的独立时效，必须是本 Goal 启动后收到的采集样本。
+  bool approachTargetFresh(const SteadyTime & current) const
+  {
+    const auto * target = targets_store_.find(active_approach_id_);
+    return target && target->receipt >= approach_started_time_ &&
+           targets_store_.fresh(
+      active_approach_id_, now().nanoseconds(), current,
+      target_timeout_sec_);
+  }
+
+  // 重置仅属于接近任务的控制历史，并要求规划器先对零名义速度输出零命令。
+  void resetApproachControl(const SteadyTime & current)
+  {
+    approach_turn_direction_ = 0;
+    approach_angular_brake_latched_ = false;
+    approach_linear_brake_latched_ = false;
+    arrival_monitor_.reset();
+    blocked_elapsed_sec_ = 0.0;
+    approach_progress_time_ = current;
+    approach_progress_pose_ = odom_snapshot_.pose;
+    approach_progress_distance_ = approach_distance_;
+    approach_motion_barrier_ = true;
+    planner_command_after_ = current;
+    nominal_allows_motion_ = false;
+  }
+
+  // 每次停车使用新的里程计证据窗口，不用停车前或重复的同一帧积累停稳时间。
+  void resetApproachStopEvidence()
+  {
+    stop_stable_elapsed_sec_ = 0.0;
+    strict_stop_last_stamp_ns_ = odom_snapshot_.stamp_ns;
+    strict_stop_last_receipt_ = odom_snapshot_.receipt_time;
+    strict_stop_previous_ok_ = false;
+    pose_stationarity_->reset();
+    stop_velocity_ok_ = false;
+    stop_pose_ok_ = false;
+  }
+
+  // 推进接近、稳定到达和输入恢复；所有非健康分支直接撤销非零速度权限。
+  Velocity2D processApproach(const SteadyTime & current, double dt)
+  {
+    if (approach_stopping_) {
+      processApproachFinalStop(current);
+      return Velocity2D{};
+    }
+    if (elapsedSince(approach_started_time_, current) >= active_approach_timeout_sec_) {
+      beginApproachFinalStop(
+        ApproachUwb::Result::TIMEOUT, "接近任务总超时（包含等待和恢复）",
+        CompletionDisposition::ABORT);
+      return Velocity2D{};
+    }
+    const bool target_ok = approachTargetFresh(current);
+    const bool other_ok = odomFresh(current) && obstacleFresh(current) &&
+      plannerCommandFresh(current);
+    if (!approach_ready_) {
+      state_ = "APPROACH_STARTING";
+      approach_feedback_state_ = ApproachUwb::Feedback::STARTING;
+      if (target_ok && other_ok) {
+        approach_ready_ = true;
+        resetApproachControl(current);
+      } else if (elapsedSince(approach_started_time_, current) >= readiness_timeout_sec_) {
+        beginApproachFinalStop(
+          ApproachUwb::Result::NOT_READY, "指定标签、里程计、点云或规划器未就绪",
+          CompletionDisposition::ABORT);
+      }
+      return Velocity2D{};
+    }
+    if (!target_ok || !other_ok) {
+      state_ = "APPROACH_INPUT_PAUSED";
+      approach_feedback_state_ = ApproachUwb::Feedback::INPUT_PAUSED;
+      if (!approach_input_paused_) {
+        approach_input_paused_ = true;
+        approach_unhealthy_since_ = current;
+        resetApproachControl(current);
+        // 失效的输入不允许用旧规划器非零命令补跑。
+        publishNominal(Velocity2D{});
+        publishVelocity(Velocity2D{});
+      }
+      if (elapsedSince(approach_unhealthy_since_, current) >= input_recovery_timeout_sec_) {
+        beginApproachFinalStop(
+          !other_ok ? ApproachUwb::Result::INPUT_TIMEOUT : ApproachUwb::Result::TARGET_LOST,
+          !other_ok ? "里程计、点云或规划器输入未恢复" : "选中 UWB 标签持续失联或无效",
+          CompletionDisposition::ABORT);
+      }
+      return Velocity2D{};
+    }
+    if (approach_input_paused_) {
+      approach_input_paused_ = false;
+      resetApproachControl(current);
+      return Velocity2D{};
+    }
+    const auto * target = targets_store_.find(active_approach_id_);
+    approach_distance_ = std::hypot(target->x, target->y);
+    approach_heading_ = std::atan2(target->y, target->x);
+    if (approach_distance_ < minimum_approach_distance_m_) {
+      beginApproachFinalStop(
+        ApproachUwb::Result::UNSAFE_DISTANCE, "实测标签间距低于最小安全间距",
+        CompletionDisposition::ABORT);
+      return Velocity2D{};
+    }
+    if (arrival_monitor_.inRange(approach_distance_, approach_heading_)) {
+      approach_feedback_state_ = ApproachUwb::Feedback::ARRIVAL_VERIFY;
+      state_ = "APPROACH_ARRIVAL_VERIFY";
+      // 到达验证撤销线速度和角速度，不能沿用跟随核心死区内仍可能转向的命令。
+      if (arrival_monitor_.update(approach_distance_, approach_heading_, target->stamp_ns)) {
+        beginApproachFinalStop(
+          ApproachUwb::Result::SUCCESS, "指定标签距离稳定，正在确认停稳",
+          CompletionDisposition::SUCCEED);
+      }
+      return Velocity2D{};
+    }
+    arrival_monitor_.reset();
+    approach_feedback_state_ = ApproachUwb::Feedback::APPROACHING;
+    state_ = "APPROACHING";
+
+    // 新任务/恢复任务先看到规划器的新零命令，再放行新目标；不承接旧优化序列。
+    if (approach_motion_barrier_) {
+      if (planner_command_snapshot_.receipt_time > planner_command_after_ &&
+        std::abs(planner_command_snapshot_.velocity.linear_x) < 1e-6 &&
+        std::abs(planner_command_snapshot_.velocity.angular_z) < 1e-6)
+      {
+        approach_motion_barrier_ = false;
+        approach_progress_time_ = current;
+        approach_progress_pose_ = odom_snapshot_.pose;
+        approach_progress_distance_ = approach_distance_;
+      } else if (elapsedSince(approach_progress_time_, current) >= readiness_timeout_sec_) {
+        beginApproachFinalStop(
+          ApproachUwb::Result::NOT_READY, "规划器未确认新任务的零速度屏障",
+          CompletionDisposition::ABORT);
+      }
+      return Velocity2D{};
+    }
+
+    // 人可以移动，不能只按相对 UWB 距离下降判断受阻；实际平移/转向也是进展证据。
+    const double movement = std::hypot(
+      odom_snapshot_.pose.x - approach_progress_pose_.x,
+      odom_snapshot_.pose.y - approach_progress_pose_.y);
+    const double turn = std::abs(
+      normalizeAngle(
+        odom_snapshot_.pose.yaw - approach_progress_pose_.yaw));
+    if (movement >= required_progress_ || turn >= approach_heading_tolerance_rad_ ||
+      approach_progress_distance_ - approach_distance_ >= required_progress_)
+    {
+      approach_progress_time_ = current;
+      approach_progress_pose_ = odom_snapshot_.pose;
+      approach_progress_distance_ = approach_distance_;
+    }
+    if (updateBlockedState(current, dt) ||
+      elapsedSince(approach_progress_time_, current) >= progress_window_sec_)
+    {
+      beginApproachFinalStop(
+        ApproachUwb::Result::BLOCKED, "规划器持续受阻或底盘持续没有有效进展",
+        CompletionDisposition::ABORT);
+      return Velocity2D{};
+    }
+
+    FollowConfig config = approach_control_config_;
+    const double remaining = approach_distance_ - config.follow_distance - arrival_tolerance_m_;
+    if (approach_distance_ - config.follow_distance <= approach_slowdown_distance_m_) {
+      config.max_linear_speed = approach_final_max_linear_speed_;
+      // 只降低上限，不生成底盘无法执行的亚最小迈步速度。
+      config.min_linear_speed = follow_config_.min_linear_speed;
+      const double speed = odom_snapshot_.velocity.linear_x;
+      const double braking_distance = speed * approach_response_delay_sec_ +
+        speed * speed / (2.0 * approach_braking_decel_);
+      if (!approach_linear_brake_latched_ &&
+        speed > stop_linear_threshold_ && braking_distance >= remaining)
+      {
+        approach_linear_brake_latched_ = true;
+        resetApproachStopEvidence();
+      }
+    }
+    if (approach_linear_brake_latched_) {
+      state_ = "APPROACH_LINEAR_BRAKE";
+      if (updateStopped(0.0, current, true)) {
+        resetApproachControl(current);
+      }
+      return Velocity2D{};
+    }
+    const auto result = computeControlledTarget(
+      Point2D{target->x, target->y}, config,
+      approach_turn_direction_, approach_angular_brake_latched_);
+    nominal_allows_motion_ = true;
+    return fromFollowVelocity(result.target_velocity);
+  }
+
+  // 请求最终停车并立即发零；已经停车时保留原窗口，STOP 请求始终拥有优先级。
+  void beginApproachFinalStop(
+    std::uint8_t code, const std::string & message,
+    CompletionDisposition disposition, Mode next_mode = Mode::IDLE)
+  {
+    if (!approach_goal_handle_) {
+      return;
+    }
+    const bool keep_stop_reason = approach_pending_mode_ == Mode::STOP &&
+      approach_stopping_ && disposition == CompletionDisposition::CANCEL;
+    if (approach_pending_mode_ == Mode::STOP) {
+      next_mode = Mode::STOP;
+      // STOP 已抢占时，后到的 cancel 仅改变 ROS 取消终态，不覆盖抢占原因。
+      if (keep_stop_reason) {
+        code = approach_pending_result_code_;
+        disposition = approach_completion_disposition_;
+      }
+    }
+    if (!approach_stopping_) {
+      approach_stop_started_time_ = std::chrono::steady_clock::now();
+      resetApproachStopEvidence();
+    }
+    approach_pending_mode_ = next_mode;
+    approach_pending_result_code_ = code;
+    if (!keep_stop_reason) {
+      approach_pending_result_message_ = message;
+    }
+    approach_completion_disposition_ = disposition;
+    approach_stopping_ = true;
+    approach_feedback_state_ = ApproachUwb::Feedback::STOPPING;
+    state_ = "APPROACH_STOPPING";
+    nominal_allows_motion_ = false;
+    planner_command_snapshot_.valid = false;
+    // 保留感知到停车结束；距离变化时可以重新接近，结束时统一关闭门控。
+    publishNominal(Velocity2D{});
+    publishVelocity(Velocity2D{});
+  }
+
+  // 停车后重新检查目标和稳定距离；任何结束原因的停车确认失败都优先返回错误并锁存 STOP。
+  void processApproachFinalStop(const SteadyTime & current)
+  {
+    state_ = "APPROACH_STOPPING";
+    if (approachTargetFresh(current)) {
+      const auto * target = targets_store_.find(active_approach_id_);
+      approach_distance_ = std::hypot(target->x, target->y);
+      approach_heading_ = std::atan2(target->y, target->x);
+      arrival_monitor_.update(approach_distance_, approach_heading_, target->stamp_ns);
+    } else {
+      arrival_monitor_.reset();
+    }
+    if (approach_completion_disposition_ == CompletionDisposition::SUCCEED &&
+      elapsedSince(approach_started_time_, current) >= active_approach_timeout_sec_)
+    {
+      approach_pending_result_code_ = ApproachUwb::Result::TIMEOUT;
+      approach_pending_result_message_ = "停车阶段超过任务总时限";
+      approach_completion_disposition_ = CompletionDisposition::ABORT;
+    }
+    if (updateStopped(0.0, current, true)) {
+      if (approach_completion_disposition_ == CompletionDisposition::SUCCEED) {
+        if (approachTargetFresh(current) &&
+          approach_distance_ < minimum_approach_distance_m_)
+        {
+          approach_pending_result_code_ = ApproachUwb::Result::UNSAFE_DISTANCE;
+          approach_pending_result_message_ = "停车后实测间距违反安全下限";
+          approach_completion_disposition_ = CompletionDisposition::ABORT;
+        } else {
+          const auto * target = targets_store_.find(active_approach_id_);
+          const bool stable = approachTargetFresh(current) && target &&
+            obstacleFresh(current) && plannerCommandFresh(current) &&
+            arrival_monitor_.update(approach_distance_, approach_heading_, target->stamp_ns);
+          if (!stable) {
+            // 距离变化或关键输入失效时，先完成停车，再回到验证/恢复；不能误报成功。
+            approach_stopping_ = false;
+            resetApproachControl(current);
+            return;
+          }
+        }
+      }
+      finishApproachAction();
+      return;
+    }
+    if (elapsedSince(approach_stop_started_time_, current) >=
+      stop_confirmation_timeout_sec_)
+    {
+      approach_pending_result_code_ = ApproachUwb::Result::STOP_UNCONFIRMED;
+      approach_pending_result_message_ = "无法用新鲜里程计证明停稳，STOP 已锁存";
+      if (approach_completion_disposition_ != CompletionDisposition::CANCEL) {
+        approach_completion_disposition_ = CompletionDisposition::ABORT;
+      }
+      approach_pending_mode_ = Mode::STOP;
+      finishApproachAction();
+    }
+  }
+
+  // 先留下零速度再返回终态，客户端必须同时检查传输状态和业务码。
+  void finishApproachAction()
+  {
+    auto result = std::make_shared<ApproachUwb::Result>();
+    result->code = approach_pending_result_code_;
+    result->message = approach_pending_result_message_;
+    result->target_id = active_approach_id_;
+    result->final_distance = approachTargetFresh(std::chrono::steady_clock::now()) ?
+      approach_distance_ : std::numeric_limits<double>::quiet_NaN();
+    result->elapsed_sec = elapsedSince(approach_started_time_, std::chrono::steady_clock::now());
+    publishNominal(Velocity2D{});
+    publishVelocity(Velocity2D{});
+    if (approach_completion_disposition_ == CompletionDisposition::SUCCEED) {
+      approach_goal_handle_->succeed(result);
+    } else if (approach_goal_handle_->is_canceling()) {
+      approach_goal_handle_->canceled(result);
+    } else {
+      approach_goal_handle_->abort(result);
+    }
+    approach_goal_handle_.reset();
+    approach_stopping_ = false;
+    resetApproachControl(std::chrono::steady_clock::now());
+    setMode(approach_pending_mode_);
+    setComputeEnabled(false);
+  }
+
+  // 发布本任务选中 ID、距离和状态，不混用原人员跟随的反馈数据。
+  void publishApproachFeedback(const SteadyTime & current)
+  {
+    if (!approach_goal_handle_ ||
+      (have_feedback_time_ && current - last_feedback_time_ < feedback_period_))
+    {
+      return;
+    }
+    have_feedback_time_ = true;
+    last_feedback_time_ = current;
+    auto feedback = std::make_shared<ApproachUwb::Feedback>();
+    feedback->state = approach_feedback_state_;
+    feedback->target_id = active_approach_id_;
+    feedback->current_distance = approachTargetFresh(current) ?
+      approach_distance_ : std::numeric_limits<double>::quiet_NaN();
+    feedback->heading_error = approachTargetFresh(current) ?
+      approach_heading_ : std::numeric_limits<double>::quiet_NaN();
+    feedback->elapsed_sec = elapsedSince(approach_started_time_, current);
+    approach_goal_handle_->publish_feedback(feedback);
   }
 
   // 推进持续跟随 Action：等待感知就绪、容忍短时断流，并在取消或失败时确认停车。
@@ -1922,22 +2438,59 @@ private:
   // RK/Lite3 的 /leg_odom2 静止时 twist 存在常值偏置（实测约 0.097 m/s 且逐位恒定，
   // 同期位姿逐位冻结），只认 twist 会让漫游永远卡在"等底盘停稳"直到总超时，
   // 因此位姿不变同样足以确认停车。
-  bool updateStopped(double dt, const SteadyTime & current)
+  bool updateStopped(double dt, const SteadyTime & current, bool strict = false)
   {
     if (!odomFresh(current)) {
       stop_stable_elapsed_sec_ = 0.0;
       stop_velocity_ok_ = false;
       stop_pose_ok_ = false;
       pose_stationarity_->reset();
+      if (strict) {
+        strict_stop_last_stamp_ns_ = 0;
+        strict_stop_previous_ok_ = false;
+      }
       return false;
+    }
+    if (strict) {
+      if (odom_snapshot_.stamp_ns < strict_stop_last_stamp_ns_) {
+        // 里程计回退已由回调终止原任务；停车证据必须在新时间轴重新建立。
+        resetApproachStopEvidence();
+        return false;
+      }
+      if (odom_snapshot_.stamp_ns == strict_stop_last_stamp_ns_) {
+        return false;
+      }
+      const double source_dt = static_cast<double>(
+        odom_snapshot_.stamp_ns - strict_stop_last_stamp_ns_) * 1e-9;
+      const double receipt_dt =
+        elapsedSince(strict_stop_last_receipt_, odom_snapshot_.receipt_time);
+      dt = strict_stop_last_stamp_ns_ == 0 ? 0.0 :
+        std::clamp(std::min(source_dt, receipt_dt), 0.0, odom_timeout_sec_);
+      if (source_dt > odom_timeout_sec_ || receipt_dt > odom_timeout_sec_) {
+        // 控制线程或数据流有缺口时，不把缺少证据的间隔算成连续停稳。
+        stop_stable_elapsed_sec_ = 0.0;
+        pose_stationarity_->reset();
+        strict_stop_previous_ok_ = false;
+        dt = 0.0;
+      }
+      strict_stop_last_stamp_ns_ = odom_snapshot_.stamp_ns;
+      strict_stop_last_receipt_ = odom_snapshot_.receipt_time;
     }
     stop_velocity_ok_ = isRobotStopped(
       odom_snapshot_.velocity, stop_linear_threshold_, stop_angular_threshold_);
     stop_pose_ok_ = pose_stationarity_->update(odom_snapshot_.pose);
-    if (stop_velocity_ok_ || stop_pose_ok_) {
+    // 原 Action 保持双证据任选其一的兼容语义；接近默认要求速度和位姿同时成立。
+    const bool stopped = strict ?
+      stop_pose_ok_ && (stop_velocity_ok_ || approach_allow_pose_only_stop_) :
+      stop_velocity_ok_ || stop_pose_ok_;
+    if (stopped && (!strict || strict_stop_previous_ok_)) {
       stop_stable_elapsed_sec_ += dt;
     } else {
       stop_stable_elapsed_sec_ = 0.0;
+    }
+    if (strict) {
+      // 连续区间两端都必须是停稳样本，不能把第一帧低速之前的运动时间计入。
+      strict_stop_previous_ok_ = stopped;
     }
     return stop_stable_elapsed_sec_ >= stop_confirm_sec_;
   }
@@ -2107,10 +2660,11 @@ private:
     const bool active_action =
       (current_mode_ == Mode::FOLLOW && follow_goal_handle_) ||
       (current_mode_ == Mode::FOLLOW && orbit_goal_handle_) ||
+      (current_mode_ == Mode::FOLLOW && approach_goal_handle_) ||
       (current_mode_ == Mode::ROAM && roam_goal_handle_);
     const bool nonzero = velocity.linear_x != 0.0 || velocity.angular_z != 0.0;
     if (!active_action && !nonzero && !cmd_vel_last_nonzero_ &&
-        !publish_idle_velocity_)
+      !publish_idle_velocity_)
     {
       return;
     }
@@ -2327,7 +2881,9 @@ private:
     array.header.stamp = now();
     diagnostic_msgs::msg::DiagnosticStatus status;
     const bool healthy = current_mode_ == Mode::IDLE || current_mode_ == Mode::STOP ||
-      (current_mode_ == Mode::FOLLOW && targetFresh(current) && odomFresh(current)) ||
+      (current_mode_ == Mode::FOLLOW &&
+      (approach_goal_handle_ ? approachTargetFresh(current) : targetFresh(current)) &&
+      odomFresh(current)) ||
       (current_mode_ == Mode::ROAM && movingInputsHealthy(current));
     status.level = healthy ? diagnostic_msgs::msg::DiagnosticStatus::OK :
       diagnostic_msgs::msg::DiagnosticStatus::WARN;
@@ -2350,6 +2906,9 @@ private:
       {"goal_distance", roam_goal_valid_ ? formatDouble(last_goal_distance_) : "n/a"},
       {"retry_count", std::to_string(retry_count_)},
       {"planner_state", planner_state_},
+      {"approach_target_id", approach_goal_handle_ ? std::to_string(active_approach_id_) : "n/a"},
+      {"approach_distance", approach_goal_handle_ ? formatDouble(approach_distance_) : "n/a"},
+      {"approach_allow_pose_only_stop", approach_allow_pose_only_stop_ ? "true" : "false"},
       {"geofence_allowed", last_geofence_result_.allowed ? "true" : "false"},
       {"geofence_predicted_max", formatDouble(last_geofence_result_.maximum_distance)},
       // 停车判定拆成两条证据，便于区分"速度门槛没过"和"位姿仍在变"。
@@ -2439,6 +2998,49 @@ private:
   std::string base_frame_;
   std::string odom_frame_;
   std::string target_topic_;
+  std::string targets_topic_;
+  std::string approach_action_name_;
+  double default_approach_timeout_sec_{60.0};
+  double maximum_approach_timeout_sec_{180.0};
+  double minimum_approach_distance_m_{0.5};
+  double maximum_approach_distance_m_{5.0};
+  double arrival_tolerance_m_{0.10};
+  double arrival_stable_sec_{0.50};
+  double approach_slowdown_distance_m_{1.0};
+  double approach_final_max_linear_speed_{0.25};
+  double approach_response_delay_sec_{0.20};
+  double approach_braking_decel_{0.70};
+  bool approach_require_heading_{false};
+  double approach_heading_tolerance_rad_{0.20};
+  bool approach_allow_pose_only_stop_{false};
+  go2_uwb_local_follow::UwbTargetStore targets_store_;
+  ArrivalMonitor arrival_monitor_;
+  FollowConfig approach_control_config_;
+  std::uint32_t active_approach_id_{0};
+  double active_approach_timeout_sec_{60.0};
+  double approach_distance_{0.0};
+  double approach_heading_{0.0};
+  bool approach_ready_{false};
+  bool approach_input_paused_{false};
+  bool approach_stopping_{false};
+  bool approach_motion_barrier_{true};
+  int approach_turn_direction_{0};
+  bool approach_angular_brake_latched_{false};
+  bool approach_linear_brake_latched_{false};
+  std::uint8_t approach_feedback_state_{ApproachUwb::Feedback::STARTING};
+  std::uint8_t approach_pending_result_code_{ApproachUwb::Result::SUCCESS};
+  std::string approach_pending_result_message_;
+  CompletionDisposition approach_completion_disposition_{CompletionDisposition::NONE};
+  Mode approach_pending_mode_{Mode::IDLE};
+  SteadyTime approach_started_time_{};
+  SteadyTime approach_unhealthy_since_{};
+  SteadyTime approach_stop_started_time_{};
+  SteadyTime approach_progress_time_{};
+  Pose2D approach_progress_pose_;
+  double approach_progress_distance_{0.0};
+  std::int64_t strict_stop_last_stamp_ns_{0};
+  SteadyTime strict_stop_last_receipt_{};
+  bool strict_stop_previous_ok_{false};
   std::string odom_topic_;
   std::string obstacle_topic_;
   std::string nominal_cmd_topic_;
@@ -2601,6 +3203,7 @@ private:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr target_sub_;
+  rclcpp::Subscription<uwb_aoa_pkg::msg::UwbTarget>::SharedPtr targets_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr obstacle_sub_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr planner_cmd_sub_;
@@ -2615,6 +3218,8 @@ private:
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr compute_enable_pub_;
   rclcpp::Service<SetBehavior>::SharedPtr behavior_service_;
   rclcpp_action::Server<FollowUwb>::SharedPtr follow_action_server_;
+  rclcpp_action::Server<ApproachUwb>::SharedPtr approach_action_server_;
+  std::shared_ptr<GoalHandleApproach> approach_goal_handle_;
   rclcpp_action::Server<OrbitUwbOnce>::SharedPtr orbit_action_server_;
   rclcpp_action::Server<RandomRoam>::SharedPtr roam_action_server_;
   std::shared_ptr<GoalHandleFollowUwb> follow_goal_handle_;

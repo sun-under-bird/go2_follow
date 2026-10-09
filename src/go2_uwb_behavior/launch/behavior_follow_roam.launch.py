@@ -20,7 +20,9 @@ import yaml
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import (
+    DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction,
+)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -39,6 +41,7 @@ def generate_launch_description() -> LaunchDescription:
     rolling_map_params_file = LaunchConfiguration("rolling_map_params_file")
     raw_uwb_topic = LaunchConfiguration("raw_uwb_topic")
     target_topic = LaunchConfiguration("target_topic")
+    targets_topic = LaunchConfiguration("targets_topic")
     odom_topic = LaunchConfiguration("odom_topic")
     base_frame = LaunchConfiguration("base_frame")
     odom_frame = LaunchConfiguration("odom_frame")
@@ -67,6 +70,7 @@ def generate_launch_description() -> LaunchDescription:
         }.items(),
     )
 
+    # 同一适配器分发多 ID，并将人员 ID 单独留在兼容话题。
     adapter_node = Node(
         package="go2_uwb_local_follow",
         executable="uwb_target_adapter_node",
@@ -77,6 +81,7 @@ def generate_launch_description() -> LaunchDescription:
             {
                 "raw_topic": raw_uwb_topic,
                 "target_topic": target_topic,
+                "targets_topic": targets_topic,
                 "target_frame": base_frame,
             },
         ],
@@ -108,15 +113,16 @@ def generate_launch_description() -> LaunchDescription:
     )
 
     def create_behavior_node(context):
+        """按运动或纯目标模式创建唯一行为节点，复用全部配置."""
         only_targets = target_only.perform(context).lower() in ("true", "1")
         params = behavior_params_file
         if only_targets:
-            # Re-key the existing configuration when using a distinct producer
-            # name, so Lite3 ownership checks still reject the movement node.
+            # 纯目标模式采用独立节点名并重新映射配置，保留 Lite3 的运动所有权预检。
             with open(behavior_params_file.perform(context), encoding="utf-8") as stream:
                 document = yaml.safe_load(stream)
             params = dict(document.get("/**", {}).get("ros__parameters", {}))
             params.update(document["uwb_behavior_controller_node"]["ros__parameters"])
+        # 唯一最终速度发布节点；target_only 模式内部不创建速度发布者。
         return [Node(
             package="go2_uwb_behavior",
             executable="uwb_behavior_controller_node",
@@ -128,6 +134,7 @@ def generate_launch_description() -> LaunchDescription:
                     "base_frame": base_frame,
                     "odom_frame": odom_frame,
                     "target_topic": target_topic,
+                    "targets_topic": targets_topic,
                     "odom_topic": odom_topic,
                     "obstacle_topic": rolling_obstacle_topic,
                     "nominal_cmd_topic": nominal_cmd_topic,
@@ -166,6 +173,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument("raw_uwb_topic", default_value="/libAoa_robot_publisher"),
             DeclareLaunchArgument("target_topic", default_value="/uwb/target_point"),
+            DeclareLaunchArgument("targets_topic", default_value="/uwb/targets"),
             # RK/Lite3 使用 /leg_odom2；/leg_odom 不是 Odometry，不能供行为控制使用。
             DeclareLaunchArgument("odom_topic", default_value="/leg_odom2"),
             DeclareLaunchArgument("base_frame", default_value="base_footprint"),

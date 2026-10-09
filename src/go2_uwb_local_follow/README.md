@@ -1,5 +1,10 @@
 # go2_uwb_local_follow
 
+UWB 适配器新增 `/uwb/targets` 多标签输出，保留 `/uwb/target_point` 默认只发布 ID1。
+各 ID 独立检查采集时间、有效性和更新频率，不新增位置滤波。
+人员 ID、白名单和安装外参见 `config/uwb_follow_only.yaml`；
+指定标签的接近任务由 `go2_uwb_behavior/ApproachUwb` 复用本包的原控制与 MPPI 链路。
+
 当前已实现五个可独立验收的阶段：
 
 1. 双目视差与 `base_footprint` 障碍点云。

@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 #include <fcntl.h>
 #include <poll.h>
@@ -150,7 +151,7 @@ private:
           uart_reset_receiver();
           algo_uwb_aoa_clean();
           algorithm_output = {};
-          have_publish_time_ = false;
+          last_publish_times_.clear();
           RCLCPP_INFO(get_logger(), "UWB serial connected: %s", device_name_.c_str());
         } catch (const std::exception & exception) {
           RCLCPP_WARN_THROTTLE(
@@ -207,12 +208,14 @@ private:
         algorithm_input.t = static_cast<std::uint32_t>(elapsed_ms);
         algo_uwb_aoa_merge(&algorithm_input, &algorithm_output);
 
-        // 预留 10% 出包周期容差，避免轻微抖动导致发布频率意外减半。
-        if (have_publish_time_ && steady_now - last_publish_time_ < publish_period_ * 0.9) {
+        // 各标签独立限频；保留厂家融合流程，不能让先到的 ID 抢占其他 ID 的周期。
+        const auto previous = last_publish_times_.find(packet->fob_id);
+        if (previous != last_publish_times_.end() &&
+          steady_now - previous->second < publish_period_ * 0.9)
+        {
           continue;
         }
-        have_publish_time_ = true;
-        last_publish_time_ = steady_now;
+        last_publish_times_[packet->fob_id] = steady_now;
 
         message.header.stamp = now();
         message.header.frame_id = frame_id_;
@@ -249,8 +252,7 @@ private:
   double publish_rate_hz_{10.0};
   int aoa_frequency_hz_{10};
   std::chrono::duration<double> publish_period_{0.1};
-  bool have_publish_time_{false};
-  std::chrono::steady_clock::time_point last_publish_time_{};
+  std::unordered_map<std::uint32_t, std::chrono::steady_clock::time_point> last_publish_times_;
 };
 
 }  // namespace uwb_aoa_pkg

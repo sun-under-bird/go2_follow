@@ -3,6 +3,23 @@ uwb_behavior_controller_node:
     base_frame: base_footprint  # 机器人机身坐标系，用于目标、障碍及控制计算
     odom_frame: odom  # 里程计局部连续坐标系，用于记录主人位置和漫游目标
     target_topic: /uwb/target_point  # 转换到机器人坐标系的 UWB 目标点话题
+    targets_topic: /uwb/targets  # 带 ID 的独立目标；只用于 ApproachUwb，不替换人员缓存
+    approach_action_name: /go2/approach_uwb  # 指定标签和停靠距离的单次接近
+    default_approach_timeout_sec: 60.0  # Goal 超时为零时使用，含启动、恢复和受阻等待
+    maximum_approach_timeout_sec: 180.0  # 调用方可请求的最长总时间
+    minimum_approach_distance_m: 0.50  # 暂定值，至少覆盖机器人足迹半径，须按外参/拾取机构标定
+    maximum_approach_distance_m: 5.0  # 停靠距离上限，不是 UWB 测距上限
+    arrival_tolerance_m: 0.10  # 到达距离容差；不能抵消最小安全间距
+    arrival_stable_sec: 0.50  # 指定标签的新样本连续达标时间
+    approach_slowdown_distance_m: 1.00  # 剩余该距离时进入保守接近区
+    approach_final_max_linear_speed: 0.25  # 最终接近上限，不能低于 min_linear_speed
+    approach_response_delay_sec: 0.20  # 提前停车的底盘响应时间估计，须实测
+    approach_braking_decel: 0.70  # 提前停车减速度估计，须实测；不修改 MPPI 制动限制
+    approach_require_heading: false  # 第一版默认到距离即可，设 true 时增加朝向验收
+    approach_heading_tolerance_rad: 0.20  # 可选最终朝向容差
+    # 默认要求新鲜速度和位姿同时证明停稳。若已独立确认 /leg_odom2 的静止 twist
+    # 偏置，可经实机标定后设 true，采用新采集位姿证据；仅软件无法排除带新时间戳的假冻结。
+    approach_allow_pose_only_stop: false
     odom_topic: /leg_odom2  # RK/Lite3 实际位姿与速度；/leg_odom 类型不兼容
     obstacle_topic: /local_rolling_obstacle  # 局部障碍点云输入话题
     nominal_cmd_topic: /go2_uwb_local_follow/nominal_cmd  # 跟随或漫游生成的名义速度话题，供下游规划器避障

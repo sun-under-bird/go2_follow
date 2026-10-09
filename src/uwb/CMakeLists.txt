@@ -14,10 +14,12 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LibAoaRobotMsg.msg"
-  DEPENDENCIES std_msgs
+  "msg/UwbTarget.msg"
+  DEPENDENCIES std_msgs geometry_msgs
 )
 
 # 厂商静态库只提供 ARM64 版本；其他架构仍可生成消息并构建上层算法。

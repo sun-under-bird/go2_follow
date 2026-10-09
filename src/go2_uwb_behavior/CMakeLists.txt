@@ -24,8 +24,10 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(uwb_aoa_pkg REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/ApproachUwb.action"
   "action/FollowUwb.action"
   "action/OrbitUwbOnce.action"
   "action/RandomRoam.action"
@@ -62,6 +64,7 @@ ament_target_dependencies(uwb_behavior_controller_node
   std_msgs
   tf2
   tf2_ros
+  uwb_aoa_pkg
 )
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} rosidl_typesupport_cpp)
@@ -76,12 +79,15 @@ install(
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config docs launch DESTINATION share/${PROJECT_NAME})
 install(FILES README.md DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS scripts/frisbee_retrieve_client.py DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   find_package(launch_testing_ament_cmake REQUIRED)
   ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_retrieve_client test/test_retrieve_client.py TIMEOUT 20)
 
   ament_add_gtest(test_behavior_core
     test/test_behavior_core.cpp
@@ -89,7 +95,12 @@ if(BUILD_TESTING)
   target_link_libraries(test_behavior_core behavior_core)
   target_include_directories(test_behavior_core PRIVATE include)
 
+  ament_add_gtest(test_approach_core test/test_approach_core.cpp)
+  target_include_directories(test_approach_core PRIVATE include)
+
   add_launch_test(test/test_behavior_action_launch.py TIMEOUT 60)
+  add_launch_test(test/test_approach_action_launch.py TIMEOUT 90)
+  add_launch_test(test/test_approach_mppi_launch.py TIMEOUT 40)
   add_launch_test(test/test_navigation_target_launch.py TIMEOUT 40)
 endif()
 

@@ -15,8 +15,10 @@
 """在专用话题上验证规划器时效、运动补偿、断流恢复和地图延迟配对."""
 
 import struct
+import sys
 import time
 import unittest
+from pathlib import Path
 
 from diagnostic_msgs.msg import DiagnosticArray
 from geometry_msgs.msg import Twist, TwistStamped
@@ -33,12 +35,18 @@ from sensor_msgs.msg import PointCloud2, PointField
 from uwb_aoa_pkg.msg import LibAoaRobotMsg
 
 
+# 测试专用时钟不参与部署；采集时钟连续，接收和停止超时仍按真实时间判断。
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from ros_test_clock import MonotonicTestClock  # noqa: E402
+
+
 @pytest.mark.launch_test
 def generate_test_description():
     """启动独立话题的规划器和滚动地图，实机速度话题完全隔离."""
     planner = launch_ros.actions.Node(
         package='go2_uwb_local_follow', executable='local_velocity_planner_node',
-        name='test_recovery_planner', parameters=[{
+        name='test_recovery_planner', remappings=[('/clock', '/planner_test/clock')], parameters=[{
+            'use_sim_time': True,
             'enable_motion': True,
             'enable_emergency_reverse': False,
             'enable_self_filter': True,
@@ -56,7 +64,8 @@ def generate_test_description():
         }])
     rolling_map = launch_ros.actions.Node(
         package='go2_uwb_local_follow', executable='rolling_obstacle_map_node',
-        name='test_recovery_map', parameters=[{
+        name='test_recovery_map', remappings=[('/clock', '/planner_test/clock')], parameters=[{
+            'use_sim_time': True,
             'input_observation_topic': '/map_test/observation',
             'output_obstacle_topic': '/map_test/cloud',
             'odom_topic': '/map_test/odom',
@@ -65,13 +74,15 @@ def generate_test_description():
         }])
     adapter = launch_ros.actions.Node(
         package='go2_uwb_local_follow', executable='uwb_target_adapter_node',
-        name='test_recovery_adapter', parameters=[{
+        name='test_recovery_adapter', remappings=[('/clock', '/planner_test/clock')], parameters=[{
+            'use_sim_time': True,
             'raw_topic': '/follow_test/raw', 'target_topic': '/follow_test/target',
             'diagnostics_topic': '/follow_test/adapter_status',
         }])
     follow = launch_ros.actions.Node(
         package='go2_uwb_local_follow', executable='uwb_follow_controller_node',
-        name='test_recovery_follow', parameters=[{
+        name='test_recovery_follow', remappings=[('/clock', '/planner_test/clock')], parameters=[{
+            'use_sim_time': True,
             'enable_motion': False,
             'target_topic': '/follow_test/target', 'odom_topic': '/planner_test/odom',
             'nominal_cmd_topic': '/follow_test/nominal',
@@ -80,7 +91,8 @@ def generate_test_description():
         }])
     reverse = launch_ros.actions.Node(
         package='go2_uwb_local_follow', executable='local_velocity_planner_node',
-        name='test_recovery_reverse', parameters=[{
+        name='test_recovery_reverse', remappings=[('/clock', '/planner_test/clock')], parameters=[{
+            'use_sim_time': True,
             'enable_motion': True, 'enable_self_filter': False,
             'nominal_cmd_topic': '/planner_test/nominal',
             'odom_topic': '/planner_test/odom',
@@ -116,6 +128,7 @@ class TestPlannerRecovery(unittest.TestCase):
     def setUp(self):
         """创建专用输入与观测接口."""
         self.node = rclpy.create_node('planner_recovery_client')
+        self.clock = MonotonicTestClock(self.node, "/planner_test/clock")
         self.nominal_pub = self.node.create_publisher(TwistStamped, '/planner_test/nominal', 10)
         self.odom_pub = self.node.create_publisher(Odometry, '/planner_test/odom', 10)
         self.cloud_pub = self.node.create_publisher(PointCloud2, '/planner_test/cloud', 10)
@@ -143,6 +156,17 @@ class TestPlannerRecovery(unittest.TestCase):
         self.fixed_stamp = None
         self.robot_x = 0.0
         self.point = (2.0, 2.0, 0.2)
+        # 必须先完成 DDS 发现并收到实际规划输出；固定睡眠会把节点启动延迟误判为算法故障。
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            self.pump(0.05)
+            if (self.nominal_pub.get_subscription_count() >= 2 and
+                    self.cloud_pub.get_subscription_count() >= 1 and
+                    self.commands and self.commands[-1] > 0.0 and self.states):
+                break
+        self.assertTrue(self.commands and self.commands[-1] > 0.0,
+                        "规划器未在启动窗口内完成发现并产生运动输出")
+        self.assertTrue(self.states, "规划器诊断尚未就绪")
 
     def tearDown(self):
         """销毁测试接口."""
@@ -195,7 +219,7 @@ class TestPlannerRecovery(unittest.TestCase):
         """按输入开关持续供数并驱动测试订阅."""
         end = time.monotonic() + duration
         while time.monotonic() < end:
-            stamp = self.node.get_clock().now().to_msg()
+            stamp = self.clock.sample()
             if self.send_nominal:
                 nominal = TwistStamped()
                 nominal.header.stamp = stamp
@@ -208,10 +232,11 @@ class TestPlannerRecovery(unittest.TestCase):
                 self.cloud_pub.publish(self.cloud(self.fixed_stamp or stamp))
             if self.send_raw:
                 raw = LibAoaRobotMsg()
-                raw.header.stamp = self.node.get_clock().now().to_msg()
+                raw.header.stamp = self.clock.sample()
                 raw.header.stamp.sec -= self.raw_age_sec
                 raw.header.frame_id = 'uwb_link'
                 raw.x = 2.0
+                raw.fob_id = 1
                 self.raw_pub.publish(raw)
             if self.reverse_points is not None:
                 cloud = self.cloud(stamp)
@@ -247,7 +272,7 @@ class TestPlannerRecovery(unittest.TestCase):
         self.pump(0.8)
         self.assert_stopped()
         self.send_cloud = True
-        self.fixed_stamp = self.node.get_clock().now().to_msg()
+        self.fixed_stamp = self.clock.sample()
         self.fixed_stamp.sec -= 5
         self.pump(0.25)
         self.assert_stopped()
@@ -255,7 +280,7 @@ class TestPlannerRecovery(unittest.TestCase):
         self.pump(0.3)
         self.assert_moving()
         # 相同时间戳反复到达不能算作新观测，也不能刷新超时。
-        self.fixed_stamp = self.node.get_clock().now().to_msg()
+        self.fixed_stamp = self.clock.sample()
         self.pump(0.95)
         self.assert_stopped()
         self.fixed_stamp = None
@@ -272,7 +297,7 @@ class TestPlannerRecovery(unittest.TestCase):
     def test_compensates_obstacles_to_current_pose(self):
         """历史障碍进入当前足迹必须停车，启用机身过滤也不能把它删除."""
         self.pump(0.5)
-        self.fixed_stamp = self.node.get_clock().now().to_msg()
+        self.fixed_stamp = self.clock.sample()
         self.point = (0.9, 0.0, 0.2)
         self.pump(0.08)
         self.robot_x = 0.6
@@ -327,15 +352,15 @@ class TestPlannerRecovery(unittest.TestCase):
     def test_map_retries_after_late_odometry(self):
         """观测先到、里程计后到时自动处理原帧，且保持原始时间戳."""
         self.pump(0.4)
-        stamp = self.node.get_clock().now().to_msg()
+        stamp = self.clock.sample()
         # 先发当前里程计建立缓存，再让新观测领先超过允许外推范围。
         self.map_odom_pub.publish(self.odom(stamp))
         self.pump(0.12)
-        cloud_stamp = self.node.get_clock().now().to_msg()
+        cloud_stamp = self.clock.sample()
         self.map_input_pub.publish(self.cloud(cloud_stamp))
         self.pump(0.06)
         self.assertNotIn(cloud_stamp, self.map_stamps)
-        self.map_odom_pub.publish(self.odom(self.node.get_clock().now().to_msg()))
+        self.map_odom_pub.publish(self.odom(self.clock.sample()))
         self.pump(0.12)
         self.assertIn(cloud_stamp, self.map_stamps)
 

@@ -14,8 +14,10 @@
 
 """验证跟随与随机漫游 Action、半径约束、互斥及计算门控."""
 
+import sys
 import time
 import unittest
+from pathlib import Path
 
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PointStamped, PoseStamped, Twist
@@ -36,6 +38,11 @@ from go2_uwb_behavior.action import FollowUwb, RandomRoam
 from go2_uwb_behavior.srv import SetBehavior
 
 
+# 测试专用时钟不参与部署；采集时钟连续，接收和停止超时仍按真实时间判断。
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from ros_test_clock import MonotonicTestClock  # noqa: E402
+
+
 @pytest.mark.launch_test
 def generate_test_description():
     """启动关闭实机速度且缩小采样半径的行为节点."""
@@ -44,8 +51,10 @@ def generate_test_description():
         executable="uwb_behavior_controller_node",
         name="uwb_behavior_controller_node",
         output="screen",
+        remappings=[("/clock", "/behavior_test/clock")],
         parameters=[
             {
+                "use_sim_time": True,
                 "default_mode": "IDLE",
                 "enable_motion": False,
                 "uwb_median_window": 3,
@@ -87,6 +96,7 @@ class TestBehaviorAction(unittest.TestCase):
     def setUp(self):
         """创建输入发布者、目标订阅者及 Action/Service 客户端."""
         self.node = rclpy.create_node("behavior_action_test_client")
+        self.clock = MonotonicTestClock(self.node, "/behavior_test/clock")
         self.target_pub = self.node.create_publisher(
             PointStamped, "/uwb/target_point", 10
         )
@@ -129,6 +139,8 @@ class TestBehaviorAction(unittest.TestCase):
 
     def tearDown(self):
         """销毁本用例创建的 ROS 节点."""
+        self.action_client.destroy()
+        self.follow_action_client.destroy()
         self.node.destroy_node()
 
     def _target_callback(self, message):
@@ -141,7 +153,7 @@ class TestBehaviorAction(unittest.TestCase):
 
     def _publish_inputs(self):
         """发布主人位于 odom 原点时一致的 UWB、里程计和空障碍数据."""
-        stamp = self.node.get_clock().now().to_msg()
+        stamp = self.clock.sample()
 
         target = PointStamped()
         target.header.stamp = stamp
@@ -352,9 +364,12 @@ class TestBehaviorAction(unittest.TestCase):
         self.assertFalse(rejected_during_follow.accepted)
         follow_cancel_future = follow_handle.cancel_goal_async()
         self.assertTrue(self._pump_until(follow_cancel_future.done, 3.0))
+        self.assertEqual(len(follow_cancel_future.result().goals_canceling), 1,
+                         "跟随取消请求必须在任务仍活跃时被接收")
         self.assertTrue(self._pump_until(follow_result_future.done, 3.0))
         self.assertEqual(
-            follow_result_future.result().status, GoalStatus.STATUS_CANCELED
+            follow_result_future.result().status, GoalStatus.STATUS_CANCELED,
+            str(follow_result_future.result().result),
         )
         self.assertEqual(
             follow_result_future.result().result.code,

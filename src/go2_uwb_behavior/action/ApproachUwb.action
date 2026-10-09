@@ -1,0 +1,31 @@
+# 指定标签的一次性接近；0 超时使用服务端默认值。
+uint32 target_id
+float64 stop_distance_m
+float64 timeout_sec
+---
+uint8 SUCCESS=0
+uint8 CANCELED=1
+uint8 PREEMPTED=2
+uint8 NOT_READY=3
+uint8 TARGET_LOST=4
+uint8 BLOCKED=5
+uint8 TIMEOUT=6
+uint8 UNSAFE_DISTANCE=7
+uint8 STOP_UNCONFIRMED=8
+uint8 INPUT_TIMEOUT=9
+uint8 code
+string message
+uint32 target_id
+float64 final_distance
+float64 elapsed_sec
+---
+uint8 STARTING=0
+uint8 APPROACHING=1
+uint8 ARRIVAL_VERIFY=2
+uint8 INPUT_PAUSED=3
+uint8 STOPPING=4
+uint8 state
+uint32 target_id
+float64 current_distance
+float64 heading_error
+float64 elapsed_sec
